@@ -8,7 +8,7 @@ from pathlib import Path
 from support import temporary_test_directory
 
 from archivia.catalog import catalog_summary, query_catalog, query_catalog_page, store_inventory
-from archivia.inventory import inventory
+from archivia.inventory import CATEGORIES, inventory
 
 
 class CatalogTests(unittest.TestCase):
@@ -89,8 +89,33 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(result["scan_id"], latest["scan_id"])
             self.assertEqual(result["media_files"], 2)
             self.assertEqual(result["bytes_media"], 5)
-            self.assertEqual(result["by_category"], {"imagem": 1, "video": 0, "audio": 1})
+            self.assertEqual(result["by_category"], {**{category: 0 for category in CATEGORIES}, "imagem": 1, "audio": 1})
             self.assertNotIn("files", result)
+
+    def test_universal_catalog_persists_and_filters_without_migration(self):
+        # TEST-ONLY: valida que o schema anterior suporta categorias novas.
+        with temporary_test_directory() as tmp:
+            root = tmp / "arquivos"
+            root.mkdir()
+            (root / "foto.jpg").write_bytes(b"abc")
+            (root / "texto.pdf").write_bytes(b"pdf")
+            (root / "backup.zip").write_bytes(b"zip")
+            (root / "arquivo.unknown").write_bytes(b"otro")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            result = catalog_summary(db)
+            docs = query_catalog_page(db, category="documento")
+            archives = query_catalog(db, category="compactado")
+            unknown = query_catalog_page(db, category="outro")
+            self.assertEqual(result["indexed_files"], 4)
+            self.assertEqual(result["media_files"], 1)
+            self.assertEqual(result["other_files"], 3)
+            self.assertEqual(result["by_category"]["documento"], 1)
+            self.assertEqual(result["by_category"]["compactado"], 1)
+            self.assertEqual(result["by_category"]["outro"], 1)
+            self.assertEqual(docs["files"][0]["relative_path"], "texto.pdf")
+            self.assertEqual(archives["files"][0]["relative_path"], "backup.zip")
+            self.assertEqual(unknown["count"], 1)
 
     def test_summary_missing_database_never_creates_file(self):
         with temporary_test_directory() as tmp:
