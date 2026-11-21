@@ -263,3 +263,59 @@ def list_catalog_scans(db_path: Path = DEFAULT_DB, limit: int = 100) -> list[dic
             return [dict(row) for row in rows]
     except sqlite3.Error as exc:
         raise ValueError(f"Não foi possível consultar o histórico: {exc}") from exc
+
+
+def catalog_origins_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
+    """Resume somente o snapshot mais recente de cada origem (root).
+
+    Não soma históricos repetidos da mesma pasta; não altera o SQLite.
+    Uma pasta contida em outra pode representar arquivos sobrepostos.
+    """
+    path = Path(db_path).expanduser().absolute()
+    if not path.is_file():
+        raise ValueError(f"Catálogo não encontrado: {path}")
+    try:
+        with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """WITH recent AS (
+                       SELECT MAX(id) AS scan_id FROM scans GROUP BY root
+                   )
+                   SELECT s.id AS scan_id, s.root, s.scanned_utc,
+                          s.media_files, s.bytes_media,
+                          COUNT(m.id) AS indexed_files,
+                          COALESCE(SUM(m.size_bytes), 0) AS bytes_indexed
+                   FROM recent r
+                   JOIN scans s ON s.id = r.scan_id
+                   LEFT JOIN media m ON m.scan_id = s.id
+                   GROUP BY s.id, s.root, s.scanned_utc,
+                            s.media_files, s.bytes_media
+                   ORDER BY s.root COLLATE NOCASE, s.root"""
+            ).fetchall()
+            origins = [dict(row) for row in rows]
+            # Agrega as categorias dos mesmos scans de maneira independente.
+            category_counts = {category: 0 for category in CATEGORIES}
+            for category, count in conn.execute(
+                """WITH recent AS (
+                       SELECT MAX(id) AS scan_id FROM scans GROUP BY root
+                   )
+                   SELECT m.category, COUNT(*)
+                   FROM media m JOIN recent r ON r.scan_id = m.scan_id
+                   GROUP BY m.category"""
+            ):
+                category_counts[category] = count
+            return {
+                "database": str(path),
+                "origins_count": len(origins),
+                "indexed_files": sum(row["indexed_files"] for row in origins),
+                "bytes_indexed": sum(row["bytes_indexed"] for row in origins),
+                "media_files": sum(row["media_files"] for row in origins),
+                "by_category": category_counts,
+                "origins": origins,
+                "overlap_warning": (
+                    "Origens sobrepostas podem conter os mesmos arquivos; "
+                    "o total não elimina duplicações entre pastas."
+                ),
+            }
+    except sqlite3.Error as exc:
+        raise ValueError(f"Não foi possível consultar as origens: {exc}") from exc
