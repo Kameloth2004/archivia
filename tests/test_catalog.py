@@ -7,7 +7,7 @@ from pathlib import Path
 
 from support import temporary_test_directory
 
-from archivia.catalog import catalog_summary, query_catalog, query_catalog_page, list_catalog_scans, store_inventory
+from archivia.catalog import catalog_summary, query_catalog, query_catalog_page, list_catalog_scans, catalog_origins_summary, store_inventory
 from archivia.inventory import CATEGORIES, inventory
 
 
@@ -207,6 +207,50 @@ class CatalogTests(unittest.TestCase):
             for invalid in (0, 1001, True):
                 with self.assertRaises(ValueError):
                     list_catalog_scans(database, limit=invalid)
+
+    def test_origins_summary_uses_only_latest_snapshot_for_each_root(self):
+        # TEST-ONLY: múltiplos diretórios sintéticos, sem banco pessoal.
+        with temporary_test_directory() as tmp:
+            first_root = tmp / "origem_a"
+            second_root = tmp / "origem_b"
+            first_root.mkdir()
+            second_root.mkdir()
+            (first_root / "a.jpg").write_bytes(b"a")
+            (second_root / "b.pdf").write_bytes(b"bb")
+            db = tmp / "data" / "catalogo.sqlite3"
+            old = store_inventory(inventory(first_root), db)
+            (first_root / "novo.mp4").write_bytes(b"ccc")
+            latest = store_inventory(inventory(first_root), db)
+            other = store_inventory(inventory(second_root), db)
+            summary = catalog_origins_summary(db)
+            self.assertEqual(summary["origins_count"], 2)
+            self.assertEqual(summary["indexed_files"], 3)
+            self.assertEqual(summary["bytes_indexed"], 6)
+            self.assertEqual(summary["media_files"], 2)
+            self.assertEqual(summary["by_category"]["imagem"], 1)
+            self.assertEqual(summary["by_category"]["video"], 1)
+            self.assertEqual(summary["by_category"]["documento"], 1)
+            self.assertEqual(
+                {origin["scan_id"] for origin in summary["origins"]},
+                {latest["scan_id"], other["scan_id"]},
+            )
+            self.assertNotIn(old["scan_id"], {
+                origin["scan_id"] for origin in summary["origins"]
+            })
+
+    def test_origins_summary_missing_database_and_empty_catalog(self):
+        with temporary_test_directory() as tmp:
+            db = tmp / "data" / "catalogo.sqlite3"
+            with self.assertRaises(ValueError):
+                catalog_origins_summary(db)
+            self.assertFalse(db.exists())
+            root = tmp / "vazia"
+            root.mkdir()
+            store_inventory(inventory(root), db)
+            result = catalog_origins_summary(db)
+            self.assertEqual(result["origins_count"], 1)
+            self.assertEqual(result["indexed_files"], 0)
+            self.assertEqual(result["bytes_indexed"], 0)
 
     def test_query_missing_database_does_not_create_it(self):
         with temporary_test_directory() as tmp:
