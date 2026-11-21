@@ -8,6 +8,7 @@ import sys
 
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog, store_inventory
 from .inventory import inventory
+from .planner import propose_moves
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,10 +31,19 @@ def main(argv: list[str] | None = None) -> int:
     summary = commands.add_parser("resumo", help="Mostrar totais do último inventário salvo")
     summary.add_argument("--banco", default=str(DEFAULT_DB), help="Caminho do SQLite")
 
+    planner = commands.add_parser("planejar", help="Prévia sem executar movimentações")
+    planner.add_argument("--destino", required=True, help="Diretório de destino existente")
+    planner.add_argument("--categoria", required=True, choices=("imagem", "video", "audio"))
+    planner.add_argument("--limite", type=int, default=100, help="Máximo de operações propostas (1 a 100)")
+    planner.add_argument("--banco", default=str(DEFAULT_DB), help="Caminho do SQLite")
+
     args = parser.parse_args(argv)
 
     try:
-        if args.command == "resumo":
+        if args.command == "planejar":
+            output = propose_moves(args.destino, args.categoria, db_path=args.banco, limit=args.limite)
+            result = {"errors": []}
+        elif args.command == "resumo":
             output = catalog_summary(db_path=args.banco)
             result = {"errors": []}
         elif args.command == "consultar":
