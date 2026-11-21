@@ -33,7 +33,8 @@ class QueryWorker(QThread):
 
     def __init__(self, mode: str, database: Path, question: str = "", model: str = "",
                  page: int = 1, category: str | None = None,
-                 preview: dict | None = None, scan_id: int | None = None) -> None:
+                 preview: dict | None = None, scan_id: int | None = None,
+                 name_contains: str = "", extension: str = "") -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -43,6 +44,8 @@ class QueryWorker(QThread):
         self.category = category
         self.preview = preview
         self.scan_id = scan_id
+        self.name_contains = name_contains
+        self.extension = extension
 
     def run(self) -> None:
         try:
@@ -51,7 +54,10 @@ class QueryWorker(QThread):
             elif self.mode == "agent":
                 result = ask_agent(self.question, self.model, self.database)
             elif self.mode == "catalog_page":
-                result = query_catalog_page(self.database, self.category, page=self.page, scan_id=self.scan_id)
+                result = query_catalog_page(
+                    self.database, self.category, page=self.page, scan_id=self.scan_id,
+                    name_contains=self.name_contains, extension=self.extension,
+                )
             elif self.mode == "origins":
                 result = catalog_origins_summary(self.database)
             elif self.mode == "history":
@@ -238,6 +244,22 @@ class ArchivIAWindow(QMainWindow):
         catalog_toolbar.addWidget(self.list_button)
         catalog_layout.addLayout(catalog_toolbar)
 
+        search_row = QHBoxLayout()
+        search_row.addWidget(QLabel("Nome/caminho:"))
+        self.catalog_name_filter = QLineEdit()
+        self.catalog_name_filter.setPlaceholderText("Ex.: ventilador ou BACKUPS/")
+        self.catalog_name_filter.returnPressed.connect(self._reset_catalog_page)
+        search_row.addWidget(self.catalog_name_filter, 2)
+        search_row.addWidget(QLabel("Extensão:"))
+        self.catalog_extension_filter = QLineEdit()
+        self.catalog_extension_filter.setPlaceholderText("Ex.: pdf")
+        self.catalog_extension_filter.setMaximumWidth(110)
+        self.catalog_extension_filter.returnPressed.connect(self._reset_catalog_page)
+        search_row.addWidget(self.catalog_extension_filter)
+        self.clear_search_button = QPushButton("Limpar busca")
+        self.clear_search_button.clicked.connect(self._clear_catalog_search)
+        search_row.addWidget(self.clear_search_button)
+        catalog_layout.addLayout(search_row)
         self.catalog_table = QTableWidget(0, 4)
         self.catalog_table.setHorizontalHeaderLabels(
             ["Arquivo (caminho relativo)", "Categoria", "Extensão", "Bytes"]
@@ -424,6 +446,11 @@ class ArchivIAWindow(QMainWindow):
             return
         self._start_worker("history", database)
 
+    def _clear_catalog_search(self) -> None:
+        self.catalog_name_filter.clear()
+        self.catalog_extension_filter.clear()
+        self._reset_catalog_page()
+
     def _reset_catalog_page(self, *_args) -> None:
         self._page = 1
         self._load_catalog_page()
@@ -439,7 +466,9 @@ class ArchivIAWindow(QMainWindow):
         self._start_worker(
             "catalog_page", database, page=self._page,
             category=self.category_filter.currentData(),
-            scan_id=self.history_select.currentData()
+            scan_id=self.history_select.currentData(),
+            name_contains=self.catalog_name_filter.text().strip(),
+            extension=self.catalog_extension_filter.text().strip(),
         )
 
     def _previous_page(self) -> None:
@@ -477,13 +506,16 @@ class ArchivIAWindow(QMainWindow):
         self, mode: str, database: Path, question: str = "", model: str = "",
         page: int = 1, category: str | None = None,
         preview: dict | None = None,
-        scan_id: int | None = None
+        scan_id: int | None = None, name_contains: str = "", extension: str = ""
     ) -> None:
         if self._worker is not None:
             return
         self._set_busy(True)
         self.status.setText("Aguardando Ollama..." if mode == "agent" else "Processando consulta local...")
-        worker = QueryWorker(mode, database, question, model, page, category, preview, scan_id)
+        worker = QueryWorker(
+            mode, database, question, model, page, category, preview,
+            scan_id, name_contains, extension,
+        )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
         worker.failed.connect(self._show_error)
@@ -509,6 +541,9 @@ class ArchivIAWindow(QMainWindow):
         self.preview_next.setEnabled(not busy and self._preview_page < self._preview_pages)
         self.category_filter.setEnabled(not busy)
         self.list_button.setEnabled(not busy)
+        self.catalog_name_filter.setEnabled(not busy)
+        self.catalog_extension_filter.setEnabled(not busy)
+        self.clear_search_button.setEnabled(not busy)
         self.origins_button.setEnabled(not busy)
         self.history_button.setEnabled(not busy)
         self.history_select.setEnabled(not busy)
@@ -617,7 +652,7 @@ class ArchivIAWindow(QMainWindow):
                 )):
                     self.catalog_table.setItem(row_index, column, QTableWidgetItem(value))
             self.page_label.setText(
-                f"Página {self._page} de {self._pages or 0} — {result['count']} arquivos"
+                f"Página {self._page} de {self._pages or 0} — {result['count']} arquivos encontrados"
             )
             self.status.setText("Snapshot #{} consultado em modo somente leitura.".format(result["scan_id"]))
         else:
