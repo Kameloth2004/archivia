@@ -4,7 +4,7 @@
 Aplicativo desktop local para inventariar, catalogar, analisar e futuramente organizar mídias. O motor Python deve ser independente de UI e de modelo de IA. Diretório local conhecido: `D:/PROJETOS/archivia`.
 
 ## Componentes
-- `src/archivia/inventory.py`: examina nomes/metadados sem abrir conteúdo nem seguir symlinks.
+- `src/archivia/inventory.py`: inventário universal por extensão (inclusive tipos desconhecidos), sem abrir conteúdo, ZIPs ou seguir symlinks. Ver [INVENTORY.md](INVENTORY.md).
 - `src/archivia/catalog.py`: snapshots SQLite em `data/catalogo.sqlite3`, consultas de leitura, resumo e `query_catalog_page()` via SQL `LIMIT/OFFSET` sem carregar todos os itens.
 - `src/archivia/planner.py`: **somente simulação** de movimento, sem operações de escrita em mídias.
 - `src/archivia/cli.py`: interface transitória de testes/uso, não contém regras de negócio.
