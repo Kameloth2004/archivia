@@ -11,7 +11,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .catalog import DEFAULT_DB, catalog_summary
+from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page
+from .inventory import CATEGORIES
 from .planner import propose_moves
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
@@ -21,6 +22,10 @@ SYSTEM_PROMPT = (
     "Nenhuma ferramenta move, apaga, renomeia ou cria arquivos. "
     "Nunca afirme que uma operação foi executada. "
     "O catálogo tem classificações apenas por extensão, não por conteúdo visual. "
+    "Ao buscar arquivos, utilize buscar_arquivos_catalogo; ela consulta somente um snapshot, "
+    "por padrão o mais recente, e retorna uma página limitada. "
+    "Não confunda resultados parciais com a biblioteca inteira. "
+    "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
 )
 
@@ -50,6 +55,32 @@ TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "buscar_arquivos_catalogo",
+            "description": (
+                "Busca arquivos pelo nome/caminho relativo e/ou extensão/categoria no "
+                "SQLite, sem acessar os arquivos físicos. Consulta somente um snapshot, "
+                "o mais recente por padrão. Retorna no máximo 20 arquivos por página."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nome": {"type": "string", "description": "Trecho literal do nome ou caminho"},
+                    "extensao": {"type": "string", "description": "Exemplo: pdf, .jpg"},
+                    "categoria": {"type": "string", "enum": list(CATEGORIES)},
+                    "pagina": {"type": "integer", "minimum": 1, "maximum": 100},
+                    "limite": {"type": "integer", "minimum": 1, "maximum": 20},
+                    "scan_id": {
+                        "type": "integer", "minimum": 1,
+                        "description": "Opcional; sem ID usa o snapshot mais recente"
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
@@ -61,6 +92,31 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
         if arguments:
             raise ValueError("resumo_catalogo não aceita argumentos.")
         return catalog_summary(db_path)
+    if name == "buscar_arquivos_catalogo":
+        allowed = {"nome", "extensao", "categoria", "pagina", "limite", "scan_id"}
+        if set(arguments) - allowed:
+            raise ValueError("Argumento não permitido na busca.")
+        for key in ("nome", "extensao", "categoria"):
+            if key in arguments and not isinstance(arguments[key], str):
+                raise ValueError(f"{key} deve ser texto.")
+        for key, maximum in (("pagina", 100), ("limite", 20), ("scan_id", None)):
+            if key in arguments:
+                value = arguments[key]
+                if (not isinstance(value, int) or isinstance(value, bool)
+                        or value < 1 or (maximum is not None and value > maximum)):
+                    raise ValueError(f"{key} inválido.")
+        category = arguments.get("categoria")
+        if category is not None and category not in CATEGORIES:
+            raise ValueError("Categoria desconhecida.")
+        return query_catalog_page(
+            db_path=db_path,
+            name_contains=arguments.get("nome"),
+            extension=arguments.get("extensao"),
+            category=category,
+            page=arguments.get("pagina", 1),
+            page_size=arguments.get("limite", 10),
+            scan_id=arguments.get("scan_id"),
+        )
     if name == "simular_movimentacao":
         if set(arguments) - {"categoria", "destino", "limite"}:
             raise ValueError("Argumento não permitido.")
