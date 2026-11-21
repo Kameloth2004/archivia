@@ -64,9 +64,19 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Testes de regressão em `tests/test_cataloging.py`.
 - **Ainda não validado no Windows**; testar primeiro `tests/fixtures/manual`, não uma pasta de trabalho extensa.
 
+## Histórico de inventários — atualização para homologação
+
+- **Snapshot #2 validado visualmente pelo usuário:** origem `D:/IW8 CONSTRUMAQ`, **44.383 arquivos**, 19.636 mídias (19.511 imagens, 125 vídeos), 0 erros; resumo e listagem da biblioteca SQLite exibem os mesmos dados.
+- Introduzido `list_catalog_scans()`, consulta somente leitura dos últimos 100 snapshots, retornando ID, origem, data e quantidade de arquivos.
+- `query_catalog_page(scan_id=...)` agora permite ver um snapshot histórico sem alterar o padrão do último snapshot.
+- Nova seleção **Histórico de snapshots** na GUI, com botão **Atualizar histórico**; selecionar snapshot muda a listagem de arquivos do catálogo.
+- Dois testes adicionais verificam histórico, seleção, limites e ausência de gravação.
+- **Ainda não validado no Windows:** executar testes e confirmar alternância #1 ↔ #2.
+- O histórico do banco é preservado; não existe exclusão ou movimentação de arquivos nesse fluxo.
+
 ## Próximo passo seguro
 
-**Próxima validação:** `git pull`, executar suíte e testar o novo botão de salvar com a pasta de fixtures `D:/PROJETOS/archivia/tests/fixtures/manual`. Confirmar apenas gravação no SQLite, sem movimentos; evitar salvar a pasta de trabalho real antes da homologação.
+**Próxima validação:** `git pull`, executar a suíte e testar **Atualizar histórico**, escolhendo #1 e #2 na GUI. Deve mostrar `foto_teste.jpg` no #1 e os arquivos de `D:/IW8 CONSTRUMAQ` no #2. Apenas consulta, sem criar novos snapshots.
 
 ## Limitações e evolução
 
