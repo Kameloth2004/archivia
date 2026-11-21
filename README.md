@@ -42,6 +42,17 @@ Para executar os testes:
 python -m unittest discover -s tests -v
 ```
 
+## Consultar o catálogo
+
+Depois de catalogar, consulte o último snapshot com um comando exclusivo de leitura:
+
+```bash
+python -m archivia consultar
+python -m archivia consultar --categoria imagem
+```
+
+O comando `consultar` abre o SQLite em modo somente leitura (`mode=ro`), sem criar tabelas nem modificar dados. O filtro `--categoria` aceita `imagem`, `video` ou `audio`. Apenas o inventário mais recente é retornado; snapshots anteriores permanecem preservados no banco. Uma origem não é varrida novamente durante a consulta.
+
 ## Política de testes e mocks
 
 Todos os testes automatizados, testes manuais, fixtures e mocks vivem em `tests/`. Os bancos e arquivos temporários usados por testes automatizados ficam em `tests/.runtime/` e são limpos após cada caso. A pasta antiga `teste-midias/` na raiz é legado de teste manual e **não deve ser apagada automaticamente**. Para futuros testes manuais, use `tests/fixtures/manual/`.
@@ -75,7 +86,7 @@ Os metadados incluem caminho relativo, categoria baseada **somente na extensão*
 
 ## Próximas etapas planejadas
 
-1. Consultas e filtros do catálogo SQLite (persistência inicial implementada).
+1. Consultas e filtros do último snapshot SQLite (implementados).
 2. Detecção de duplicatas e leitura controlada de metadados especializados.
 3. Adaptador local Ollama para categorização semântica.
 4. Plano de mudanças em modo simulação, com aprovação explícita e trilha de auditoria.
