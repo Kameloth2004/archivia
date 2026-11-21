@@ -38,6 +38,62 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(output["tools_used"][0]["result"]["media_files"], 1)
             self.assertFalse(output["files_modified"])
 
+    def test_search_tool_returns_limited_readonly_results(self):
+        # TEST-ONLY: consulta local sintética; não acessa dados reais.
+        with temporary_test_directory() as tmp:
+            root = tmp / "arquivos"
+            root.mkdir()
+            (root / "ventilador.pdf").write_bytes(b"doc")
+            (root / "ventilador.jpg").write_bytes(b"foto")
+            (root / "outro.txt").write_bytes(b"outro")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            result = dispatch_tool("buscar_arquivos_catalogo", {
+                "nome": "ventilador", "limite": 1,
+            }, db)
+            self.assertEqual(result["count"], 2)
+            self.assertEqual(len(result["files"]), 1)
+            self.assertEqual(result["pages"], 2)
+            self.assertTrue((root / "ventilador.pdf").is_file())
+            pdf = dispatch_tool("buscar_arquivos_catalogo", {
+                "nome": "ventilador", "extensao": "pdf",
+            }, db)
+            self.assertEqual(pdf["count"], 1)
+            self.assertEqual(pdf["files"][0]["relative_path"], "ventilador.pdf")
+
+    def test_search_tool_rejects_unsafe_parameters(self):
+        with temporary_test_directory() as tmp:
+            for payload in (
+                {"limite": 21}, {"limite": 0}, {"pagina": 101},
+                {"pagina": True}, {"scan_id": 0},
+                {"nome": "abc", "execute": True},
+                {"categoria": "inexistente"}, {"extensao": 12},
+            ):
+                with self.subTest(payload=payload):
+                    with self.assertRaises(ValueError):
+                        dispatch_tool("buscar_arquivos_catalogo", payload, tmp / "absent.db")
+
+    def test_ollama_mock_search_calls_tool_without_network(self):
+        # MOCK-ONLY: ferramenta selecionada pelo modelo simulado, sem Ollama real.
+        with temporary_test_directory() as tmp:
+            root = tmp / "arquivos"
+            root.mkdir()
+            (root / "backup.zip").write_bytes(b"abc")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            first = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {
+                    "name": "buscar_arquivos_catalogo",
+                    "arguments": {"nome": "backup", "limite": 5},
+                }}
+            ]}
+            second = {"role": "assistant", "content": "Encontrei um arquivo compactado."}
+            with patch("archivia.agent._ollama_chat", side_effect=[first, second]):
+                result = ask_agent("Procure backup no catálogo", "modelo-falso", db)
+            self.assertEqual(result["tools_used"][0]["tool"], "buscar_arquivos_catalogo")
+            self.assertEqual(result["tools_used"][0]["result"]["count"], 1)
+            self.assertFalse(result["files_modified"])
+
     def test_ollama_mock_cannot_execute_unknown_tool(self):
         with temporary_test_directory() as tmp:
             message = {"role": "assistant", "content": "", "tool_calls": [
