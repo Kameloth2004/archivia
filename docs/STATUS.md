@@ -17,7 +17,7 @@ Atualizado em 2026-11-21.
 4. Planejador de movimentos **exclusivamente em simulação**, sem executor.
 5. Adaptador local Ollama com allowlist de ferramentas: `resumo_catalogo` e `simular_movimentacao`.
 6. Interface gráfica PySide6 inicial criada em `src/archivia/gui.py`; instalação opcional concluída e janela aberta no Windows em 2026-11-21.
-7. Seletor de pastas, prévia de inventário e tabela paginada adicionados à GUI. **Tabela catalogada validada no Windows por captura de tela:** `foto_teste.jpg`, categoria `imagem`, extensão `.jpg`, 15 bytes; página 1 de 1. Seletor e prévia ainda pendentes de validação.
+7. Seletor de pastas, prévia de inventário e tabela paginada adicionados à GUI. **Tabela catalogada validada no Windows por captura de tela:** `foto_teste.jpg`, categoria `imagem`, extensão `.jpg`, 15 bytes; página 1 de 1. Seletor nativo e prévia **validados no Windows por captura de tela**: pasta `D:/PROJETOS/archivia/tests/fixtures/manual`, 1 mídia, 1 imagem, 0 vídeos, 0 áudios e 0 erros.
 8. Testes em `tests/`; dados temporários em `tests/.runtime/`; mocks identificados como `MOCK-ONLY`.
 
 ## Validação confirmada pelo usuário
