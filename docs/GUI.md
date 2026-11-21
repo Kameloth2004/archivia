@@ -20,6 +20,10 @@ archivia-gui
 
 PySide6 é **dependência opcional**: a instalação base `python -m pip install -e .` não baixa Qt. Os comandos `python -m archivia ...` seguem disponíveis sem PySide6.
 
+## Categorias universais — atualização aguardando homologação
+
+Filtros da prévia e da biblioteca SQLite expandidos: Imagens, Vídeos, Áudios, Documentos, Planilhas, Apresentações, Compactados, Código-fonte, Outros. O resumo mostra **Arquivos** (todos os tipos) e **Mídias** (somente imagem/vídeo/áudio). A lista de catálogo só exibirá tipos novos depois que um snapshot novo for gravado; por enquanto a GUI não tem botão de catalogação. Nenhum ZIP é aberto. Consulte [INVENTORY.md](INVENTORY.md).
+
 ## Terceira etapa visual — prévia detalhada do inventário
 
 **Código implementado, aguardando homologação no Windows.** A área **Examinar pasta — prévia** passa a ter sua própria tabela paginada (50 itens), filtro por categoria e navegação independente do catálogo SQLite. Os dados vêm do inventário em RAM, sem escrita em SQLite ou manipulação de arquivos. Uma nova varredura substitui a prévia anterior; seleção de pasta limpa a prévia. A tabela da Biblioteca catalogada continua mostrando somente o último snapshot persistido.
