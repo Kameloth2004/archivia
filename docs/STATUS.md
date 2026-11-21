@@ -36,9 +36,18 @@ Atualizado em 2026-11-21.
 
 Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. **Usuário confirmou que dependências instalaram e a janela abriu normalmente em 2026-11-21**, com captura de tela. O botão **Atualizar resumo** foi testado e aprovado pelo usuário; a interação com o agente pela GUI foi aprovada: `resumo_catalogo` devolveu 1 imagem via Qwen3. A interface atual é explicitamente provisória: redesenhar futuramente para aparência moderna, melhor hierarquia visual, navegação intuitiva e fluxos claros. Ver [GUI.md](GUI.md).
 
+## Atualização — tabela de prévia de inventário
+
+- Novo `src/archivia/preview.py`: fatia dados do inventário em memória, filtra por categoria, sem SQLite nem modificação de mídia.
+- GUI: adicionada tabela própria para o inventário recém-examinado, com 50 registros por página, filtro de imagens/vídeos/áudios e navegação Anterior/Próxima, independente da biblioteca catalogada.
+- O inventário completo permanece em memória durante a sessão; trocar a pasta ou executar nova varredura substitui a prévia anterior. Para 19.636 arquivos, a tela cria apenas 50 linhas por vez. Ainda será necessário medir uso de RAM em bibliotecas maiores.
+- Corrigido erro visual antigo no painel do agente após prévia bem-sucedida.
+- Novos testes isolados em `tests/test_preview.py`. **Ainda não validados no Windows**; requer `git pull` e suíte completa.
+- Não há gravação SQLite nem movimentação de arquivos neste fluxo.
+
 ## Próximo passo seguro
 
-**Próxima validação, uma por vez:** a GUI já validou `simular_movimentacao` com a pasta sintética. Próxima etapa: navegação visual por pastas e catálogo, sem digitar caminhos e sem habilitar execução real. Não executar movimentações reais. Preservar motor independente da GUI/Ollama para as futuras edições Lite.
+**Próxima validação:** executar suíte completa e testar a tabela de prévia na pasta `D:/IW8 CONSTRUMAQ` (último teste: 19.636 mídias, 19.511 imagens, 125 vídeos, 0 erros), verificando navegação e filtro sem catalogar. Não habilitar execução real.
 
 ## Limitações e evolução
 
