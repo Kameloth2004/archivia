@@ -17,7 +17,8 @@ Atualizado em 2026-11-21.
 4. Planejador de movimentos **exclusivamente em simulação**, sem executor.
 5. Adaptador local Ollama com allowlist de ferramentas: `resumo_catalogo` e `simular_movimentacao`.
 6. Interface gráfica PySide6 inicial criada em `src/archivia/gui.py`; instalação opcional concluída e janela aberta no Windows em 2026-11-21.
-7. Testes em `tests/`; dados temporários em `tests/.runtime/`; mocks identificados como `MOCK-ONLY`.
+7. Seletor de pastas, prévia de inventário e tabela paginada do último catálogo foram adicionados à GUI, **ainda não validados no Windows**.
+8. Testes em `tests/`; dados temporários em `tests/.runtime/`; mocks identificados como `MOCK-ONLY`.
 
 ## Validação confirmada pelo usuário
 
@@ -42,7 +43,7 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 ## Limitações e evolução
 
 - O agente não lê conteúdos visuais, apenas metadados do SQLite.
-- O planejador ainda carrega itens da categoria em memória; implementar paginação antes de escalonar.
+- A GUI já usa consultas SQL paginadas; o planejador e o comando `consultar` ainda carregam itens da categoria em memória. Planejador deverá migrar para paginação antes de escalonar.
 - Próximas etapas: interface gráfica PySide6, paginação SQLite e análise visual local.
 - **Três edições planejadas, sem implementação separada no momento:** Standard (prioritária), Lite sem IA e Lite + IA opcional. Consultar [EDITIONS.md](EDITIONS.md).
 - Nenhum modelo recebe comandos para mover, apagar ou executar shell; não há executor.
