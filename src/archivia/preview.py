@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-CATEGORIES = frozenset(("imagem", "video", "audio"))
+from .inventory import CATEGORIES
 
 
 def preview_inventory_page(
