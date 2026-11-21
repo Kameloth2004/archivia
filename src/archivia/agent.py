@@ -24,6 +24,13 @@ SYSTEM_PROMPT = (
     "O catálogo tem classificações apenas por extensão, não por conteúdo visual. "
     "Ao buscar arquivos, utilize buscar_arquivos_catalogo; ela consulta somente um snapshot, "
     "por padrão o mais recente, e retorna uma página limitada. "
+    "Se o usuário pedir busca sem restringir categoria, extensão ou snapshot, "
+    "NÃO invente essas restrições: omita os parâmetros não solicitados. "
+    "Na resposta, para toda busca, informe o total de correspondências do campo count, "
+    "a quantidade efetivamente exibida em files, o snapshot e os filtros que a ferramenta "
+    "realmente aplicou (filter_name, filter_extension e filter_category). "
+    "Deixe explícito que uma página de exemplos não esgota a pesquisa. "
+    "Não afirme um total geral de todas as categorias se houver filtro de categoria. "
     "Não confunda resultados parciais com a biblioteca inteira. "
     "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
@@ -62,14 +69,16 @@ TOOLS: list[dict[str, Any]] = [
             "description": (
                 "Busca arquivos pelo nome/caminho relativo e/ou extensão/categoria no "
                 "SQLite, sem acessar os arquivos físicos. Consulta somente um snapshot, "
-                "o mais recente por padrão. Retorna no máximo 20 arquivos por página."
+                "o mais recente por padrão. Retorna no máximo 20 arquivos por página. "
+                "NÃO aplique categoria ou extensão se o usuário não solicitar."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "nome": {"type": "string", "description": "Trecho literal do nome ou caminho"},
                     "extensao": {"type": "string", "description": "Exemplo: pdf, .jpg"},
-                    "categoria": {"type": "string", "enum": list(CATEGORIES)},
+                    "categoria": {"type": "string", "enum": list(CATEGORIES),
+                                  "description": "OPCIONAL: só informar quando o usuário limitar explicitamente a categoria"},
                     "pagina": {"type": "integer", "minimum": 1, "maximum": 100},
                     "limite": {"type": "integer", "minimum": 1, "maximum": 20},
                     "scan_id": {
