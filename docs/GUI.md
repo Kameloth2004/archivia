@@ -116,6 +116,12 @@ O usuário aprovou a abertura da GUI como marco técnico, **mas pediu explicitam
 - Nunca altera o banco, os arquivos originais ou os snapshots antigos.
 - Testes de regressão em `tests/test_catalog.py`, dentro da estrutura de testes.
 
+## Origens catalogadas — atualização para homologação
+
+Além do histórico, o painel **Origens catalogadas — último snapshot por pasta** apresenta uma linha para cada caminho de origem distinto, com ID do snapshot mais novo, quantidade de arquivos e mídias. Clique em **Atualizar origens** para obter os valores diretamente do SQLite. O painel soma somente os snapshots mais novos de cada pasta, não o histórico completo. O usuário confirmou o seletor histórico #1/#2 anteriormente.
+
+Limitações deliberadas: as origens são agrupadas pelo texto exato do caminho; pastas aninhadas ou caminhos alternativos podem provocar contagem duplicada de arquivos físicos. Por isso o total é uma soma de inventários distintos, **não necessariamente o total de arquivos físicos exclusivos**. O histórico e o resumo superior permanecem com seus comportamentos anteriores. Nenhum arquivo ou registro é escrito nesta consulta.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
