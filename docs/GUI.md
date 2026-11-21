@@ -136,6 +136,14 @@ A tela anterior empilhava todas as seções e escondia **Agente Ollama local** a
 
 A separação por abas é um ajuste estrutural de acessibilidade, **não o redesign visual definitivo**. **Homologado no Windows pelo usuário em 2026-11-21:** a interface abriu corretamente em quatro abas. Próxima validação: solicitar busca pelo Qwen3 na aba Agente IA.
 
+## Busca por nome-base e ordenação por data — nova etapa
+
+**Implementada em código; pendente de homologação no Windows.** A aba Biblioteca dispõe do seletor **Pesquisar em: Caminho completo / Somente nome**, filtros de modificação **de / até** (formato `AAAA-MM-DD`) e ordenação **Nome / Mais recentes / Mais antigos**. A tabela inclui a coluna **Modificado (UTC)**. Tudo funciona sobre o snapshot escolhido, com paginação de 50 itens e abertura SQLite `mode=ro`.
+
+A busca por nome-base ignora o caminho de pastas: `BACKUPS/relatorio.pdf` não corresponde a `backup` no modo Somente nome, mas `BACKUPS/backup_original.pdf` corresponde. A busca por caminho mantém o comportamento atual. A data consultada é o `modified_utc` armazenado na varredura, não data EXIF, data de criação, data de compactação nem data do próprio snapshot. Os intervalos são inclusivos por data UTC; `2025-01-01` até `2025-12-31` inclui ambos os dias.
+
+**Organização cronológica física em pastas ano/mês:** explicitamente planejada, mas não executada nesta fase. Exigirá um planejador dedicado, prévia de conflitos, aprovação e trilha de auditoria.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
