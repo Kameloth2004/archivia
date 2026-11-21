@@ -22,7 +22,7 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 
 ## Segunda etapa visual — navegação e biblioteca
 
-Implementado em código, **ainda pendente de homologação no Windows**:
+Implementado em código. **Tabela do catálogo homologada no Windows por captura de tela em 2026-11-21**; seletor de pasta e prévia ainda aguardam teste:
 
 - **Escolher pasta...** usa o seletor nativo do sistema operacional.
 - **Examinar pasta — prévia** executa inventário de metadados somente leitura; **não cria snapshot SQLite** e não mostra os arquivos individuais da pasta escolhida.
@@ -31,7 +31,7 @@ Implementado em código, **ainda pendente de homologação no Windows**:
 - A pasta escolhida para **Examinar** não substitui a origem do último catálogo; inventário e catálogo são ações separadas.
 - Não há botão de catalogação nem alteração de mídias nesta etapa.
 
-**Teste sugerido no Windows:** abrir `archivia-gui`, clicar em **Listar catálogo** e conferir uma linha `foto_teste.jpg`; depois escolher `tests/fixtures/manual` pelo seletor e clicar em **Examinar pasta — prévia**. Como ainda não houve execução local desta revisão, reportar erros antes de continuar.
+**Resultado do teste de tabela:** `foto_teste.jpg`, imagem, `.jpg`, 15 bytes, página 1 de 1; aprovado. O texto `Erro: Selecione uma pasta antes de examinar.` aparece corretamente se o usuário tentar executar a prévia com o campo de pasta vazio. **Próximo teste:** escolher `tests/fixtures/manual` no seletor e clicar em **Examinar pasta — prévia**.
 
 ## Interface incluída nesta etapa
 
