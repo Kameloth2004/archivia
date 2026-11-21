@@ -29,11 +29,15 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 - Limite máximo de 100 itens por plano. Ainda usa `query_catalog`, que carrega os registros da categoria em memória antes de selecionar 100; isso **precisa ser substituído por consulta SQL paginada** antes de inventários muito grandes.
 
 ## Garantias e limites
-- Ainda não há executor, renomeação, exclusão, IA ou GUI.
+- Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
 - Não há validação atômica entre planejamento e uma execução futura (TOCTOU), nem confirmação de identidade por hash.
 - Múltiplas origens, permissões granulares, política para colisões Windows com casefold, segurança de junction/reparse points e destinos em outros volumes exigem revisão posterior.
 - Por enquanto, não confiar no JSON do plano para executar movimentos, mesmo se alterado externamente.
+
+## Perfis de distribuição
+
+Um único motor Python compartilhado por Standard, Lite sem IA e Lite + IA. No momento, desenvolver e validar primeiro a Standard no Windows com RTX 3060 e Ollama local. Detalhes, dependências opcionais, limites e ordem de implementação em [EDITIONS.md](EDITIONS.md).
 
 ## Decisões de engenharia
 1. Código de produção em `src/`, testes exclusivamente em `tests/`.
