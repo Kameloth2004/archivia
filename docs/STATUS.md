@@ -134,6 +134,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Interpretação importante: busca por `relative_path` inclui termos em **nomes de diretórios**; arquivos dentro de `BACKUPS/` contam mesmo quando seu nome individual não inclui `backup`. Diferenciar futuramente pesquisa por nome-base e pesquisa por caminho.
 - Essa validação não comprova identificação de conteúdo visual nem execução de arquivos.
 
+## Busca por nome-base, caminho e data — implementação para homologação
+
+- Por solicitação do usuário, a atualização inclui **busca pelo nome-base ou pelo caminho completo** e **filtro/ordenação pela data de modificação**, antes da validação da versão.
+- SQL `query_catalog_page()`: novo `search_scope=filename|path`, intervalo inclusivo `date_from/date_to` em AAAA-MM-DD UTC e `sort_by=name|newest|oldest`; mantém paginação, categoria, extensão, snapshot e somente leitura.
+- GUI Biblioteca: seletor Caminho completo/Somente nome; datas inicial/final; ordenação Nome/Mais recentes/Mais antigos; coluna **Modificado (UTC)**.
+- Ollama `buscar_arquivos_catalogo`: `escopo=nome|caminho`, `data_inicial`, `data_final`, `ordenacao=nome|recentes|antigos`, com validação no dispatcher.
+- Acrescentados 3 testes SQL e 2 testes de agente para nomes de pasta, intervalos, ordenação e valores inválidos. **Ainda não homologado no Windows.**
+- Atenção: a data é `modified_utc` do sistema de arquivos no momento do inventário, não data de captura EXIF, criação ou data do snapshot.
+- **Organizar fisicamente em pastas por ano/mês é futuro**: exige planejador, simulação e autorização explícita. Esta etapa só organiza os resultados na tela, não toca em arquivos.
+
 ## Próximo passo seguro
 
 **Validação concluída:** Qwen3 retornou 26.970 correspondências para o termo `backup` em todas as categorias e cinco exemplos, com `filter_category=null`. Próxima evolução sugerida: separar busca pelo nome do arquivo e busca pelo caminho, mantendo paginação e leitura SQLite.
