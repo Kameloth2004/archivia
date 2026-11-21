@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from .agent import ask_agent
-from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans
+from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary
 from .cataloging import catalog_verified_preview
 from .inventory import inventory
 from .preview import preview_inventory_page
@@ -52,6 +52,8 @@ class QueryWorker(QThread):
                 result = ask_agent(self.question, self.model, self.database)
             elif self.mode == "catalog_page":
                 result = query_catalog_page(self.database, self.category, page=self.page, scan_id=self.scan_id)
+            elif self.mode == "origins":
+                result = catalog_origins_summary(self.database)
             elif self.mode == "history":
                 result = list_catalog_scans(self.database)
             elif self.mode == "inventory_preview":
@@ -113,6 +115,29 @@ class ArchivIAWindow(QMainWindow):
         )
         database_layout.addWidget(self.summary_view)
         root.addWidget(database_box)
+
+        origins_box = QGroupBox("Origens catalogadas — último snapshot por pasta")
+        origins_layout = QVBoxLayout(origins_box)
+        origins_toolbar = QHBoxLayout()
+        self.origins_button = QPushButton("Atualizar origens")
+        self.origins_button.clicked.connect(self._load_origins)
+        origins_toolbar.addWidget(self.origins_button)
+        self.origins_label = QLabel("Consulte as origens sem contar snapshots antigos da mesma pasta.")
+        self.origins_label.setWordWrap(True)
+        origins_toolbar.addWidget(self.origins_label, 1)
+        origins_layout.addLayout(origins_toolbar)
+        self.origins_table = QTableWidget(0, 4)
+        self.origins_table.setHorizontalHeaderLabels(
+            ["Pasta de origem", "Snapshot", "Arquivos", "Mídias"]
+        )
+        self.origins_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.origins_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.origins_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self.origins_table.setMaximumHeight(180)
+        origins_layout.addWidget(self.origins_table)
+        root.addWidget(origins_box)
 
         # Inventário independente do catálogo: nunca grava resultados no SQLite.
         folder_box = QGroupBox("Examinar pasta (somente leitura)")
@@ -379,6 +404,16 @@ class ArchivIAWindow(QMainWindow):
             self._worker is None and self._preview_page < self._preview_pages
         )
 
+    def _load_origins(self) -> None:
+        if self._worker is not None:
+            return
+        try:
+            database = self._database_path()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._start_worker("origins", database)
+
     def _load_history(self) -> None:
         if self._worker is not None:
             return
@@ -474,6 +509,7 @@ class ArchivIAWindow(QMainWindow):
         self.preview_next.setEnabled(not busy and self._preview_page < self._preview_pages)
         self.category_filter.setEnabled(not busy)
         self.list_button.setEnabled(not busy)
+        self.origins_button.setEnabled(not busy)
         self.history_button.setEnabled(not busy)
         self.history_select.setEnabled(not busy)
         self.prev_button.setEnabled(not busy and self._page > 1)
@@ -530,6 +566,28 @@ class ArchivIAWindow(QMainWindow):
             self.page_label.setText("Novo snapshot salvo — clique em Listar catálogo")
             self.prev_button.setEnabled(False)
             self.next_button.setEnabled(False)
+        elif mode == "origins":
+            origins = result["origins"]
+            self.origins_table.setRowCount(len(origins))
+            for row_index, item in enumerate(origins):
+                values = (
+                    item["root"], str(item["scan_id"]),
+                    str(item["indexed_files"]), str(item["media_files"])
+                )
+                for col_index, value in enumerate(values):
+                    self.origins_table.setItem(
+                        row_index, col_index, QTableWidgetItem(value)
+                    )
+            self.origins_label.setText(
+                f"{result['origins_count']} origens | "
+                f"{result['indexed_files']} arquivos | "
+                f"{result['media_files']} mídias"
+            )
+            self.origins_label.setToolTip(result["overlap_warning"])
+            self.status.setText(
+                "Origens consultadas no SQLite, sem alterar snapshots. "
+                "Pastas sobrepostas podem duplicar arquivos entre origens."
+            )
         elif mode == "history":
             current = self.history_select.currentData()
             self.history_select.blockSignals(True)
