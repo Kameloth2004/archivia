@@ -1,6 +1,8 @@
 """Testes SQLite em diretórios temporários, sem acessar mídias pessoais."""
 
 from contextlib import closing
+from datetime import datetime, timezone
+import os
 import sqlite3
 import unittest
 from pathlib import Path
@@ -291,6 +293,75 @@ class CatalogTests(unittest.TestCase):
                           {"name_contains": 1}, {"extension": 2}):
                 with self.assertRaises(ValueError):
                     query_catalog_page(db, **field)
+
+    def test_filename_scope_excludes_directory_matches(self):
+        # TEST-ONLY: nomes de pastas não devem contaminar busca por nome-base.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            folder = root / "BACKUPS"
+            folder.mkdir(parents=True)
+            (folder / "documento.pdf").write_bytes(b"doc")
+            (root / "backup_relatorio.pdf").write_bytes(b"relatorio")
+            db = tmp / "data" / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            by_path = query_catalog_page(db, name_contains="backup", search_scope="path")
+            by_name = query_catalog_page(db, name_contains="backup", search_scope="filename")
+            self.assertEqual(by_path["count"], 2)
+            self.assertEqual(by_name["count"], 1)
+            self.assertEqual(by_name["files"][0]["relative_path"], "backup_relatorio.pdf")
+            self.assertEqual(by_name["search_scope"], "filename")
+
+    def test_modified_date_range_and_sorting(self):
+        # TEST-ONLY: timestamps sintéticos em UTC no diretório de testes.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            root.mkdir()
+            timestamps = {
+                "antigo.jpg": "2024-02-10",
+                "medio.pdf": "2025-04-20",
+                "novo.zip": "2026-08-08",
+            }
+            for name, day in timestamps.items():
+                file = root / name
+                file.write_bytes(b"x")
+                instant = datetime.fromisoformat(day).replace(tzinfo=timezone.utc).timestamp()
+                os.utime(file, (instant, instant))
+            db = tmp / "data" / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            newest = query_catalog_page(db, sort_by="newest")
+            oldest = query_catalog_page(db, sort_by="oldest")
+            filtered = query_catalog_page(db, date_from="2025-01-01", date_to="2025-12-31")
+            through = query_catalog_page(db, date_to="2024-12-31")
+            self.assertEqual(
+                [f["relative_path"] for f in newest["files"]],
+                ["novo.zip", "medio.pdf", "antigo.jpg"],
+            )
+            self.assertEqual(
+                [f["relative_path"] for f in oldest["files"]],
+                ["antigo.jpg", "medio.pdf", "novo.zip"],
+            )
+            self.assertEqual(filtered["count"], 1)
+            self.assertEqual(filtered["files"][0]["relative_path"], "medio.pdf")
+            self.assertEqual(through["count"], 1)
+
+    def test_search_scope_and_date_validations(self):
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            root.mkdir()
+            db = tmp / "data" / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            for arguments in (
+                {"search_scope": "invalid"},
+                {"sort_by": "invalid"},
+                {"date_from": "2025-02-30"},
+                {"date_from": "2025-1-01"},
+                {"date_to": "2025-00-10"},
+                {"date_from": "2026-01-01", "date_to": "2025-12-31"},
+                {"date_from": 42},
+            ):
+                with self.subTest(arguments=arguments):
+                    with self.assertRaises(ValueError):
+                        query_catalog_page(db, **arguments)
 
     def test_query_missing_database_does_not_create_it(self):
         with temporary_test_directory() as tmp:
