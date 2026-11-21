@@ -144,6 +144,14 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Atenção: a data é `modified_utc` do sistema de arquivos no momento do inventário, não data de captura EXIF, criação ou data do snapshot.
 - **Organizar fisicamente em pastas por ano/mês é futuro**: exige planejador, simulação e autorização explícita. Esta etapa só organiza os resultados na tela, não toca em arquivos.
 
+## Homologação da busca por nome — 2026-11-21
+
+- Usuário confirmou que a pesquisa **Somente nome** na GUI está correta: termo `leo`, snapshot mais recente (#2), 14 arquivos encontrados.
+- Ocorrências verificadas em nomes-base como `TableOfContents.php` (`leO`), `AddIndexableObjectIdAndTypeIndex.php`, `SierraLeone.js` e arquivos com `Óleo`.
+- A busca é por **substring** e, para caracteres ASCII, sem distinção de maiúsculas/minúsculas; não exige limites de palavras.
+- Esta aprovação valida a consulta por nome e a exibição da GUI; não implica homologação do filtro/ordenação cronológicos nem movimentação física.
+- Próxima validação funcional: filtro de datas `AAAA-MM-DD` e ordenação **Mais recentes / Mais antigos** na aba Biblioteca.
+
 ## Próximo passo seguro
 
 **Validação concluída:** Qwen3 retornou 26.970 correspondências para o termo `backup` em todas as categorias e cinco exemplos, com `filter_category=null`. Próxima evolução sugerida: separar busca pelo nome do arquivo e busca pelo caminho, mantendo paginação e leitura SQLite.
