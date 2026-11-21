@@ -41,8 +41,11 @@ class PreviewTests(unittest.TestCase):
             for bad_size in (0, 101, True):
                 with self.assertRaises(ValueError):
                     preview_inventory_page(result, page_size=bad_size)
+            # "outro" é categoria válida no inventário universal.
+            valid = preview_inventory_page(result, category="outro")
+            self.assertEqual(valid["count"], 0)
             with self.assertRaises(ValueError):
-                preview_inventory_page(result, category="outro")
+                preview_inventory_page(result, category="categoria_inexistente")
 
     def test_empty_category_and_beyond_last_page(self):
         with temporary_test_directory() as tmp:
