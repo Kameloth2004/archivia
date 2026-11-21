@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.DS_Store
+Thumbs.db
+# Não adicionar inventários, bancos de dados ou dados pessoais
+*.db
+*.sqlite
+*.sqlite3
+inventarios/
