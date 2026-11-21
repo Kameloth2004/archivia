@@ -99,9 +99,19 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Dois testes sintéticos adicionais; **a atualização ainda precisa ser validada no Windows**.
 - Ollama ainda não recebeu nova ferramenta de busca nesta etapa; primeiro validar o motor e a GUI.
 
+## Ferramenta de busca Ollama — aguardando homologação
+
+- Usuário confirmou busca por `backup` no snapshot #2 pela GUI, sem erros reportados no Bash.
+- Adicionada à allowlist do agente a ferramenta `buscar_arquivos_catalogo`: nome/caminho, extensão, categoria, página, limite e `scan_id` opcional.
+- Máximo 20 resultados por página, padrão 10; página limitada a 100. Os parâmetros são validados **antes** de consultar SQLite.
+- Usa `query_catalog_page()` em modo somente leitura; nunca executa comandos, movimenta ou altera arquivos.
+- Três novos testes de dispatcher e transporte Ollama mockado em `tests/test_agent.py`.
+- **Ainda não executado com Qwen3 real nesta etapa**; validar testes e uma pergunta natural no painel.
+- Contrato atualizado em [AGENT.md](AGENT.md).
+
 ## Próximo passo seguro
 
-**Validação anterior concluída:** 34 testes executados, `OK (skipped=1)` em 2026-11-21. **Próximo teste:** atualizar, rodar 36 testes e pesquisar `backup` ou `ventilador` pelo nome na biblioteca do snapshot #2, combinando com extensão `pdf` quando desejado. Nenhum disco é reexaminado.
+**Validação de busca GUI:** aprovada pelo usuário com `backup` no snapshot #2, Bash sem erros reportados. **Próximo teste:** atualizar, rodar a suíte e testar na GUI uma pergunta ao Qwen3 pedindo arquivos com `backup` no caminho. Conferir `tools_used` e os resultados limitados, sem movimentação.
 
 ## Limitações e evolução
 
