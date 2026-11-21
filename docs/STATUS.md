@@ -54,9 +54,19 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Testes atualizados para regras universais e compatibilidade. **Aguardando execução no Windows**.
 - Ver contrato e limites em [INVENTORY.md](INVENTORY.md).
 
+## Catalogação confirmada pela GUI — pendente de homologação
+
+- Universal inventory validado pelo usuário: testes Bash e GUI aprovados, com categorias adicionais visíveis.
+- Novo módulo `src/archivia/cataloging.py` valida a prévia por revarredura e somente depois grava novo snapshot SQLite.
+- Novo botão **Salvar inventário no catálogo SQLite...**, habilitado após prévia sem erros, requer confirmação e grava apenas no SQLite.
+- Previsão de segurança: origem não é modificada; mudança ou falha na revarredura bloqueia gravação; cada confirmação aceita gera snapshot histórico novo.
+- Após sucesso, exige nova prévia para nova gravação; tabela catalogada é limpa até `Listar catálogo`.
+- Testes de regressão em `tests/test_cataloging.py`.
+- **Ainda não validado no Windows**; testar primeiro `tests/fixtures/manual`, não uma pasta de trabalho extensa.
+
 ## Próximo passo seguro
 
-**Próxima validação:** `git pull`, executar suíte de testes e abrir GUI para examinar `D:/IW8 CONSTRUMAQ`. O resultado geral terá no mínimo as 19.636 mídias anteriores, além das categorias não-mídia existentes; verificar filtros de documentos e compactados. Não catalogar nem mover arquivos.
+**Próxima validação:** `git pull`, executar suíte e testar o novo botão de salvar com a pasta de fixtures `D:/PROJETOS/archivia/tests/fixtures/manual`. Confirmar apenas gravação no SQLite, sem movimentos; evitar salvar a pasta de trabalho real antes da homologação.
 
 ## Limitações e evolução
 
