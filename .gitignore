@@ -16,3 +16,8 @@ inventarios/
 
 # Catálogo local (nunca versionar)
 data/
+
+# TEST-ONLY: gerados localmente; não versionar
+tests/.runtime/
+tests/fixtures/manual/
+teste-midias/
