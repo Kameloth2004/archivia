@@ -34,7 +34,9 @@ class QueryWorker(QThread):
     def __init__(self, mode: str, database: Path, question: str = "", model: str = "",
                  page: int = 1, category: str | None = None,
                  preview: dict | None = None, scan_id: int | None = None,
-                 name_contains: str = "", extension: str = "") -> None:
+                 name_contains: str = "", extension: str = "",
+                 search_scope: str = "path", date_from: str = "", date_to: str = "",
+                 sort_by: str = "name") -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -46,6 +48,10 @@ class QueryWorker(QThread):
         self.scan_id = scan_id
         self.name_contains = name_contains
         self.extension = extension
+        self.search_scope = search_scope
+        self.date_from = date_from
+        self.date_to = date_to
+        self.sort_by = sort_by
 
     def run(self) -> None:
         try:
@@ -57,6 +63,8 @@ class QueryWorker(QThread):
                 result = query_catalog_page(
                     self.database, self.category, page=self.page, scan_id=self.scan_id,
                     name_contains=self.name_contains, extension=self.extension,
+                    search_scope=self.search_scope, date_from=self.date_from,
+                    date_to=self.date_to, sort_by=self.sort_by,
                 )
             elif self.mode == "origins":
                 result = catalog_origins_summary(self.database)
@@ -263,7 +271,13 @@ class ArchivIAWindow(QMainWindow):
         catalog_layout.addLayout(catalog_toolbar)
 
         search_row = QHBoxLayout()
-        search_row.addWidget(QLabel("Nome/caminho:"))
+        search_row.addWidget(QLabel("Pesquisar em:"))
+        self.catalog_search_scope = QComboBox()
+        self.catalog_search_scope.addItem("Caminho completo", "path")
+        self.catalog_search_scope.addItem("Somente nome", "filename")
+        self.catalog_search_scope.setToolTip("Nome ignora o texto das pastas; caminho inclui as pastas")
+        search_row.addWidget(self.catalog_search_scope)
+        search_row.addWidget(QLabel("Termo:"))
         self.catalog_name_filter = QLineEdit()
         self.catalog_name_filter.setPlaceholderText("Ex.: ventilador ou BACKUPS/")
         self.catalog_name_filter.returnPressed.connect(self._reset_catalog_page)
@@ -278,9 +292,29 @@ class ArchivIAWindow(QMainWindow):
         self.clear_search_button.clicked.connect(self._clear_catalog_search)
         search_row.addWidget(self.clear_search_button)
         catalog_layout.addLayout(search_row)
-        self.catalog_table = QTableWidget(0, 4)
+        date_row = QHBoxLayout()
+        date_row.addWidget(QLabel("Modificado de:"))
+        self.catalog_date_from = QLineEdit()
+        self.catalog_date_from.setPlaceholderText("AAAA-MM-DD")
+        self.catalog_date_from.setMaximumWidth(112)
+        self.catalog_date_from.returnPressed.connect(self._reset_catalog_page)
+        date_row.addWidget(self.catalog_date_from)
+        date_row.addWidget(QLabel("até:"))
+        self.catalog_date_to = QLineEdit()
+        self.catalog_date_to.setPlaceholderText("AAAA-MM-DD")
+        self.catalog_date_to.setMaximumWidth(112)
+        self.catalog_date_to.returnPressed.connect(self._reset_catalog_page)
+        date_row.addWidget(self.catalog_date_to)
+        date_row.addWidget(QLabel("Ordenar:"))
+        self.catalog_sort = QComboBox()
+        self.catalog_sort.addItem("Nome", "name")
+        self.catalog_sort.addItem("Mais recentes", "newest")
+        self.catalog_sort.addItem("Mais antigos", "oldest")
+        date_row.addWidget(self.catalog_sort, 1)
+        catalog_layout.addLayout(date_row)
+        self.catalog_table = QTableWidget(0, 5)
         self.catalog_table.setHorizontalHeaderLabels(
-            ["Arquivo (caminho relativo)", "Categoria", "Extensão", "Bytes"]
+            ["Arquivo (caminho relativo)", "Categoria", "Extensão", "Bytes", "Modificado (UTC)"]
         )
         self.catalog_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.catalog_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -467,6 +501,10 @@ class ArchivIAWindow(QMainWindow):
     def _clear_catalog_search(self) -> None:
         self.catalog_name_filter.clear()
         self.catalog_extension_filter.clear()
+        self.catalog_date_from.clear()
+        self.catalog_date_to.clear()
+        self.catalog_search_scope.setCurrentIndex(0)
+        self.catalog_sort.setCurrentIndex(0)
         self._reset_catalog_page()
 
     def _reset_catalog_page(self, *_args) -> None:
@@ -487,6 +525,10 @@ class ArchivIAWindow(QMainWindow):
             scan_id=self.history_select.currentData(),
             name_contains=self.catalog_name_filter.text().strip(),
             extension=self.catalog_extension_filter.text().strip(),
+            search_scope=self.catalog_search_scope.currentData(),
+            date_from=self.catalog_date_from.text().strip(),
+            date_to=self.catalog_date_to.text().strip(),
+            sort_by=self.catalog_sort.currentData(),
         )
 
     def _previous_page(self) -> None:
@@ -524,7 +566,9 @@ class ArchivIAWindow(QMainWindow):
         self, mode: str, database: Path, question: str = "", model: str = "",
         page: int = 1, category: str | None = None,
         preview: dict | None = None,
-        scan_id: int | None = None, name_contains: str = "", extension: str = ""
+        scan_id: int | None = None, name_contains: str = "", extension: str = "",
+        search_scope: str = "path", date_from: str = "", date_to: str = "",
+        sort_by: str = "name"
     ) -> None:
         if self._worker is not None:
             return
@@ -532,7 +576,7 @@ class ArchivIAWindow(QMainWindow):
         self.status.setText("Aguardando Ollama..." if mode == "agent" else "Processando consulta local...")
         worker = QueryWorker(
             mode, database, question, model, page, category, preview,
-            scan_id, name_contains, extension,
+            scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -562,6 +606,10 @@ class ArchivIAWindow(QMainWindow):
         self.catalog_name_filter.setEnabled(not busy)
         self.catalog_extension_filter.setEnabled(not busy)
         self.clear_search_button.setEnabled(not busy)
+        self.catalog_search_scope.setEnabled(not busy)
+        self.catalog_date_from.setEnabled(not busy)
+        self.catalog_date_to.setEnabled(not busy)
+        self.catalog_sort.setEnabled(not busy)
         self.origins_button.setEnabled(not busy)
         self.history_button.setEnabled(not busy)
         self.history_select.setEnabled(not busy)
@@ -666,7 +714,7 @@ class ArchivIAWindow(QMainWindow):
             for row_index, item in enumerate(items):
                 for column, value in enumerate((
                     item["relative_path"], item["category"],
-                    item["extension"], str(item["size_bytes"])
+                    item["extension"], str(item["size_bytes"]), item["modified_utc"]
                 )):
                     self.catalog_table.setItem(row_index, column, QTableWidgetItem(value))
             self.page_label.setText(
