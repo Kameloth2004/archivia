@@ -163,9 +163,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Os filtros e o banco continuam recebendo/armazenando datas ISO 8601; nada altera datas reais de arquivos ou snapshots.
 - Preferências adicionais poderão ser incluídas nesta aba posteriormente.
 
+## Máscara automática de datas — aguardando homologação
+
+- Usuário confirmou funcionamento dos filtros com `01/01/2024` e `31/12/2024`, mas precisou digitar manualmente as barras.
+- Aplicadas máscaras `QLineEdit.setInputMask()` nos dois campos de data da Biblioteca: Brasil/EUA `00/00/0000`, ISO `0000-00-00`; o usuário só digita números, Qt insere separadores.
+- Mudança em Configurações converte datas preenchidas válidas e substitui a máscara automaticamente, sem alterar o SQLite. Campos vazios mascarados (`//` ou `--`) são aceitos como filtro desativado; incompletos continuam inválidos.
+- Novos testes isolados em `tests/test_date_formats.py` verificam máscaras, campos vazios e incompletos (2 testes).
+- **Pendente de homologação Windows:** executar suíte e digitar `01012024` e `31122024` sem separadores; testar também a seleção ISO/EUA.
+- Não modifica metadados de arquivos, inventário ou snapshots.
+
 ## Próximo passo seguro
 
-**Validação concluída:** Qwen3 retornou 26.970 correspondências para o termo `backup` em todas as categorias e cinco exemplos, com `filter_category=null`. Próxima evolução sugerida: separar busca pelo nome do arquivo e busca pelo caminho, mantendo paginação e leitura SQLite.
+**Próximo teste:** após `git pull`, rodar testes e verificar na Biblioteca que `01012024` vira `01/01/2024` e `31122024` vira `31/12/2024` automaticamente. Em Configurações, verificar também mudança para ISO e EUA. Sem nova catalogação.
 
 ## Limitações e evolução
 
