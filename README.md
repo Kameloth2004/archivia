@@ -94,6 +94,10 @@ python -m archivia resumo
 
 Usa consulta agregada no SQLite em modo somente leitura, recuperando somente o último snapshot. Exibe contagens por categoria, bytes e data da última catalogação. Não produz arquivo JSON no disco nem varre mídias. O resultado no terminal ainda é JSON pequeno, para permitir integração futura com interface gráfica.
 
+## Consulta por data e pelo nome do arquivo
+
+A busca da Biblioteca permite distinguir **somente o nome-base** do **caminho completo**, filtrar por intervalo de modificação `AAAA-MM-DD` e ordenar **Mais recentes** ou **Mais antigos**. Essas ações não modificam o disco: não há função para mover arquivos por ano/mês nesta versão. Consulte [GUI.md](docs/GUI.md) e [AGENT.md](docs/AGENT.md).
+
 ## Busca no catálogo pela interface
 
 Em **Biblioteca catalogada**, use **Nome/caminho** para encontrar arquivos por trecho do caminho, **Extensão** para filtrar `pdf`, `jpg`, etc., e combine com categoria e snapshot histórico. Pressione Enter ou **Listar catálogo**. O resultado usa paginação SQLite e não examina novamente os arquivos do disco; consulte [GUI.md](docs/GUI.md).
