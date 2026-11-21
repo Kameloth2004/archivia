@@ -93,7 +93,7 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 
 ## Próximo passo seguro
 
-**Próxima validação:** `git pull origin main` e `python -m unittest discover -s tests -v` para confirmar correção da regressão do teste de prévia. A interface Origens catalogadas já foi validada; não é necessário repetir a varredura.
+**Validação concluída:** 34 testes executados, `OK (skipped=1)` em 2026-11-21. Próxima evolução proposta: busca por nome/extensão no catálogo paginado, preservando consultas somente leitura e o snapshot selecionado.
 
 ## Limitações e evolução
 
