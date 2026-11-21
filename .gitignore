@@ -13,3 +13,6 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 inventarios/
+
+# Catálogo local (nunca versionar)
+data/
