@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from .catalog import DEFAULT_DB, store_inventory
+from .catalog import DEFAULT_DB, query_catalog, store_inventory
 from .inventory import inventory
 
 
@@ -23,13 +23,21 @@ def main(argv: list[str] | None = None) -> int:
         "--banco", default=str(DEFAULT_DB),
         help="Caminho do SQLite (padrão: data/catalogo.sqlite3 na raiz do projeto)",
     )
+    search = commands.add_parser("consultar", help="Consultar o último inventário salvo, sem alterar o banco")
+    search.add_argument("--categoria", choices=("imagem", "video", "audio"), help="Filtrar categoria")
+    search.add_argument("--banco", default=str(DEFAULT_DB), help="Caminho do SQLite")
+
     args = parser.parse_args(argv)
 
     try:
-        result = inventory(args.pasta)
+        if args.command == "consultar":
+            output = query_catalog(db_path=args.banco, category=args.categoria)
+            result = {"errors": []}
+        else:
+            result = inventory(args.pasta)
         if args.command == "catalogar":
             output = store_inventory(result, db_path=args.banco)
-        else:
+        elif args.command == "inventario":
             output = result
     except (ValueError, OSError) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
