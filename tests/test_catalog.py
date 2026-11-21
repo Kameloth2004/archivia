@@ -7,7 +7,7 @@ from pathlib import Path
 
 from support import temporary_test_directory
 
-from archivia.catalog import catalog_summary, query_catalog, store_inventory
+from archivia.catalog import catalog_summary, query_catalog, query_catalog_page, store_inventory
 from archivia.inventory import inventory
 
 
@@ -98,6 +98,49 @@ class CatalogTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 catalog_summary(db)
             self.assertFalse(db.exists())
+
+    def test_pagination_and_category_filters_are_read_only(self):
+        # TEST-ONLY: banco de dados e mídias sintéticos ficam em tests/.runtime.
+        with temporary_test_directory() as tmp:
+            root = tmp / "midias"
+            root.mkdir()
+            for i in range(7):
+                (root / f"foto{i:02d}.jpg").write_bytes(b"abc")
+            (root / "trilha.mp3").write_bytes(b"som")
+            db = tmp / "data" / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            first = query_catalog_page(db, page=1, page_size=3)
+            second = query_catalog_page(db, page=2, page_size=3)
+            last = query_catalog_page(db, page=3, page_size=3)
+            filtered = query_catalog_page(db, category="audio", page_size=3)
+            beyond = query_catalog_page(db, page=4, page_size=3)
+            self.assertEqual(first["count"], 8)
+            self.assertEqual(first["pages"], 3)
+            self.assertEqual([len(p["files"]) for p in (first, second, last)], [3, 3, 2])
+            self.assertEqual(len({
+                f["relative_path"] for p in (first, second, last) for f in p["files"]
+            }), 8)
+            self.assertEqual(filtered["count"], 1)
+            self.assertEqual(filtered["files"][0]["relative_path"], "trilha.mp3")
+            self.assertEqual(beyond["files"], [])
+            self.assertTrue((root / "foto00.jpg").exists())
+
+    def test_pagination_rejects_bad_limits_and_missing_database(self):
+        with temporary_test_directory() as tmp:
+            db = tmp / "nao_existe.sqlite3"
+            with self.assertRaises(ValueError):
+                query_catalog_page(db)
+            self.assertFalse(db.exists())
+            root = tmp / "midias"
+            root.mkdir()
+            store_inventory(inventory(root), tmp / "catalogo.sqlite3")
+            db = tmp / "catalogo.sqlite3"
+            for invalid_page in (0, -1, True):
+                with self.assertRaises(ValueError):
+                    query_catalog_page(db, page=invalid_page)
+            for invalid_size in (0, 101, True):
+                with self.assertRaises(ValueError):
+                    query_catalog_page(db, page_size=invalid_size)
 
     def test_query_missing_database_does_not_create_it(self):
         with temporary_test_directory() as tmp:
