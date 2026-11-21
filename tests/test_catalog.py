@@ -7,7 +7,7 @@ from pathlib import Path
 
 from support import temporary_test_directory
 
-from archivia.catalog import query_catalog, store_inventory
+from archivia.catalog import catalog_summary, query_catalog, store_inventory
 from archivia.inventory import inventory
 
 
@@ -73,6 +73,31 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(images["count"], 1)
             self.assertEqual(images["files"][0]["relative_path"], "foto.jpg")
             self.assertEqual(audios["files"][0]["relative_path"], "audio.mp3")
+
+    def test_summary_uses_latest_snapshot_without_listing_files(self):
+        # TEST-ONLY: nunca acessa o banco real nem mídias pessoais.
+        with temporary_test_directory() as tmp:
+            root = tmp / "midias"
+            root.mkdir()
+            (root / "foto.jpg").write_bytes(b"abc")
+            db = tmp / "data" / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            (root / "musica.mp3").write_bytes(b"de")
+            latest = store_inventory(inventory(root), db)
+
+            result = catalog_summary(db)
+            self.assertEqual(result["scan_id"], latest["scan_id"])
+            self.assertEqual(result["media_files"], 2)
+            self.assertEqual(result["bytes_media"], 5)
+            self.assertEqual(result["by_category"], {"imagem": 1, "video": 0, "audio": 1})
+            self.assertNotIn("files", result)
+
+    def test_summary_missing_database_never_creates_file(self):
+        with temporary_test_directory() as tmp:
+            db = tmp / "inexistente.sqlite3"
+            with self.assertRaises(ValueError):
+                catalog_summary(db)
+            self.assertFalse(db.exists())
 
     def test_query_missing_database_does_not_create_it(self):
         with temporary_test_directory() as tmp:
