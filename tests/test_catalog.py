@@ -7,7 +7,7 @@ from pathlib import Path
 
 from support import temporary_test_directory
 
-from archivia.catalog import store_inventory
+from archivia.catalog import query_catalog, store_inventory
 from archivia.inventory import inventory
 
 
@@ -49,6 +49,36 @@ class CatalogTests(unittest.TestCase):
             }
             with self.assertRaises(ValueError):
                 store_inventory(result, db)
+            self.assertFalse(db.exists())
+
+
+    def test_query_latest_snapshot_and_category_filter(self):
+        # TEST-ONLY: arquivos sintéticos e SQLite restritos a tests/.runtime.
+        with temporary_test_directory() as tmp:
+            media_dir = tmp / "midias"
+            media_dir.mkdir()
+            (media_dir / "foto.jpg").write_bytes(b"a")
+            db = tmp / "data" / "catalogo.sqlite3"
+            first = store_inventory(inventory(media_dir), db)
+            (media_dir / "audio.mp3").write_bytes(b"bc")
+            second = store_inventory(inventory(media_dir), db)
+
+            all_files = query_catalog(db)
+            images = query_catalog(db, "imagem")
+            audios = query_catalog(db, "audio")
+
+            self.assertNotEqual(first["scan_id"], second["scan_id"])
+            self.assertEqual(all_files["scan_id"], second["scan_id"])
+            self.assertEqual(all_files["count"], 2)
+            self.assertEqual(images["count"], 1)
+            self.assertEqual(images["files"][0]["relative_path"], "foto.jpg")
+            self.assertEqual(audios["files"][0]["relative_path"], "audio.mp3")
+
+    def test_query_missing_database_does_not_create_it(self):
+        with temporary_test_directory() as tmp:
+            db = tmp / "ausente.sqlite3"
+            with self.assertRaises(ValueError):
+                query_catalog(db)
             self.assertFalse(db.exists())
 
 
