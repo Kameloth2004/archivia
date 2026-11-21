@@ -13,10 +13,12 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
+    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView,
 )
 
 from .agent import ask_agent
-from .catalog import DEFAULT_DB, catalog_summary
+from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page
+from .inventory import inventory
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
 
@@ -27,12 +29,15 @@ class QueryWorker(QThread):
     finished_result = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, mode: str, database: Path, question: str = "", model: str = "") -> None:
+    def __init__(self, mode: str, database: Path, question: str = "", model: str = "",
+                 page: int = 1, category: str | None = None) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
         self.question = question
         self.model = model
+        self.page = page
+        self.category = category
 
     def run(self) -> None:
         try:
@@ -40,6 +45,10 @@ class QueryWorker(QThread):
                 result = catalog_summary(self.database)
             elif self.mode == "agent":
                 result = ask_agent(self.question, self.model, self.database)
+            elif self.mode == "catalog_page":
+                result = query_catalog_page(self.database, self.category, page=self.page)
+            elif self.mode == "inventory_preview":
+                result = inventory(self.question)
             else:
                 raise ValueError("Ação não autorizada na interface.")
             self.finished_result.emit(result)
@@ -54,8 +63,10 @@ class ArchivIAWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self._worker: QueryWorker | None = None
+        self._page = 1
+        self._pages = 0
         self.setWindowTitle("ArchivIA Standard — Prévia")
-        self.resize(860, 660)
+        self.resize(940, 900)
 
         content = QWidget(self)
         root = QVBoxLayout(content)
@@ -87,6 +98,66 @@ class ArchivIAWindow(QMainWindow):
         )
         database_layout.addWidget(self.summary_view)
         root.addWidget(database_box)
+
+        # Inventário independente do catálogo: nunca grava resultados no SQLite.
+        folder_box = QGroupBox("Examinar pasta (somente leitura)")
+        folder_layout = QVBoxLayout(folder_box)
+        folder_row = QHBoxLayout()
+        self.folder = QLineEdit()
+        self.folder.setPlaceholderText("Escolha uma pasta para examinar, sem catalogar")
+        folder_row.addWidget(self.folder)
+        self.folder_button = QPushButton("Escolher pasta...")
+        self.folder_button.clicked.connect(self._choose_folder)
+        folder_row.addWidget(self.folder_button)
+        folder_layout.addLayout(folder_row)
+        self.inventory_button = QPushButton("Examinar pasta — prévia")
+        self.inventory_button.clicked.connect(self._run_inventory_preview)
+        folder_layout.addWidget(self.inventory_button)
+        self.inventory_view = QLabel("Nenhuma pasta examinada nesta sessão.")
+        self.inventory_view.setWordWrap(True)
+        folder_layout.addWidget(self.inventory_view)
+        root.addWidget(folder_box)
+
+        catalog_box = QGroupBox("Biblioteca catalogada — somente leitura")
+        catalog_layout = QVBoxLayout(catalog_box)
+        catalog_toolbar = QHBoxLayout()
+        catalog_toolbar.addWidget(QLabel("Categoria:"))
+        self.category_filter = QComboBox()
+        self.category_filter.addItem("Todas", None)
+        self.category_filter.addItem("Imagens", "imagem")
+        self.category_filter.addItem("Vídeos", "video")
+        self.category_filter.addItem("Áudios", "audio")
+        self.category_filter.currentIndexChanged.connect(self._reset_catalog_page)
+        catalog_toolbar.addWidget(self.category_filter)
+        self.list_button = QPushButton("Listar catálogo")
+        self.list_button.clicked.connect(self._reset_catalog_page)
+        catalog_toolbar.addWidget(self.list_button)
+        catalog_layout.addLayout(catalog_toolbar)
+
+        self.catalog_table = QTableWidget(0, 4)
+        self.catalog_table.setHorizontalHeaderLabels(
+            ["Arquivo (caminho relativo)", "Categoria", "Extensão", "Bytes"]
+        )
+        self.catalog_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.catalog_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.catalog_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self.catalog_table.setMinimumHeight(155)
+        catalog_layout.addWidget(self.catalog_table)
+        pagination_row = QHBoxLayout()
+        self.prev_button = QPushButton("Anterior")
+        self.prev_button.clicked.connect(self._previous_page)
+        pagination_row.addWidget(self.prev_button)
+        self.page_label = QLabel("Página —")
+        pagination_row.addWidget(self.page_label)
+        self.next_button = QPushButton("Próxima")
+        self.next_button.clicked.connect(self._next_page)
+        pagination_row.addWidget(self.next_button)
+        catalog_layout.addLayout(pagination_row)
+        self.prev_button.setEnabled(False)
+        self.next_button.setEnabled(False)
+        root.addWidget(catalog_box)
 
         agent_box = QGroupBox("Agente Ollama local")
         agent_layout = QVBoxLayout(agent_box)
@@ -124,6 +195,48 @@ class ArchivIAWindow(QMainWindow):
             raise ValueError("Informe um caminho de catálogo SQLite.")
         return Path(value)
 
+    def _choose_folder(self) -> None:
+        chosen = QFileDialog.getExistingDirectory(
+            self, "Selecionar pasta para examinar", self.folder.text().strip() or str(Path.home())
+        )
+        if chosen:
+            self.folder.setText(chosen)
+
+    def _run_inventory_preview(self) -> None:
+        path = self.folder.text().strip()
+        if not path:
+            self._show_error("Selecione uma pasta antes de examinar.")
+            return
+        # O resultado completo do inventário fica apenas na thread e não é salvo.
+        self._start_worker("inventory_preview", Path(), question=path)
+
+    def _reset_catalog_page(self, *_args) -> None:
+        self._page = 1
+        self._load_catalog_page()
+
+    def _load_catalog_page(self) -> None:
+        if self._worker is not None:
+            return
+        try:
+            database = self._database_path()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._start_worker(
+            "catalog_page", database, page=self._page,
+            category=self.category_filter.currentData()
+        )
+
+    def _previous_page(self) -> None:
+        if self._page > 1:
+            self._page -= 1
+            self._load_catalog_page()
+
+    def _next_page(self) -> None:
+        if self._page < self._pages:
+            self._page += 1
+            self._load_catalog_page()
+
     def _run_summary(self) -> None:
         try:
             database = self._database_path()
@@ -146,13 +259,14 @@ class ArchivIAWindow(QMainWindow):
         self._start_worker("agent", database, question, model)
 
     def _start_worker(
-        self, mode: str, database: Path, question: str = "", model: str = ""
+        self, mode: str, database: Path, question: str = "", model: str = "",
+        page: int = 1, category: str | None = None
     ) -> None:
         if self._worker is not None:
             return
         self._set_busy(True)
-        self.status.setText("Consultando catálogo..." if mode == "summary" else "Aguardando Ollama...")
-        worker = QueryWorker(mode, database, question, model)
+        self.status.setText("Aguardando Ollama..." if mode == "agent" else "Processando consulta local...")
+        worker = QueryWorker(mode, database, question, model, page, category)
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
         worker.failed.connect(self._show_error)
@@ -165,6 +279,13 @@ class ArchivIAWindow(QMainWindow):
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
         self.question.setEnabled(not busy)
+        self.folder.setEnabled(not busy)
+        self.folder_button.setEnabled(not busy)
+        self.inventory_button.setEnabled(not busy)
+        self.category_filter.setEnabled(not busy)
+        self.list_button.setEnabled(not busy)
+        self.prev_button.setEnabled(not busy and self._page > 1)
+        self.next_button.setEnabled(not busy and self._page < self._pages)
 
     def _show_result(self, mode: str, result: dict) -> None:
         if mode == "summary":
@@ -180,6 +301,33 @@ class ArchivIAWindow(QMainWindow):
                     f"| Espaço: {result['bytes_media']:,} bytes"
                 )
             self.status.setText("Resumo consultado. Banco não alterado.")
+        elif mode == "inventory_preview":
+            info = result["summary"]
+            self.inventory_view.setText(
+                f"Pasta: {result['root']} | Mídias: {info['media_files']} "
+                f"| Imagens: {info['by_category'].get('imagem', 0)} "
+                f"| Vídeos: {info['by_category'].get('video', 0)} "
+                f"| Áudios: {info['by_category'].get('audio', 0)} "
+                f"| Erros: {len(result['errors'])}"
+            )
+            self.status.setText(
+                "Prévia concluída. Nenhum dado gravado no catálogo; arquivos preservados."
+            )
+        elif mode == "catalog_page":
+            self._page = result["page"]
+            self._pages = result["pages"]
+            items = result["files"]
+            self.catalog_table.setRowCount(len(items))
+            for row_index, item in enumerate(items):
+                for column, value in enumerate((
+                    item["relative_path"], item["category"],
+                    item["extension"], str(item["size_bytes"])
+                )):
+                    self.catalog_table.setItem(row_index, column, QTableWidgetItem(value))
+            self.page_label.setText(
+                f"Página {self._page} de {self._pages or 0} — {result['count']} arquivos"
+            )
+            self.status.setText("Lista do último inventário carregada, sem escrita no SQLite.")
         else:
             answer = result.get("answer") or "(Resposta textual vazia)"
             tools = result.get("tools_used", [])
