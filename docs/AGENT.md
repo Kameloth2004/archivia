@@ -11,7 +11,7 @@ Receber instruções em linguagem natural, selecionar ferramentas autorizadas e 
 ## Ferramentas autorizadas
 1. `resumo_catalogo({})`: consulta estatísticas do último snapshot SQLite.
 2. `simular_movimentacao({categoria, destino, limite?})`: gera prévia não executável para categoria `imagem|video|audio` e destino existente.
-3. `buscar_arquivos_catalogo({nome?, extensao?, categoria?, pagina?, limite?, scan_id?})`: busca por trecho literal do caminho e extensão exata, com categoria opcional e snapshot específico. Abre SQLite somente leitura e retorna uma página de no máximo 20 registros; padrão 10. `pagina` no máximo 100 por chamada.
+3. `buscar_arquivos_catalogo({nome?, extensao?, categoria?, pagina?, limite?, scan_id?, escopo?, data_inicial?, data_final?, ordenacao?})`: busca por trecho literal do caminho e extensão exata, com categoria opcional e snapshot específico. Abre SQLite somente leitura e retorna uma página de no máximo 20 registros; padrão 10. `pagina` no máximo 100 por chamada.
 
 ## Fluxo
 1. O usuário envia uma pergunta e o nome exato de um modelo instalado localmente.
@@ -53,6 +53,12 @@ python -m archivia agente "Quantas imagens há no meu catálogo?" --modelo "qwen
 ```
 
 O nome acima é apenas exemplo baseado no ambiente conhecido; confirmar com `ollama list`.
+
+## Nome do arquivo e data de modificação
+
+A ferramenta de busca também aceita `escopo=nome|caminho`: nome considera apenas o nome-base do arquivo; caminho inclui diretórios. `data_inicial` e `data_final` aceitam `AAAA-MM-DD` e filtram pela data de modificação UTC armazenada no SQLite, inclusive nos limites. `ordenacao=nome|recentes|antigos` define a ordem dos resultados, sem alterar arquivos. Valores fora do contrato são rejeitados independentemente do modelo. O uso dessas opções com Qwen3 real ainda precisa de validação.
+
+A palavra *organizar* é ambígua: **ordenar por data na busca é seguro**, mas mover arquivos para novas pastas por data não está disponível. Nunca declarar movimentação executada.
 
 ## Precisão dos filtros da busca
 
