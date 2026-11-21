@@ -42,6 +42,16 @@ Para executar os testes:
 python -m unittest discover -s tests -v
 ```
 
+## Resumo compacto do catálogo
+
+O comando padrão para obter totais sem listar todas as mídias:
+
+```bash
+python -m archivia resumo
+```
+
+Usa consulta agregada no SQLite em modo somente leitura, recuperando somente o último snapshot. Exibe contagens por categoria, bytes e data da última catalogação. Não produz arquivo JSON no disco nem varre mídias. O resultado no terminal ainda é JSON pequeno, para permitir integração futura com interface gráfica.
+
 ## Consultar o catálogo
 
 Depois de catalogar, consulte o último snapshot com um comando exclusivo de leitura:
