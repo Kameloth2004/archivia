@@ -1,16 +1,17 @@
 """Testes de inventário sem arquivos pessoais."""
 
-import tempfile
 import unittest
 from pathlib import Path
+
+from support import temporary_test_directory
 
 from archivia.inventory import inventory
 
 
 class InventoryTests(unittest.TestCase):
     def test_inventory_only_reads_and_classifies_extensions(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+        with temporary_test_directory() as tmp:
+            root = tmp
             sub = root / "fotos"
             sub.mkdir()
             image = sub / "imagem.JPG"
@@ -29,13 +30,13 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(image.read_bytes(), before)
 
     def test_nonexistent_directory_is_rejected(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temporary_test_directory() as tmp:
             with self.assertRaises(ValueError):
-                inventory(Path(tmp) / "inexistente")
+                inventory(tmp / "inexistente")
 
     def test_symlink_not_followed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+        with temporary_test_directory() as tmp:
+            root = tmp
             target = root / "foto.png"
             target.write_bytes(b"a")
             link = root / "link.png"
