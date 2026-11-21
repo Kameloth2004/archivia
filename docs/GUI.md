@@ -20,6 +20,19 @@ archivia-gui
 
 PySide6 é **dependência opcional**: a instalação base `python -m pip install -e .` não baixa Qt. Os comandos `python -m archivia ...` seguem disponíveis sem PySide6.
 
+## Segunda etapa visual — navegação e biblioteca
+
+Implementado em código, **ainda pendente de homologação no Windows**:
+
+- **Escolher pasta...** usa o seletor nativo do sistema operacional.
+- **Examinar pasta — prévia** executa inventário de metadados somente leitura; **não cria snapshot SQLite** e não mostra os arquivos individuais da pasta escolhida.
+- **Biblioteca catalogada** mostra a última catalogação SQLite em uma tabela com nome relativo, categoria, extensão e tamanho; filtro por categoria e botões Anterior/Próxima.
+- A listagem utiliza `query_catalog_page()` no motor, com `LIMIT/OFFSET` SQL e 50 arquivos por página, evitando carregar a biblioteca completa na interface.
+- A pasta escolhida para **Examinar** não substitui a origem do último catálogo; inventário e catálogo são ações separadas.
+- Não há botão de catalogação nem alteração de mídias nesta etapa.
+
+**Teste sugerido no Windows:** abrir `archivia-gui`, clicar em **Listar catálogo** e conferir uma linha `foto_teste.jpg`; depois escolher `tests/fixtures/manual` pelo seletor e clicar em **Examinar pasta — prévia**. Como ainda não houve execução local desta revisão, reportar erros antes de continuar.
+
 ## Interface incluída nesta etapa
 
 - Campo com caminho do SQLite; padrão `D:/PROJETOS/archivia/data/catalogo.sqlite3` no ambiente conhecido.
@@ -35,7 +48,7 @@ Observação de UX: o Qwen3 pode sugerir que o usuário aprove uma movimentaçã
 ## Limites explícitos
 
 - Não há operação de movimentação, renomeação ou exclusão. Pedidos para organizar somente geram **simulação** pelo agente.
-- Ainda não existe seletor visual de pastas, inventário acionado pela janela, visualizador de miniaturas, análise de imagem, detecção de duplicatas ou organização real.
+- Já existe seletor de pastas e **prévia** do inventário, mas ainda não há botão para catalogar a pasta escolhida, miniaturas, análise visual, detecção de duplicatas ou organização real.
 - O botão de resumo usa sempre o **último snapshot global** do banco, não a soma consolidada de múltiplas origens.
 - A conversa não mantém histórico entre perguntas; uma pergunta gera uma solicitação independente.
 - A interface não autentica nem gerencia instâncias Ollama; pressupõe serviço local disponível em `127.0.0.1:11434`.
