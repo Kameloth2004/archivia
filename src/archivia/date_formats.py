@@ -10,6 +10,29 @@ DATE_FORMATS = {
 }
 
 
+DATE_INPUT_MASKS = {
+    "br": "00/00/0000;_",
+    "iso": "0000-00-00;_",
+    "us": "00/00/0000;_",
+}
+
+
+def date_input_mask(format_key: str) -> str:
+    """Máscara Qt para inserir separadores automaticamente na digitação."""
+    if format_key not in DATE_INPUT_MASKS:
+        raise ValueError("Formato de data desconhecido.")
+    return DATE_INPUT_MASKS[format_key]
+
+
+def is_empty_date_field(value: str) -> bool:
+    """Aceita campo vazio que o QLineEdit com máscara devolve como // ou --."""
+    if not isinstance(value, str):
+        raise ValueError("A data deve ser texto.")
+    return not any(character.isdigit() for character in value) and all(
+        character in "/-_ " for character in value
+    )
+
+
 def parse_user_date(value: str, format_key: str = "br") -> str:
     """Converte data digitada para AAAA-MM-DD; vazio desativa filtro."""
     if format_key not in DATE_FORMATS:
@@ -17,7 +40,7 @@ def parse_user_date(value: str, format_key: str = "br") -> str:
     if not isinstance(value, str):
         raise ValueError("A data deve ser texto.")
     raw = value.strip()
-    if not raw:
+    if is_empty_date_field(raw):
         return ""
     try:
         parsed = datetime.strptime(raw, DATE_FORMATS[format_key][0]).date()
