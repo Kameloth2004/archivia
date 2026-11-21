@@ -92,6 +92,19 @@ Observação de UX: o Qwen3 pode sugerir que o usuário aprove uma movimentaçã
 
 O usuário aprovou a abertura da GUI como marco técnico, **mas pediu explicitamente uma reformulação visual posterior**. A janela atual é apenas bancada funcional de homologação. Planejar interface mais bonita, moderna e intuitiva, com navegação clara, organização de painéis, seleção visual de diretórios, estados de carregamento, mensagens compreensíveis, miniaturas e prévia de operações. Não priorizar polimento visual antes da validação do motor e do fluxo agente-ferramentas; não esquecer esta exigência ao avançar o produto.
 
+## Nova etapa: salvar prévia no catálogo SQLite (aguardando validação)
+
+- Botão **Salvar inventário no catálogo SQLite...**, inicialmente desabilitado; habilita somente após varredura concluída sem erros.
+- Ao clicar, mostra janela de confirmação explícita com origem, total de arquivos e caminho do banco.
+- Se confirmar, o worker reexamina a pasta e compara lista completa, categoria, tamanho, mtime e resumo da nova leitura com a prévia. **Se algo mudou, recusa gravar**.
+- Se forem idênticos, cria **novo snapshot** no banco SQLite por `store_inventory()`; arquivos originais permanecem intocados.
+- Não permite gravar duas vezes sem nova prévia; mudança de pasta invalida a prévia.
+- A interface limpa a tabela do catálogo anterior após salvar e pede nova consulta, para não misturar snapshots.
+- O botão não é uma autorização de movimentação; **somente o SQLite pode ser escrito**. Não existe executor.
+- Limite técnico: comparação e inventário em RAM e verificação não atômica em relação a alterações simultâneas. Ainda não é inventário transacional do sistema de arquivos.
+- **Não testar inicialmente em `D:/IW8 CONSTRUMAQ`**: primeiro validar com `D:/PROJETOS/archivia/tests/fixtures/manual` e banco `data/catalogo.sqlite3`. A operação pode gravar um novo snapshot no banco de desenvolvimento, sem excluir o antigo.
+- Testes automatizados em `tests/test_cataloging.py`, sem dependência de Qt nem dados pessoais.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
