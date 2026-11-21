@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 from .agent import ask_agent
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary
 from .cataloging import catalog_verified_preview
-from .date_formats import DATE_FORMATS, parse_user_date, display_date, display_timestamp
+from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .inventory import inventory
 from .preview import preview_inventory_page
 
@@ -303,12 +303,14 @@ class ArchivIAWindow(QMainWindow):
         date_row = QHBoxLayout()
         date_row.addWidget(QLabel("Modificado de:"))
         self.catalog_date_from = QLineEdit()
+        self.catalog_date_from.setInputMask(date_input_mask(self._date_format))
         self.catalog_date_from.setPlaceholderText(DATE_FORMATS[self._date_format][1])
         self.catalog_date_from.setMaximumWidth(112)
         self.catalog_date_from.returnPressed.connect(self._reset_catalog_page)
         date_row.addWidget(self.catalog_date_from)
         date_row.addWidget(QLabel("até:"))
         self.catalog_date_to = QLineEdit()
+        self.catalog_date_to.setInputMask(date_input_mask(self._date_format))
         self.catalog_date_to.setPlaceholderText(DATE_FORMATS[self._date_format][1])
         self.catalog_date_to.setMaximumWidth(112)
         self.catalog_date_to.returnPressed.connect(self._reset_catalog_page)
@@ -410,28 +412,27 @@ class ArchivIAWindow(QMainWindow):
         if next_format == self._date_format:
             return
         previous_format = self._date_format
-        # Se o campo contém data válida, preserve a data ao trocar a notação.
-        # Se inválida, mantenha o texto para o usuário corrigir.
+        # Capture as datas ANTES de alterar as máscaras; elas ficam em ISO internamente.
+        saved = []
+        invalid_date_cleared = False
         for widget in (self.catalog_date_from, self.catalog_date_to):
-            raw = widget.text().strip()
-            if raw:
-                try:
-                    iso = parse_user_date(raw, previous_format)
-                    widget.setText(display_date(iso, next_format))
-                except ValueError:
-                    widget.clear()
-                    self.status.setText(
-                        "Uma data inválida foi limpa após alterar o formato."
-                    )
+            try:
+                saved.append(parse_user_date(widget.text(), previous_format))
+            except ValueError:
+                saved.append("")
+                invalid_date_cleared = True
         self._date_format = next_format
+        for widget, iso in zip(
+            (self.catalog_date_from, self.catalog_date_to), saved
+        ):
+            widget.clear()
+            widget.setInputMask(date_input_mask(next_format))
+            if iso:
+                widget.setText(display_date(iso, next_format))
         self._settings.setValue("interface/date_format", next_format)
         self._settings.sync()
         self._refresh_date_placeholders()
-        self.catalog_table.setHorizontalHeaderLabels(
-            ["Arquivo (caminho relativo)", "Categoria", "Extensão", "Bytes",
-             "Modificado (UTC)"]
-        )
-        # Atualiza datas exibidas sem fazer outra consulta ou modificar snapshots.
+        # Reexibe as datas já apresentadas, sem reler SQLite ou alterar arquivos.
         for row in range(self.catalog_table.rowCount()):
             cell = self.catalog_table.item(row, 4)
             if cell is not None and cell.text():
@@ -442,10 +443,13 @@ class ArchivIAWindow(QMainWindow):
                     cell.setText(display_timestamp(iso, next_format))
                 except ValueError:
                     pass
-        self.status.setText(
-            f"Formato de data salvo: {DATE_FORMATS[next_format][1]}. "
-            "Catálogo SQLite não alterado."
+        message = (
+            f"Formato salvo: {DATE_FORMATS[next_format][1]}. "
+            "Separadores inseridos automaticamente. SQLite não alterado."
         )
+        if invalid_date_cleared:
+            message += " Um campo de data incompleto foi limpo."
+        self.status.setText(message)
 
     def _database_path(self) -> Path:
         value = self.database.text().strip()
