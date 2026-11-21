@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from .agent import ask_agent
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page
 from .inventory import inventory
+from .preview import preview_inventory_page
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
 
@@ -65,8 +66,11 @@ class ArchivIAWindow(QMainWindow):
         self._worker: QueryWorker | None = None
         self._page = 1
         self._pages = 0
+        self._preview_result: dict | None = None
+        self._preview_page = 1
+        self._preview_pages = 0
         self.setWindowTitle("ArchivIA Standard — Prévia")
-        self.resize(940, 900)
+        self.resize(960, 1020)
 
         content = QWidget(self)
         root = QVBoxLayout(content)
@@ -116,6 +120,43 @@ class ArchivIAWindow(QMainWindow):
         self.inventory_view = QLabel("Nenhuma pasta examinada nesta sessão.")
         self.inventory_view.setWordWrap(True)
         folder_layout.addWidget(self.inventory_view)
+
+        preview_toolbar = QHBoxLayout()
+        preview_toolbar.addWidget(QLabel("Filtrar prévia:"))
+        self.preview_filter = QComboBox()
+        self.preview_filter.addItem("Todas", None)
+        self.preview_filter.addItem("Imagens", "imagem")
+        self.preview_filter.addItem("Vídeos", "video")
+        self.preview_filter.addItem("Áudios", "audio")
+        self.preview_filter.currentIndexChanged.connect(self._reset_preview_page)
+        preview_toolbar.addWidget(self.preview_filter)
+        self.preview_label = QLabel("Examine uma pasta para listar os arquivos.")
+        preview_toolbar.addWidget(self.preview_label, 1)
+        folder_layout.addLayout(preview_toolbar)
+
+        self.preview_table = QTableWidget(0, 4)
+        self.preview_table.setHorizontalHeaderLabels(
+            ["Arquivo encontrado (caminho relativo)", "Categoria", "Extensão", "Bytes"]
+        )
+        self.preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.preview_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.preview_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self.preview_table.setMinimumHeight(150)
+        folder_layout.addWidget(self.preview_table)
+        preview_pagination = QHBoxLayout()
+        self.preview_prev = QPushButton("Anterior — prévia")
+        self.preview_prev.clicked.connect(self._previous_preview_page)
+        preview_pagination.addWidget(self.preview_prev)
+        self.preview_page_label = QLabel("Página —")
+        preview_pagination.addWidget(self.preview_page_label)
+        self.preview_next = QPushButton("Próxima — prévia")
+        self.preview_next.clicked.connect(self._next_preview_page)
+        preview_pagination.addWidget(self.preview_next)
+        folder_layout.addLayout(preview_pagination)
+        self.preview_prev.setEnabled(False)
+        self.preview_next.setEnabled(False)
         root.addWidget(folder_box)
 
         catalog_box = QGroupBox("Biblioteca catalogada — somente leitura")
@@ -201,14 +242,64 @@ class ArchivIAWindow(QMainWindow):
         )
         if chosen:
             self.folder.setText(chosen)
+            self._clear_preview()
 
     def _run_inventory_preview(self) -> None:
         path = self.folder.text().strip()
         if not path:
             self._show_error("Selecione uma pasta antes de examinar.")
             return
-        # O resultado completo do inventário fica apenas na thread e não é salvo.
+        # Um inventário novo substitui a prévia anterior; somente RAM, nunca SQLite.
+        self._clear_preview()
         self._start_worker("inventory_preview", Path(), question=path)
+
+    def _clear_preview(self) -> None:
+        self._preview_result = None
+        self._preview_page = 1
+        self._preview_pages = 0
+        self.preview_table.setRowCount(0)
+        self.preview_page_label.setText("Página —")
+        self.preview_label.setText("Examine uma pasta para listar os arquivos.")
+        self.preview_prev.setEnabled(False)
+        self.preview_next.setEnabled(False)
+
+    def _reset_preview_page(self, *_args) -> None:
+        self._preview_page = 1
+        self._show_preview_page()
+
+    def _previous_preview_page(self) -> None:
+        if self._preview_page > 1:
+            self._preview_page -= 1
+            self._show_preview_page()
+
+    def _next_preview_page(self) -> None:
+        if self._preview_page < self._preview_pages:
+            self._preview_page += 1
+            self._show_preview_page()
+
+    def _show_preview_page(self) -> None:
+        if self._preview_result is None:
+            return
+        page = preview_inventory_page(
+            self._preview_result,
+            category=self.preview_filter.currentData(),
+            page=self._preview_page,
+        )
+        self._preview_pages = page["pages"]
+        self.preview_table.setRowCount(len(page["files"]))
+        for row_index, item in enumerate(page["files"]):
+            for column, value in enumerate((
+                item["path"], item["category"], item["extension"], str(item["size_bytes"])
+            )):
+                self.preview_table.setItem(row_index, column, QTableWidgetItem(value))
+        self.preview_page_label.setText(
+            f"Página {self._preview_page} de {self._preview_pages or 0}"
+        )
+        self.preview_label.setText(f"{page['count']} arquivos na categoria selecionada")
+        self.preview_prev.setEnabled(self._worker is None and self._preview_page > 1)
+        self.preview_next.setEnabled(
+            self._worker is None and self._preview_page < self._preview_pages
+        )
 
     def _reset_catalog_page(self, *_args) -> None:
         self._page = 1
@@ -282,6 +373,9 @@ class ArchivIAWindow(QMainWindow):
         self.folder.setEnabled(not busy)
         self.folder_button.setEnabled(not busy)
         self.inventory_button.setEnabled(not busy)
+        self.preview_filter.setEnabled(not busy)
+        self.preview_prev.setEnabled(not busy and self._preview_page > 1)
+        self.preview_next.setEnabled(not busy and self._preview_page < self._preview_pages)
         self.category_filter.setEnabled(not busy)
         self.list_button.setEnabled(not busy)
         self.prev_button.setEnabled(not busy and self._page > 1)
@@ -302,6 +396,9 @@ class ArchivIAWindow(QMainWindow):
                 )
             self.status.setText("Resumo consultado. Banco não alterado.")
         elif mode == "inventory_preview":
+            self._preview_result = result
+            self._preview_page = 1
+            self._show_preview_page()
             info = result["summary"]
             self.inventory_view.setText(
                 f"Pasta: {result['root']} | Mídias: {info['media_files']} "
@@ -313,6 +410,9 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText(
                 "Prévia concluída. Nenhum dado gravado no catálogo; arquivos preservados."
             )
+            # Um erro antigo de outra seção não deve permanecer após esta prévia bem-sucedida.
+            if self.result_view.toPlainText().startswith("Erro:"):
+                self.result_view.clear()
         elif mode == "catalog_page":
             self._page = result["page"]
             self._pages = result["pages"]
