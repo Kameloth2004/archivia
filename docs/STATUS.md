@@ -91,9 +91,17 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Ajustada **somente a expectativa do teste**: `outro` retorna lista vazia em pasta de teste sem arquivos desconhecidos; `categoria_inexistente` deve gerar `ValueError`.
 - Nenhuma mudança em regras de negócio, arquivos de mídia ou banco real. Correção publicada; **aguarda reexecução da suíte no Windows**.
 
+## Busca no catálogo SQLite — implementação para homologação
+
+- Busca por termo no caminho relativo (`name_contains`), extensão exata (`extension`) e categoria já existente, combináveis e com respeito ao snapshot selecionado.
+- `query_catalog_page()` segue usando `LIMIT/OFFSET` e abrindo SQLite em `mode=ro`. Usa parâmetros SQL e trata `%` e `_` como caracteres literais na busca.
+- GUI: campos **Nome/caminho**, **Extensão**, botão **Limpar busca**; Enter ou **Listar catálogo** executa a pesquisa. Paginação retorna somente 50 linhas.
+- Dois testes sintéticos adicionais; **a atualização ainda precisa ser validada no Windows**.
+- Ollama ainda não recebeu nova ferramenta de busca nesta etapa; primeiro validar o motor e a GUI.
+
 ## Próximo passo seguro
 
-**Validação concluída:** 34 testes executados, `OK (skipped=1)` em 2026-11-21. Próxima evolução proposta: busca por nome/extensão no catálogo paginado, preservando consultas somente leitura e o snapshot selecionado.
+**Validação anterior concluída:** 34 testes executados, `OK (skipped=1)` em 2026-11-21. **Próximo teste:** atualizar, rodar 36 testes e pesquisar `backup` ou `ventilador` pelo nome na biblioteca do snapshot #2, combinando com extensão `pdf` quando desejado. Nenhum disco é reexaminado.
 
 ## Limitações e evolução
 
