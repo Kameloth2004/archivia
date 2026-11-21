@@ -1,5 +1,6 @@
 """Testes SQLite em diretórios temporários, sem acessar mídias pessoais."""
 
+from contextlib import closing
 import sqlite3
 import unittest
 from pathlib import Path
@@ -24,7 +25,7 @@ class CatalogTests(unittest.TestCase):
             first = store_inventory(inventory(media_dir), database)
             second = store_inventory(inventory(media_dir), database)
 
-            with sqlite3.connect(database) as conn:
+            with closing(sqlite3.connect(database)) as conn:
                 scans = conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0]
                 rows = conn.execute(
                     "SELECT relative_path, category, size_bytes FROM media WHERE scan_id=?",
