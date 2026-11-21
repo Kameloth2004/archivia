@@ -7,7 +7,7 @@ import json
 import sys
 
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog, store_inventory
-from .inventory import inventory
+from .inventory import CATEGORIES, inventory
 from .planner import propose_moves
 from .agent import ask_agent
 
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Caminho do SQLite (padrão: data/catalogo.sqlite3 na raiz do projeto)",
     )
     search = commands.add_parser("consultar", help="Consultar o último inventário salvo, sem alterar o banco")
-    search.add_argument("--categoria", choices=("imagem", "video", "audio"), help="Filtrar categoria")
+    search.add_argument("--categoria", choices=CATEGORIES, help="Filtrar categoria")
     search.add_argument("--banco", default=str(DEFAULT_DB), help="Caminho do SQLite")
 
     summary = commands.add_parser("resumo", help="Mostrar totais do último inventário salvo")
