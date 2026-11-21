@@ -140,7 +140,7 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - SQL `query_catalog_page()`: novo `search_scope=filename|path`, intervalo inclusivo `date_from/date_to` em AAAA-MM-DD UTC e `sort_by=name|newest|oldest`; mantém paginação, categoria, extensão, snapshot e somente leitura.
 - GUI Biblioteca: seletor Caminho completo/Somente nome; datas inicial/final; ordenação Nome/Mais recentes/Mais antigos; coluna **Modificado (UTC)**.
 - Ollama `buscar_arquivos_catalogo`: `escopo=nome|caminho`, `data_inicial`, `data_final`, `ordenacao=nome|recentes|antigos`, com validação no dispatcher.
-- Acrescentados 3 testes SQL e 2 testes de agente para nomes de pasta, intervalos, ordenação e valores inválidos. **Ainda não homologado no Windows.**
+- Acrescentados 3 testes SQL e 2 testes de agente para nomes de pasta, intervalos, ordenação e valores inválidos. **Suíte homologada no Windows pelo usuário: `Ran 44 tests in 0.631s`, `OK (skipped=1)`**. A interface ainda precisa de validação visual.
 - Atenção: a data é `modified_utc` do sistema de arquivos no momento do inventário, não data de captura EXIF, criação ou data do snapshot.
 - **Organizar fisicamente em pastas por ano/mês é futuro**: exige planejador, simulação e autorização explícita. Esta etapa só organiza os resultados na tela, não toca em arquivos.
 
