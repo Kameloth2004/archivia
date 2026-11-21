@@ -16,7 +16,7 @@ Atualizado em 2026-11-21.
 3. Consultas e resumo do último snapshot, sem revarrer mídias.
 4. Planejador de movimentos **exclusivamente em simulação**, sem executor.
 5. Adaptador local Ollama com allowlist de ferramentas: `resumo_catalogo` e `simular_movimentacao`.
-6. Interface gráfica PySide6 inicial criada em src/archivia/gui.py; ainda não testada no Windows.
+6. Interface gráfica PySide6 inicial criada em `src/archivia/gui.py`; instalação opcional concluída e janela aberta no Windows em 2026-11-21.
 7. Testes em `tests/`; dados temporários em `tests/.runtime/`; mocks identificados como `MOCK-ONLY`.
 
 ## Validação confirmada pelo usuário
@@ -29,11 +29,11 @@ Atualizado em 2026-11-21.
 
 ## GUI Standard
 
-Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. Documentação: [GUI.md](GUI.md). Aguardar validação local.
+Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. **Usuário confirmou que dependências instalaram e a janela abriu normalmente em 2026-11-21**, com captura de tela. Ainda faltam testes funcionais dos botões (resumo e agente). A interface atual é explicitamente provisória: redesenhar futuramente para aparência moderna, melhor hierarquia visual, navegação intuitiva e fluxos claros. Ver [GUI.md](GUI.md).
 
 ## Próximo passo seguro
 
-Priorizar a **edição Standard** no Windows do desenvolvedor: consolidar catálogo/contratos e iniciar a primeira interface gráfica PySide6. Preservar o motor independente de GPU/Ollama para permitir duas edições Lite depois. Não executar movimentações reais nesta etapa.
+**Próxima validação, uma por vez:** com a GUI aberta, clicar em `Atualizar resumo` e confirmar o catálogo com 1 imagem; depois testar `Perguntar ao agente`. Não executar movimentações reais. Preservar motor independente da GUI/Ollama para as futuras edições Lite.
 
 ## Limitações e evolução
 
