@@ -109,9 +109,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Ainda não executado com Qwen3 real nesta etapa**; validar testes e uma pergunta natural no painel.
 - Contrato atualizado em [AGENT.md](AGENT.md).
 
+## Interface em abas — correção aguardando homologação
+
+- Captura do usuário confirmou problema de altura: agente Ollama inacessível pela janela única extensa.
+- GUI reorganizada em **Visão geral, Inventário, Biblioteca e Agente IA** usando PySide6 QTabWidget.
+- Janela inicial reduzida para 960×760 (mínimo 760×540), status mantido fora das abas.
+- Nenhuma mudança no motor SQLite, função de busca do agente, catálogo ou autorização de movimentação.
+- Próximo teste visual: abrir GUI e selecionar aba **Agente IA**; campo de pergunta e resposta devem permanecer acessíveis.
+- Redesign moderno e intuitivo continua como etapa posterior, agora sobre estrutura modular.
+
 ## Próximo passo seguro
 
-**Validação de busca GUI:** aprovada pelo usuário com `backup` no snapshot #2, Bash sem erros reportados. **Próximo teste:** atualizar, rodar a suíte e testar na GUI uma pergunta ao Qwen3 pedindo arquivos com `backup` no caminho. Conferir `tools_used` e os resultados limitados, sem movimentação.
+**Validação de busca GUI:** aprovada pelo usuário com `backup` no snapshot #2, Bash sem erros reportados. **Próximo teste:** atualizar, rodar a suíte e confirmar as quatro abas; somente após isso testar na aba Agente IA uma pergunta ao Qwen3 pedindo arquivos com `backup` no caminho. Conferir `tools_used` e os resultados limitados, sem movimentação.
 
 ## Limitações e evolução
 
