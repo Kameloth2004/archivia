@@ -178,6 +178,10 @@ def query_catalog_page(
     scan_id: int | None = None,
     name_contains: str | None = None,
     extension: str | None = None,
+    search_scope: str = "path",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    sort_by: str = "name",
 ) -> dict[str, Any]:
     """Lista página limitada, opcionalmente filtrada, em SQLite somente leitura.
 
@@ -185,6 +189,26 @@ def query_catalog_page(
     """
     if category is not None and category not in CATEGORIES:
         raise ValueError("Categoria inválida: use imagem, video ou audio.")
+    if search_scope not in ("path", "filename"):
+        raise ValueError("Escopo inválido: use path ou filename.")
+    if sort_by not in ("name", "newest", "oldest"):
+        raise ValueError("Ordenação inválida.")
+    def validate_date(value: str | None, label: str) -> str | None:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{label} deve estar em AAAA-MM-DD.")
+        try:
+            parsed = datetime.strptime(value, "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError(f"{label} deve ser uma data válida em AAAA-MM-DD.") from exc
+        if parsed.strftime("%Y-%m-%d") != value:
+            raise ValueError(f"{label} deve estar em AAAA-MM-DD.")
+        return value
+    date_from = validate_date(date_from, "Data inicial")
+    date_to = validate_date(date_to, "Data final")
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise ValueError("Data inicial não pode ser posterior à data final.")
     if scan_id is not None and (not isinstance(scan_id, int) or isinstance(scan_id, bool) or scan_id < 1):
         raise ValueError("ID de snapshot inválido.")
     if name_contains is not None and (not isinstance(name_contains, str) or len(name_contains) > 200):
@@ -211,6 +235,11 @@ def query_catalog_page(
     try:
         with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
             conn.row_factory = sqlite3.Row
+            # A função extrai somente o nome-base; caminhos são relativos ao snapshot.
+            conn.create_function(
+                "archivia_filename", 1,
+                lambda value: value.replace(chr(92), "/").rsplit("/", 1)[-1],
+            )
             if scan_id is None:
                 scan = conn.execute(
                     "SELECT id, root, scanned_utc FROM scans ORDER BY id DESC LIMIT 1"
@@ -226,6 +255,8 @@ def query_catalog_page(
                     "database": str(path), "scan_id": None, "root": None,
                     "scanned_utc": None, "filter_category": category,
                     "filter_name": normalized_name, "filter_extension": normalized_extension,
+                    "search_scope": search_scope, "date_from": date_from,
+                    "date_to": date_to, "sort_by": sort_by,
                     "page": page, "page_size": page_size, "count": 0,
                     "pages": 0, "files": [],
                 }
@@ -236,18 +267,30 @@ def query_catalog_page(
                 where += " AND category=?"
                 params += (category,)
             if normalized_name:
-                where += " AND relative_path LIKE ? ESCAPE '\\'"
+                column = "archivia_filename(relative_path)" if search_scope == "filename" else "relative_path"
+                where += f" AND {column} LIKE ? ESCAPE '\\'"
                 params += ("%" + escape_like(normalized_name) + "%",)
             if normalized_extension:
                 where += " AND extension = ?"
                 params += (normalized_extension,)
+            if date_from is not None:
+                where += " AND substr(modified_utc, 1, 10) >= ?"
+                params += (date_from,)
+            if date_to is not None:
+                where += " AND substr(modified_utc, 1, 10) <= ?"
+                params += (date_to,)
+            order = {
+                "name": "relative_path COLLATE NOCASE, relative_path",
+                "newest": "modified_utc DESC, relative_path COLLATE NOCASE, relative_path",
+                "oldest": "modified_utc ASC, relative_path COLLATE NOCASE, relative_path",
+            }[sort_by]
             count = conn.execute(
                 f"SELECT COUNT(*) FROM media WHERE {where}", params
             ).fetchone()[0]
             rows = conn.execute(
                 f"""SELECT relative_path, category, extension, size_bytes, modified_utc
                     FROM media WHERE {where}
-                    ORDER BY relative_path COLLATE NOCASE, relative_path
+                    ORDER BY {order}
                     LIMIT ? OFFSET ?""",
                 (*params, page_size, (page - 1) * page_size),
             ).fetchall()
@@ -255,6 +298,8 @@ def query_catalog_page(
                 "database": str(path), "scan_id": scan["id"], "root": scan["root"],
                 "scanned_utc": scan["scanned_utc"], "filter_category": category,
                 "filter_name": normalized_name, "filter_extension": normalized_extension,
+                "search_scope": search_scope, "date_from": date_from,
+                "date_to": date_to, "sort_by": sort_by,
                 "page": page, "page_size": page_size, "count": count,
                 "pages": (count + page_size - 1) // page_size,
                 "files": [dict(row) for row in rows],
