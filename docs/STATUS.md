@@ -45,9 +45,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Novos testes isolados em `tests/test_preview.py`. **Ainda não validados no Windows**; requer `git pull` e suíte completa.
 - Não há gravação SQLite nem movimentação de arquivos neste fluxo.
 
+## Inventário universal — nova implementação
+
+- Inventário agora indexa todos os arquivos regulares, reconhecendo documento, planilha, apresentação, compactado, código e outro, além de imagem/vídeo/áudio.
+- Preserva semântica histórica de `media_files` e `bytes_media`; adiciona `indexed_files` e `bytes_indexed`.
+- GUI mostra filtros para novas categorias e a quantidade geral de arquivos. SQLite mantém schema e snapshots anteriores; novos snapshots recebem mais tipos de arquivos.
+- ZIP, RAR e 7z continuam **sem inspeção interna**. Sem execução de movimentos ou exclusões.
+- Testes atualizados para regras universais e compatibilidade. **Aguardando execução no Windows**.
+- Ver contrato e limites em [INVENTORY.md](INVENTORY.md).
+
 ## Próximo passo seguro
 
-**Próxima validação:** executar suíte completa e testar a tabela de prévia na pasta `D:/IW8 CONSTRUMAQ` (último teste: 19.636 mídias, 19.511 imagens, 125 vídeos, 0 erros), verificando navegação e filtro sem catalogar. Não habilitar execução real.
+**Próxima validação:** `git pull`, executar suíte de testes e abrir GUI para examinar `D:/IW8 CONSTRUMAQ`. O resultado geral terá no mínimo as 19.636 mídias anteriores, além das categorias não-mídia existentes; verificar filtros de documentos e compactados. Não catalogar nem mover arquivos.
 
 ## Limitações e evolução
 
@@ -62,4 +71,5 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - [Arquitetura](ARCHITECTURE.md)
 - [Contrato do agente](AGENT.md)
 - [Edições e prioridades](EDITIONS.md)
+- [Inventário universal](INVENTORY.md)
 - [Política de testes](../tests/README.md)
