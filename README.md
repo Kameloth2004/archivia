@@ -48,7 +48,12 @@ python -m unittest discover -s tests -v
 - [Agente Ollama: protocolo e limitações](docs/AGENT.md)
 - [Edições planejadas: Standard e duas Lite](docs/EDITIONS.md)
 - [Estado atual e próximos passos](docs/STATUS.md)
+- [Interface gráfica Standard](docs/GUI.md)
 - [Política de testes e mocks](tests/README.md)
+
+## Primeira interface gráfica Standard
+
+Instalação opcional no Windows: `python -m pip install -e ".[gui]"`. Abrir com `archivia-gui`. A janela inicial permite consultar resumo SQLite e conversar com o Ollama; não move arquivos. Consulte [GUI.md](docs/GUI.md).
 
 ## Agente Ollama local (experimental)
 
