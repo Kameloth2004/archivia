@@ -118,9 +118,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Homologado pelo usuário:** GUI abriu corretamente com as quatro abas em 2026-11-21; o problema da janela única foi resolvido no teste visual. O fluxo da nova ferramenta de busca pelo Ollama continua pendente.
 - Redesign moderno e intuitivo continua como etapa posterior, agora sobre estrutura modular.
 
+## Busca Ollama real — homologada com observação
+
+- Usuário aprovou a integração real na GUI: Qwen3 chamou `buscar_arquivos_catalogo` no snapshot #2 da pasta `D:/IW8 CONSTRUMAQ`; `filter_name=backup`, `page_size=5`, cinco exemplos, `count=2298`, `pages=460` para o filtro aplicado.
+- **Observação:** o modelo acrescentou `filter_category=outro` sem solicitação expressa; 2.298 é total **da categoria outro**, não total geral de todas as categorias.
+- Ajustado `SYSTEM_PROMPT` e descrição de ferramenta para omitir filtros não solicitados, explicitar total versus exemplos e descrever restrições realmente aplicadas. Mudança apenas nas instruções ao modelo, sem mudar o SQLite, GUI ou permissões.
+- Ajuste depende do comportamento do modelo e **ainda precisa de validação com Qwen3 real**; não garante sozinho a omissão de filtros.
+
 ## Próximo passo seguro
 
-**Validação de busca GUI:** aprovada pelo usuário com `backup` no snapshot #2, Bash sem erros reportados. **Próximo teste:** pela aba **Agente IA**, solicitar ao Qwen3 busca de arquivos com `backup` no nome ou caminho e verificar `tools_used[0].tool=buscar_arquivos_catalogo`, quantidade e resultados limitados. Quatro abas já homologadas. Conferir `tools_used` e os resultados limitados, sem movimentação.
+**Próximo teste:** atualizar `main` e repetir busca por arquivos contendo `backup` sem restringir categoria. Conferir `filter_category=null` e distinção entre `count` total e cinco exemplos. A atualização não altera arquivos.
 
 ## Limitações e evolução
 
