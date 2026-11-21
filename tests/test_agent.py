@@ -1,5 +1,7 @@
 """TEST-ONLY: mock de transporte Ollama isolado; nenhum servidor ou arquivo pessoal."""
 import unittest
+from datetime import datetime, timezone
+import os
 from unittest.mock import patch
 
 from support import temporary_test_directory
@@ -93,6 +95,40 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(result["tools_used"][0]["tool"], "buscar_arquivos_catalogo")
             self.assertEqual(result["tools_used"][0]["result"]["count"], 1)
             self.assertFalse(result["files_modified"])
+
+    def test_agent_search_by_filename_and_modification_date(self):
+        # TEST-ONLY: testes de data e nome-base em diretórios descartáveis.
+        with temporary_test_directory() as tmp:
+            root = tmp / "arquivos"
+            folder = root / "BACKUPS"
+            folder.mkdir(parents=True)
+            (folder / "relatorio.pdf").write_bytes(b"x")
+            backup = root / "backup_final.pdf"
+            backup.write_bytes(b"y")
+            ts = datetime(2025, 6, 15, tzinfo=timezone.utc).timestamp()
+            os.utime(backup, (ts, ts))
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            result = dispatch_tool("buscar_arquivos_catalogo", {
+                "nome": "backup", "escopo": "nome",
+                "data_inicial": "2025-06-01", "data_final": "2025-06-30",
+                "ordenacao": "recentes",
+            }, db)
+            self.assertEqual(result["count"], 1)
+            self.assertEqual(result["search_scope"], "filename")
+            self.assertEqual(result["sort_by"], "newest")
+            self.assertEqual(result["files"][0]["relative_path"], "backup_final.pdf")
+
+    def test_agent_search_rejects_invalid_scope_and_date(self):
+        with temporary_test_directory() as tmp:
+            for arguments in (
+                {"escopo": "diretorio"}, {"ordenacao": "aleatorio"},
+                {"data_inicial": "2025-02-30"},
+                {"data_inicial": "2026-01-01", "data_final": "2025-01-01"},
+            ):
+                with self.subTest(arguments=arguments):
+                    with self.assertRaises(ValueError):
+                        dispatch_tool("buscar_arquivos_catalogo", arguments, tmp / "ausente.db")
 
     def test_ollama_mock_cannot_execute_unknown_tool(self):
         with temporary_test_directory() as tmp:
