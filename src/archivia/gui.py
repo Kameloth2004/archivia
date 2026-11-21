@@ -128,6 +128,12 @@ class ArchivIAWindow(QMainWindow):
         self.preview_filter.addItem("Imagens", "imagem")
         self.preview_filter.addItem("Vídeos", "video")
         self.preview_filter.addItem("Áudios", "audio")
+        self.preview_filter.addItem("Documentos", "documento")
+        self.preview_filter.addItem("Planilhas", "planilha")
+        self.preview_filter.addItem("Apresentações", "apresentacao")
+        self.preview_filter.addItem("Compactados", "compactado")
+        self.preview_filter.addItem("Código-fonte", "codigo")
+        self.preview_filter.addItem("Outros", "outro")
         self.preview_filter.currentIndexChanged.connect(self._reset_preview_page)
         preview_toolbar.addWidget(self.preview_filter)
         self.preview_label = QLabel("Examine uma pasta para listar os arquivos.")
@@ -168,6 +174,12 @@ class ArchivIAWindow(QMainWindow):
         self.category_filter.addItem("Imagens", "imagem")
         self.category_filter.addItem("Vídeos", "video")
         self.category_filter.addItem("Áudios", "audio")
+        self.category_filter.addItem("Documentos", "documento")
+        self.category_filter.addItem("Planilhas", "planilha")
+        self.category_filter.addItem("Apresentações", "apresentacao")
+        self.category_filter.addItem("Compactados", "compactado")
+        self.category_filter.addItem("Código-fonte", "codigo")
+        self.category_filter.addItem("Outros", "outro")
         self.category_filter.currentIndexChanged.connect(self._reset_catalog_page)
         catalog_toolbar.addWidget(self.category_filter)
         self.list_button = QPushButton("Listar catálogo")
@@ -388,7 +400,7 @@ class ArchivIAWindow(QMainWindow):
             else:
                 categories = result.get("by_category", {})
                 self.summary_view.setText(
-                    f"Inventário #{result['scan_id']} | Mídias: {result['media_files']} "
+                    f"Inventário #{result['scan_id']} | Arquivos: {result['indexed_files']} | Mídias: {result['media_files']} "
                     f"| Imagens: {categories.get('imagem', 0)} "
                     f"| Vídeos: {categories.get('video', 0)} "
                     f"| Áudios: {categories.get('audio', 0)} "
@@ -401,7 +413,7 @@ class ArchivIAWindow(QMainWindow):
             self._show_preview_page()
             info = result["summary"]
             self.inventory_view.setText(
-                f"Pasta: {result['root']} | Mídias: {info['media_files']} "
+                f"Pasta: {result['root']} | Arquivos: {info['indexed_files']} | Mídias: {info['media_files']} "
                 f"| Imagens: {info['by_category'].get('imagem', 0)} "
                 f"| Vídeos: {info['by_category'].get('video', 0)} "
                 f"| Áudios: {info['by_category'].get('audio', 0)} "
