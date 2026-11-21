@@ -16,7 +16,8 @@ Atualizado em 2026-11-21.
 3. Consultas e resumo do último snapshot, sem revarrer mídias.
 4. Planejador de movimentos **exclusivamente em simulação**, sem executor.
 5. Adaptador local Ollama com allowlist de ferramentas: `resumo_catalogo` e `simular_movimentacao`.
-6. Testes em `tests/`; dados temporários em `tests/.runtime/`; mocks identificados como `MOCK-ONLY`.
+6. Interface gráfica PySide6 inicial criada em src/archivia/gui.py; ainda não testada no Windows.
+7. Testes em `tests/`; dados temporários em `tests/.runtime/`; mocks identificados como `MOCK-ONLY`.
 
 ## Validação confirmada pelo usuário
 
@@ -25,6 +26,10 @@ Atualizado em 2026-11-21.
 - **Primeira integração Ollama real aprovada em 2026-11-21.** Pergunta: "Quantas imagens existem no meu catálogo?" Modelo: `qwen3:8b-q4_K_M`. O agente chamou `resumo_catalogo`, obteve `scan_id=1`, `media_files=1`, `by_category.imagem=1` e respondeu "O catálogo contém 1 imagem.". A saída indicou `files_modified=false`.
 - **Segunda integração real aprovada em 2026-11-21.** O Qwen3 chamou `simular_movimentacao`, categoria `imagem`, destino `tests/fixtures/manual/destino`, obteve `selected=1`, `blocked=0`, `mode=simulation`, `executable=false`, `files_modified=false`. Nenhum arquivo foi movido.
 - Os testes comprovam integração por ferramentas, **não** reconhecimento visual, mecanismo de aprovação ou operações sobre arquivos.
+
+## GUI Standard
+
+Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. Documentação: [GUI.md](GUI.md). Aguardar validação local.
 
 ## Próximo passo seguro
 
