@@ -105,6 +105,17 @@ O usuário aprovou a abertura da GUI como marco técnico, **mas pediu explicitam
 - **Não testar inicialmente em `D:/IW8 CONSTRUMAQ`**: primeiro validar com `D:/PROJETOS/archivia/tests/fixtures/manual` e banco `data/catalogo.sqlite3`. A operação pode gravar um novo snapshot no banco de desenvolvimento, sem excluir o antigo.
 - Testes automatizados em `tests/test_cataloging.py`, sem dependência de Qt nem dados pessoais.
 
+## Histórico de snapshots — nova etapa (pendente de homologação)
+
+- A **Biblioteca catalogada** agora possui uma caixa **Histórico de snapshots** e botão **Atualizar histórico**.
+- O histórico consulta exclusivamente o SQLite, retornando até os 100 snapshots mais recentes com ID, data, origem e quantidade de arquivos, sem varrer pastas.
+- O padrão **Mais recente (automático)** preserva o comportamento anterior. Selecionar um ID específico filtra a tabela catalogada para aquele inventário histórico (50 linhas por página, filtros por categoria).
+- A área superior de **Atualizar resumo** continua mostrando o inventário globalmente mais recente, independentemente da seleção no histórico. A distinção será aprimorada na reformulação visual.
+- O agente Ollama e seu planejador ainda utilizam o snapshot mais recente, não o histórico selecionado na GUI; essa restrição evita ambiguidade nesta fase.
+- Testar no Windows selecionando **#1**, com `foto_teste.jpg`, e **#2**, com os 44.383 arquivos de `D:/IW8 CONSTRUMAQ`.
+- Nunca altera o banco, os arquivos originais ou os snapshots antigos.
+- Testes de regressão em `tests/test_catalog.py`, dentro da estrutura de testes.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
