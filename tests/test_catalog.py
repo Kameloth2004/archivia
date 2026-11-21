@@ -1,9 +1,10 @@
 """Testes SQLite em diretórios temporários, sem acessar mídias pessoais."""
 
 import sqlite3
-import tempfile
 import unittest
 from pathlib import Path
+
+from support import temporary_test_directory
 
 from archivia.catalog import store_inventory
 from archivia.inventory import inventory
@@ -11,8 +12,8 @@ from archivia.inventory import inventory
 
 class CatalogTests(unittest.TestCase):
     def test_persists_snapshot_without_changing_media(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            base = Path(tmp)
+        with temporary_test_directory() as tmp:
+            base = tmp
             media_dir = base / "midias"
             media_dir.mkdir()
             media = media_dir / "foto.png"
@@ -36,8 +37,8 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(media.read_bytes(), before)
 
     def test_rejects_incomplete_inventory(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            db = Path(tmp) / "data" / "catalogo.sqlite3"
+        with temporary_test_directory() as tmp:
+            db = tmp / "data" / "catalogo.sqlite3"
             result = {
                 "root": tmp,
                 "files": [],
