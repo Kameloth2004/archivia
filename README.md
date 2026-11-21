@@ -90,6 +90,10 @@ python -m archivia resumo
 
 Usa consulta agregada no SQLite em modo somente leitura, recuperando somente o último snapshot. Exibe contagens por categoria, bytes e data da última catalogação. Não produz arquivo JSON no disco nem varre mídias. O resultado no terminal ainda é JSON pequeno, para permitir integração futura com interface gráfica.
 
+## Resumo por origem na interface
+
+A seção **Origens catalogadas** mostra somente o snapshot mais recente de cada diretório catalogado, evitando somar repetidamente a mesma pasta por causa do histórico. Clique em **Atualizar origens**. Pastas sobrepostas ainda podem duplicar arquivos entre origens diferentes, como documentado em [GUI.md](docs/GUI.md).
+
 ## Histórico de inventários na GUI
 
 Em **Biblioteca catalogada**, clique **Atualizar histórico** e selecione um snapshot anterior, por exemplo #1 (teste) ou #2 (`IW8 CONSTRUMAQ`). A listagem paginada consulta apenas aquele snapshot, sem varrer discos nem modificar o banco. O resumo superior e as ferramentas do agente continuam usando o snapshot mais recente nesta etapa. Consulte [GUI.md](docs/GUI.md).
