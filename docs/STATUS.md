@@ -125,9 +125,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Ajustado `SYSTEM_PROMPT` e descrição de ferramenta para omitir filtros não solicitados, explicitar total versus exemplos e descrever restrições realmente aplicadas. Mudança apenas nas instruções ao modelo, sem mudar o SQLite, GUI ou permissões.
 - Ajuste depende do comportamento do modelo e **ainda precisa de validação com Qwen3 real**; não garante sozinho a omissão de filtros.
 
+## Busca Ollama sem filtros implícitos — homologada em 2026-11-21
+
+- Usuário solicitou busca de `backup` em **todas as categorias** com cinco exemplos.
+- Qwen3 chamou `buscar_arquivos_catalogo` no snapshot #2 (`D:/IW8 CONSTRUMAQ`), com `filter_name=backup`, `filter_category=null`, `filter_extension=""`, `page_size=5`, `count=26970` e `pages=5394`.
+- A resposta informou o total geral e cinco exemplos, todos `.tar.gz` pela ordenação, **sem filtro de categoria ou extensão**.
+- Teste funcional aprovado: modelo respeitou os filtros solicitados, o limite de exemplos e a consulta somente leitura.
+- Interpretação importante: busca por `relative_path` inclui termos em **nomes de diretórios**; arquivos dentro de `BACKUPS/` contam mesmo quando seu nome individual não inclui `backup`. Diferenciar futuramente pesquisa por nome-base e pesquisa por caminho.
+- Essa validação não comprova identificação de conteúdo visual nem execução de arquivos.
+
 ## Próximo passo seguro
 
-**Próximo teste:** atualizar `main` e repetir busca por arquivos contendo `backup` sem restringir categoria. Conferir `filter_category=null` e distinção entre `count` total e cinco exemplos. A atualização não altera arquivos.
+**Validação concluída:** Qwen3 retornou 26.970 correspondências para o termo `backup` em todas as categorias e cinco exemplos, com `filter_category=null`. Próxima evolução sugerida: separar busca pelo nome do arquivo e busca pelo caminho, mantendo paginação e leitura SQLite.
 
 ## Limitações e evolução
 
