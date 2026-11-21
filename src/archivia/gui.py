@@ -486,6 +486,10 @@ class ArchivIAWindow(QMainWindow):
             if self.result_view.toPlainText().startswith("Erro:"):
                 self.result_view.clear()
         elif mode == "catalog_verified_preview":
+            # Após salvar, uma nova catalogação exige nova prévia explícita.
+            self._preview_result = None
+            self._preview_source_path = None
+            self.catalog_preview_button.setEnabled(False)
             self.status.setText(
                 f"Snapshot #{result['scan_id']} salvo no SQLite. "
                 "Arquivos originais preservados."
