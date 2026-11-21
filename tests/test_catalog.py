@@ -252,6 +252,46 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(result["indexed_files"], 0)
             self.assertEqual(result["bytes_indexed"], 0)
 
+    def test_search_name_extension_history_and_literal_wildcards(self):
+        # TEST-ONLY: busca SQL em arquivos sintéticos e banco descartável.
+        with temporary_test_directory() as tmp:
+            root = tmp / "arquivos"
+            root.mkdir()
+            (root / "ventilador_manual.PDF").write_bytes(b"a")
+            (root / "ventilador_foto.jpg").write_bytes(b"bc")
+            (root / "100%_real.txt").write_bytes(b"d")
+            (root / "outro.txt").write_bytes(b"e")
+            db = tmp / "data" / "catalogo.sqlite3"
+            first = store_inventory(inventory(root), db)
+            (root / "ventilador_novo.pdf").write_bytes(b"f")
+            second = store_inventory(inventory(root), db)
+
+            named = query_catalog_page(db, name_contains="ventilador", page_size=2)
+            self.assertEqual(named["count"], 3)
+            self.assertEqual(named["pages"], 2)
+            self.assertEqual(len(named["files"]), 2)
+            pdfs = query_catalog_page(db, name_contains="ventilador", extension="PDF")
+            self.assertEqual(pdfs["count"], 2)
+            self.assertTrue(all(f["extension"] == ".pdf" for f in pdfs["files"]))
+            old = query_catalog_page(db, scan_id=first["scan_id"], extension=".pdf")
+            self.assertEqual(old["count"], 1)
+            self.assertEqual(query_catalog_page(db, scan_id=second["scan_id"])["count"], 5)
+            literal = query_catalog_page(db, name_contains="%_")
+            self.assertEqual(literal["count"], 1)
+            self.assertEqual(literal["files"][0]["relative_path"], "100%_real.txt")
+            self.assertEqual(query_catalog_page(db, extension="unknown")["count"], 0)
+
+    def test_search_filters_reject_invalid_inputs(self):
+        with temporary_test_directory() as tmp:
+            root = tmp / "files"
+            root.mkdir()
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            for field in ({"name_contains": "a" * 201}, {"extension": "x" * 31},
+                          {"name_contains": 1}, {"extension": 2}):
+                with self.assertRaises(ValueError):
+                    query_catalog_page(db, **field)
+
     def test_query_missing_database_does_not_create_it(self):
         with temporary_test_directory() as tmp:
             db = tmp / "ausente.sqlite3"
