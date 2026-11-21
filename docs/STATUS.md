@@ -83,9 +83,17 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Advertência: uma pasta que está dentro de outra pode conter os mesmos arquivos; esta versão não remove sobreposições **entre origens distintas**. Caminhos alternativos para uma mesma pasta também não são normalizados.
 - Testes sintéticos de origens repetidas, origens diferentes e catálogo ausente. Código **ainda precisa de homologação Windows**.
 
+## Correção de regressão dos testes — 2026-11-21
+
+- Interface **Origens catalogadas** homologada: 2 origens, 44.384 arquivos, 19.637 mídias.
+- Execução no Windows: `Ran 34 tests`, `FAILED (failures=1, skipped=1)`.
+- Falha identificada em `tests/test_preview.py::test_validation`: o teste tratava `outro` como categoria inválida, apesar de ela ter passado a ser suportada pelo inventário universal.
+- Ajustada **somente a expectativa do teste**: `outro` retorna lista vazia em pasta de teste sem arquivos desconhecidos; `categoria_inexistente` deve gerar `ValueError`.
+- Nenhuma mudança em regras de negócio, arquivos de mídia ou banco real. Correção publicada; **aguarda reexecução da suíte no Windows**.
+
 ## Próximo passo seguro
 
-**Próxima validação:** atualizar o repositório, executar os testes e clicar em **Atualizar origens**. No banco conhecido devem aparecer duas origens: pasta manual de testes e `D:/IW8 CONSTRUMAQ`, sem somar cópias históricas. Nenhuma gravação será feita.
+**Próxima validação:** `git pull origin main` e `python -m unittest discover -s tests -v` para confirmar correção da regressão do teste de prévia. A interface Origens catalogadas já foi validada; não é necessário repetir a varredura.
 
 ## Limitações e evolução
 
