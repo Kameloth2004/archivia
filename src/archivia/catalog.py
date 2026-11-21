@@ -128,3 +128,35 @@ def query_catalog(
             }
     except sqlite3.Error as exc:
         raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
+
+
+def catalog_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
+    """Resumo agregado do último snapshot, sem carregar registros individuais."""
+    path = Path(db_path).expanduser().absolute()
+    if not path.is_file():
+        raise ValueError(f"Catálogo não encontrado: {path}")
+
+    try:
+        with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
+            scan = conn.execute(
+                """SELECT id, root, scanned_utc, media_files, other_files,
+                          symlinks_skipped, bytes_media
+                   FROM scans ORDER BY id DESC LIMIT 1"""
+            ).fetchone()
+            if scan is None:
+                return {"database": str(path), "scan_id": None, "media_files": 0,
+                        "bytes_media": 0, "by_category": {"imagem": 0, "video": 0, "audio": 0}}
+            counts = {"imagem": 0, "video": 0, "audio": 0}
+            for category, amount in conn.execute(
+                "SELECT category, COUNT(*) FROM media WHERE scan_id=? GROUP BY category",
+                (scan[0],),
+            ):
+                counts[category] = amount
+            return {
+                "database": str(path), "scan_id": scan[0], "root": scan[1],
+                "scanned_utc": scan[2], "media_files": scan[3],
+                "other_files": scan[4], "symlinks_skipped": scan[5],
+                "bytes_media": scan[6], "by_category": counts,
+            }
+    except sqlite3.Error as exc:
+        raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
