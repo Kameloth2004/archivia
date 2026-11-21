@@ -74,9 +74,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Ainda não validado no Windows:** executar testes e confirmar alternância #1 ↔ #2.
 - O histórico do banco é preservado; não existe exclusão ou movimentação de arquivos nesse fluxo.
 
+## Origens consolidadas — atualização para homologação
+
+- Usuário confirmou **histórico de snapshots #1 e #2 funcional** na GUI.
+- Novo `catalog_origins_summary()`: seleciona somente o snapshot de ID mais alto **por caminho de origem** e soma arquivos, bytes e categorias sem contar históricos repetidos.
+- Novo painel na GUI **Origens catalogadas — último snapshot por pasta** com botão **Atualizar origens**, tabela de pastas, IDs de snapshots, quantidade de arquivos e mídias.
+- CTE SQL faz consulta de leitura `mode=ro`; não varre pastas, não grava SQLite, não altera mídias.
+- Advertência: uma pasta que está dentro de outra pode conter os mesmos arquivos; esta versão não remove sobreposições **entre origens distintas**. Caminhos alternativos para uma mesma pasta também não são normalizados.
+- Testes sintéticos de origens repetidas, origens diferentes e catálogo ausente. Código **ainda precisa de homologação Windows**.
+
 ## Próximo passo seguro
 
-**Próxima validação:** `git pull`, executar a suíte e testar **Atualizar histórico**, escolhendo #1 e #2 na GUI. Deve mostrar `foto_teste.jpg` no #1 e os arquivos de `D:/IW8 CONSTRUMAQ` no #2. Apenas consulta, sem criar novos snapshots.
+**Próxima validação:** atualizar o repositório, executar os testes e clicar em **Atualizar origens**. No banco conhecido devem aparecer duas origens: pasta manual de testes e `D:/IW8 CONSTRUMAQ`, sem somar cópias históricas. Nenhuma gravação será feita.
 
 ## Limitações e evolução
 
