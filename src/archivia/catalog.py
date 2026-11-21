@@ -160,3 +160,64 @@ def catalog_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
             }
     except sqlite3.Error as exc:
         raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
+
+
+def query_catalog_page(
+    db_path: Path = DEFAULT_DB,
+    category: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> dict[str, Any]:
+    """Lista página limitada do último snapshot em SQLite somente leitura.
+
+    Diferente de query_catalog(), não carrega todos os arquivos na memória.
+    """
+    if category is not None and category not in ("imagem", "video", "audio"):
+        raise ValueError("Categoria inválida: use imagem, video ou audio.")
+    if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+        raise ValueError("Página deve ser um inteiro positivo.")
+    if (not isinstance(page_size, int) or isinstance(page_size, bool)
+            or not 1 <= page_size <= 100):
+        raise ValueError("Tamanho de página deve estar entre 1 e 100.")
+
+    path = Path(db_path).expanduser().absolute()
+    if not path.is_file():
+        raise ValueError(f"Catálogo não encontrado: {path}")
+    try:
+        with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            scan = conn.execute(
+                "SELECT id, root, scanned_utc FROM scans ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if scan is None:
+                return {
+                    "database": str(path), "scan_id": None, "root": None,
+                    "scanned_utc": None, "filter_category": category,
+                    "page": page, "page_size": page_size, "count": 0,
+                    "pages": 0, "files": [],
+                }
+
+            where = "scan_id=?"
+            params: tuple[Any, ...] = (scan["id"],)
+            if category is not None:
+                where += " AND category=?"
+                params += (category,)
+            count = conn.execute(
+                f"SELECT COUNT(*) FROM media WHERE {where}", params
+            ).fetchone()[0]
+            rows = conn.execute(
+                f"""SELECT relative_path, category, extension, size_bytes, modified_utc
+                    FROM media WHERE {where}
+                    ORDER BY relative_path COLLATE NOCASE, relative_path
+                    LIMIT ? OFFSET ?""",
+                (*params, page_size, (page - 1) * page_size),
+            ).fetchall()
+            return {
+                "database": str(path), "scan_id": scan["id"], "root": scan["root"],
+                "scanned_utc": scan["scanned_utc"], "filter_category": category,
+                "page": page, "page_size": page_size, "count": count,
+                "pages": (count + page_size - 1) // page_size,
+                "files": [dict(row) for row in rows],
+            }
+    except sqlite3.Error as exc:
+        raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
