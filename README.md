@@ -42,12 +42,18 @@ Para executar os testes:
 python -m unittest discover -s tests -v
 ```
 
+## Política de testes e mocks
+
+Todos os testes automatizados, testes manuais, fixtures e mocks vivem em `tests/`. Os bancos e arquivos temporários usados por testes automatizados ficam em `tests/.runtime/` e são limpos após cada caso. A pasta antiga `teste-midias/` na raiz é legado de teste manual e **não deve ser apagada automaticamente**. Para futuros testes manuais, use `tests/fixtures/manual/`.
+
+Detalhes: [tests/README.md](tests/README.md). Marcadores `TEST-ONLY` e `MOCK-ONLY` indicam componentes de teste; código de produção não deve importar esses componentes.
+
 ## Catálogo SQLite local
 
 Após atualizar o código (`git pull`), execute na raiz do projeto:
 
 ```bash
-python -m archivia catalogar "D:/PROJETOS/archivia/teste-midias"
+python -m archivia catalogar "D:/PROJETOS/archivia/tests/fixtures/manual"
 ```
 
 O arquivo será criado automaticamente em `D:/PROJETOS/archivia/data/catalogo.sqlite3`. O caminho pode ser alterado com `--banco`, caso necessário. A pasta `data/` é ignorada pelo Git: **não publique o banco**, pois contém caminhos e nomes dos arquivos.
