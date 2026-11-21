@@ -37,7 +37,7 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 - O botão de resumo usa sempre o **último snapshot global** do banco, não a soma consolidada de múltiplas origens.
 - A conversa não mantém histórico entre perguntas; uma pergunta gera uma solicitação independente.
 - A interface não autentica nem gerencia instâncias Ollama; pressupõe serviço local disponível em `127.0.0.1:11434`.
-- Instalação opcional PySide6 e abertura de `archivia-gui` **confirmadas no Windows em 2026-11-21** com captura de tela; funcionalidades internas da GUI ainda aguardam validação.
+- Instalação opcional PySide6 e abertura de `archivia-gui` **confirmadas no Windows em 2026-11-21** com captura de tela; botão **Atualizar resumo** validado pelo usuário; diálogo com agente Ollama ainda aguarda validação.
 - Fechar a janela durante uma chamada ao Ollama é bloqueado até ela terminar para não interromper threads.
 
 ## Regras de arquitetura
@@ -51,7 +51,7 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 ## Próxima validação
 
 1. Rodar testes existentes após instalação opcional.
-2. Abertura de `archivia-gui` **confirmada**. Próximo: clicar em **Atualizar resumo** e verificar 1 imagem do fixture manual.
+2. Abertura de `archivia-gui` e clique em **Atualizar resumo** **confirmados pelo usuário**.
 3. Perguntar **Quantas imagens existem no meu catálogo?**; conferir resposta e `resumo_catalogo`.
 4. Se ocorrer erro, anotar traceback/saída e corrigir antes de adicionar novas funções.
 
