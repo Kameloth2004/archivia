@@ -13,7 +13,7 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
-    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView,
+    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
 )
 
 from .agent import ask_agent
@@ -89,7 +89,8 @@ class ArchivIAWindow(QMainWindow):
         self._preview_page = 1
         self._preview_pages = 0
         self.setWindowTitle("ArchivIA Standard — Prévia")
-        self.resize(960, 1020)
+        self.resize(960, 760)
+        self.setMinimumSize(760, 540)
 
         content = QWidget(self)
         root = QVBoxLayout(content)
@@ -106,6 +107,22 @@ class ArchivIAWindow(QMainWindow):
         info.setWordWrap(True)
         root.addWidget(info)
 
+        # Organiza funções por contexto e evita que a área do agente saia da tela.
+        self.tabs = QTabWidget()
+        overview_page = QWidget()
+        overview_layout = QVBoxLayout(overview_page)
+        inventory_page = QWidget()
+        inventory_layout = QVBoxLayout(inventory_page)
+        library_page = QWidget()
+        library_layout = QVBoxLayout(library_page)
+        agent_page = QWidget()
+        agent_page_layout = QVBoxLayout(agent_page)
+        self.tabs.addTab(overview_page, "Visão geral")
+        self.tabs.addTab(inventory_page, "Inventário")
+        self.tabs.addTab(library_page, "Biblioteca")
+        self.tabs.addTab(agent_page, "Agente IA")
+        root.addWidget(self.tabs, 1)
+
         database_box = QGroupBox("Catálogo SQLite")
         database_layout = QVBoxLayout(database_box)
         self.database = QLineEdit(str(DEFAULT_DB))
@@ -120,7 +137,7 @@ class ArchivIAWindow(QMainWindow):
             self.summary_view.textInteractionFlags()
         )
         database_layout.addWidget(self.summary_view)
-        root.addWidget(database_box)
+        overview_layout.addWidget(database_box)
 
         origins_box = QGroupBox("Origens catalogadas — último snapshot por pasta")
         origins_layout = QVBoxLayout(origins_box)
@@ -143,7 +160,8 @@ class ArchivIAWindow(QMainWindow):
         )
         self.origins_table.setMaximumHeight(180)
         origins_layout.addWidget(self.origins_table)
-        root.addWidget(origins_box)
+        overview_layout.addWidget(origins_box)
+        overview_layout.addStretch(1)
 
         # Inventário independente do catálogo: nunca grava resultados no SQLite.
         folder_box = QGroupBox("Examinar pasta (somente leitura)")
@@ -210,7 +228,7 @@ class ArchivIAWindow(QMainWindow):
         folder_layout.addLayout(preview_pagination)
         self.preview_prev.setEnabled(False)
         self.preview_next.setEnabled(False)
-        root.addWidget(folder_box)
+        inventory_layout.addWidget(folder_box, 1)
 
         catalog_box = QGroupBox("Biblioteca catalogada — somente leitura")
         catalog_layout = QVBoxLayout(catalog_box)
@@ -283,7 +301,7 @@ class ArchivIAWindow(QMainWindow):
         catalog_layout.addLayout(pagination_row)
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
-        root.addWidget(catalog_box)
+        library_layout.addWidget(catalog_box, 1)
 
         agent_box = QGroupBox("Agente Ollama local")
         agent_layout = QVBoxLayout(agent_box)
@@ -299,7 +317,7 @@ class ArchivIAWindow(QMainWindow):
         self.ask_button = QPushButton("Perguntar ao agente")
         self.ask_button.clicked.connect(self._run_agent)
         agent_layout.addWidget(self.ask_button)
-        root.addWidget(agent_box)
+        agent_page_layout.addWidget(agent_box)
 
         result_box = QGroupBox("Resposta e ferramentas utilizadas")
         result_layout = QVBoxLayout(result_box)
@@ -309,7 +327,7 @@ class ArchivIAWindow(QMainWindow):
             "A resposta do modelo e as chamadas de ferramentas aparecerão aqui."
         )
         result_layout.addWidget(self.result_view)
-        root.addWidget(result_box, 1)
+        agent_page_layout.addWidget(result_box, 1)
 
         self.status = QLabel("Pronto. Nenhuma operação de escrita em mídias está disponível.")
         root.addWidget(self.status)
