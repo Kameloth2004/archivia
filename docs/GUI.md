@@ -154,6 +154,12 @@ A pesquisa continua usando valores internos ISO `AAAA-MM-DD` e `modified_utc`; n
 
 Para testar: `git pull`, rodar testes, abrir GUI, mudar preferência para EUA, voltar à Biblioteca e conferir o formato, fechar e reabrir; depois trocar para Brasileiro e testar um intervalo de 2024. Preferências adicionais serão consideradas posteriormente. O histórico bruto e a saída de diagnóstico do agente podem continuar usando ISO nesta primeira etapa.
 
+## Digitação automática dos separadores de data — aguardando homologação
+
+Os dois campos **Modificado de / até** usam máscaras Qt de entrada conforme a preferência regional: ao digitar `01012024` em Brasileiro, a interface insere `01/01/2024`; em Internacional, `20240101` resulta em `2024-01-01`; em EUA, `12312024` resulta em `12/31/2024`. Não é necessário digitar `/` nem `-`. A troca de preferência também troca as máscaras e converte datas válidas já preenchidas. Campo totalmente vazio é aceito, mesmo que Qt devolva os separadores da máscara; uma data parcial é rejeitada na consulta.
+
+A máscara facilita a digitação, **não valida sozinha se a data existe**; a rotina `parse_user_date()` continua validando dias, meses e anos antes de consultar SQLite. Os dados persistidos permanecem ISO 8601 UTC.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
