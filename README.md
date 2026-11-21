@@ -4,7 +4,7 @@ Bibliotecário digital local em Python, planejado para catalogar, classificar, r
 
 ## Estado do projeto
 
-**Etapa 1: inventário somente leitura.** O Ollama ainda não é utilizado. Nenhuma operação de renomeação, movimentação ou exclusão foi implementada.
+**Etapa 2: inventário somente leitura das mídias e persistência local no SQLite.** O Ollama ainda não é utilizado. Nenhuma operação de renomeação, movimentação ou exclusão foi implementada.
 
 ### Princípios
 
@@ -12,7 +12,7 @@ Bibliotecário digital local em Python, planejado para catalogar, classificar, r
 - Operações que alteram arquivos somente em etapas futuras, com prévia e aprovação.
 - A varredura examina nomes e metadados do sistema de arquivos; **não abre o conteúdo** das mídias.
 - Links simbólicos não são percorridos; falhas de acesso são reportadas, não escondidas.
-- O inventário é emitido no terminal, sem gerar arquivos nos discos examinados.
+- O inventário é emitido no terminal; o comando separado `catalogar` grava somente no SQLite local.
 
 ## Executar
 
@@ -42,6 +42,18 @@ Para executar os testes:
 python -m unittest discover -s tests -v
 ```
 
+## Catálogo SQLite local
+
+Após atualizar o código (`git pull`), execute na raiz do projeto:
+
+```bash
+python -m archivia catalogar "D:/PROJETOS/archivia/teste-midias"
+```
+
+O arquivo será criado automaticamente em `D:/PROJETOS/archivia/data/catalogo.sqlite3`. O caminho pode ser alterado com `--banco`, caso necessário. A pasta `data/` é ignorada pelo Git: **não publique o banco**, pois contém caminhos e nomes dos arquivos.
+
+Cada execução grava um novo snapshot identificado por `scan_id`; não remove registros de inventários anteriores. Se houver erros na varredura, nenhum snapshot é gravado. O catálogo guarda apenas metadados, e **não renomeia, altera, abre ou movimenta as mídias**. É necessário ter permissão de escrita apenas na pasta do banco. Não há integração com Ollama nesta etapa.
+
 ### Saída
 
 Um objeto JSON em UTF-8, contendo `root`, `files`, `summary` e `errors`. A lista inclui apenas extensões de mídias conhecidas (imagem, vídeo e áudio). Tipos não reconhecidos são contabilizados, mas não listados. Arquivos e diretórios simbólicos são ignorados. Arquivos ocultos não são excluídos automaticamente.
@@ -57,7 +69,7 @@ Os metadados incluem caminho relativo, categoria baseada **somente na extensão*
 
 ## Próximas etapas planejadas
 
-1. Persistência e consultas do catálogo.
+1. Consultas e filtros do catálogo SQLite (persistência inicial implementada).
 2. Detecção de duplicatas e leitura controlada de metadados especializados.
 3. Adaptador local Ollama para categorização semântica.
 4. Plano de mudanças em modo simulação, com aprovação explícita e trilha de auditoria.
