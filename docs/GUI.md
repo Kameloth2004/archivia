@@ -20,6 +20,16 @@ archivia-gui
 
 PySide6 é **dependência opcional**: a instalação base `python -m pip install -e .` não baixa Qt. Os comandos `python -m archivia ...` seguem disponíveis sem PySide6.
 
+## Terceira etapa visual — prévia detalhada do inventário
+
+**Código implementado, aguardando homologação no Windows.** A área **Examinar pasta — prévia** passa a ter sua própria tabela paginada (50 itens), filtro por categoria e navegação independente do catálogo SQLite. Os dados vêm do inventário em RAM, sem escrita em SQLite ou manipulação de arquivos. Uma nova varredura substitui a prévia anterior; seleção de pasta limpa a prévia. A tabela da Biblioteca catalogada continua mostrando somente o último snapshot persistido.
+
+O teste anterior com `D:/IW8 CONSTRUMAQ` encontrou 19.636 mídias (19.511 imagens, 125 vídeos, 0 erros), mas só mostrava totais. Esta etapa permitirá listar individualmente esses arquivos sem catalogação.
+
+**Nota de desempenho:** a tabela renderiza 50 linhas por vez, porém `inventory()` ainda guarda todos os metadados na memória; streaming ou inventário incremental são evoluções futuras.
+
+A mensagem de erro antiga no painel do agente passa a ser limpa quando a prévia termina com sucesso. Não foram adicionados botões para gravar snapshots nem mover arquivos.
+
 ## Segunda etapa visual — navegação e biblioteca
 
 Implementado em código. **Tabela do catálogo homologada no Windows por captura de tela em 2026-11-21**; seletor de pasta e prévia **validados no Windows em 2026-11-21**:
