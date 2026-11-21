@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
@@ -46,10 +47,10 @@ def store_inventory(result: dict[str, Any], db_path: Path = DEFAULT_DB) -> dict[
     db_path = Path(db_path).expanduser().absolute()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).isoformat()
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
+        conn.executescript(SCHEMA)
         with conn:
-            conn.executescript(SCHEMA)
             cursor = conn.execute(
                 """INSERT INTO scans
                 (root, scanned_utc, media_files, other_files, symlinks_skipped,
