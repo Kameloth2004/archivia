@@ -22,7 +22,7 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 
 ## Segunda etapa visual — navegação e biblioteca
 
-Implementado em código. **Tabela do catálogo homologada no Windows por captura de tela em 2026-11-21**; seletor de pasta e prévia ainda aguardam teste:
+Implementado em código. **Tabela do catálogo homologada no Windows por captura de tela em 2026-11-21**; seletor de pasta e prévia **validados no Windows em 2026-11-21**:
 
 - **Escolher pasta...** usa o seletor nativo do sistema operacional.
 - **Examinar pasta — prévia** executa inventário de metadados somente leitura; **não cria snapshot SQLite** e não mostra os arquivos individuais da pasta escolhida.
@@ -31,7 +31,9 @@ Implementado em código. **Tabela do catálogo homologada no Windows por captura
 - A pasta escolhida para **Examinar** não substitui a origem do último catálogo; inventário e catálogo são ações separadas.
 - Não há botão de catalogação nem alteração de mídias nesta etapa.
 
-**Resultado do teste de tabela:** `foto_teste.jpg`, imagem, `.jpg`, 15 bytes, página 1 de 1; aprovado. O texto `Erro: Selecione uma pasta antes de examinar.` aparece corretamente se o usuário tentar executar a prévia com o campo de pasta vazio. **Próximo teste:** escolher `tests/fixtures/manual` no seletor e clicar em **Examinar pasta — prévia**.
+**Resultado do teste de tabela:** `foto_teste.jpg`, imagem, `.jpg`, 15 bytes, página 1 de 1; aprovado. O texto `Erro: Selecione uma pasta antes de examinar.` aparece corretamente se o usuário tentar executar a prévia com o campo de pasta vazio. **Teste aprovado:** pasta `D:/PROJETOS/archivia/tests/fixtures/manual`, 1 mídia/imagem, 0 erros, sem movimentação. O campo de origem e a tabela do catálogo permaneceram independentes.
+
+**Ajuste de UX pendente:** o painel de resposta do agente preservou a mensagem de erro antiga `Selecione uma pasta antes de examinar` mesmo após a prévia ter funcionado. Evitar apresentação de erros obsoletos por meio de limpeza ou estados de erro separados por seção.
 
 ## Interface incluída nesta etapa
 
@@ -70,7 +72,7 @@ Observação de UX: o Qwen3 pode sugerir que o usuário aprove uma movimentaçã
 3. Pergunta **Quantas imagens existem no meu catálogo?** pela GUI **aprovada**, com chamada `resumo_catalogo` e resultado de 1 imagem.
 4. Se ocorrer erro, anotar traceback/saída e corrigir antes de adicionar novas funções.
 5. **Aprovado em 2026-11-21:** simulação pela GUI com destino `D:/PROJETOS/archivia/tests/fixtures/manual/destino`: 1 arquivo proposto, 0 bloqueios, nenhum arquivo movido.
-6. Próxima etapa: seleção visual de pastas e navegação no catálogo, mantendo tudo em leitura/simulação.
+6. Seletor visual e prévia de inventário **aprovados**. Próxima evolução: exibir os itens examinados e oferecer catalogação com confirmação, mantendo leitura/simulação até aprovação explícita.
 
 ## Decisão de UX registrada em 2026-11-21
 
