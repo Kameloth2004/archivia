@@ -29,11 +29,11 @@ Atualizado em 2026-11-21.
 
 ## GUI Standard
 
-Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. **Usuário confirmou que dependências instalaram e a janela abriu normalmente em 2026-11-21**, com captura de tela. Ainda faltam testes funcionais dos botões (resumo e agente). A interface atual é explicitamente provisória: redesenhar futuramente para aparência moderna, melhor hierarquia visual, navegação intuitiva e fluxos claros. Ver [GUI.md](GUI.md).
+Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. **Usuário confirmou que dependências instalaram e a janela abriu normalmente em 2026-11-21**, com captura de tela. O botão **Atualizar resumo** foi testado e aprovado pelo usuário; falta validar a interação com o agente pela GUI. A interface atual é explicitamente provisória: redesenhar futuramente para aparência moderna, melhor hierarquia visual, navegação intuitiva e fluxos claros. Ver [GUI.md](GUI.md).
 
 ## Próximo passo seguro
 
-**Próxima validação, uma por vez:** com a GUI aberta, clicar em `Atualizar resumo` e confirmar o catálogo com 1 imagem; depois testar `Perguntar ao agente`. Não executar movimentações reais. Preservar motor independente da GUI/Ollama para as futuras edições Lite.
+**Próxima validação, uma por vez:** com a GUI aberta, testar `Perguntar ao agente` com a pergunta sobre a quantidade de imagens, verificando a ferramenta `resumo_catalogo`. O botão `Atualizar resumo` já foi aprovado. Não executar movimentações reais. Preservar motor independente da GUI/Ollama para as futuras edições Lite.
 
 ## Limitações e evolução
 
