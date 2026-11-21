@@ -7,7 +7,7 @@ from pathlib import Path
 
 from support import temporary_test_directory
 
-from archivia.catalog import catalog_summary, query_catalog, query_catalog_page, store_inventory
+from archivia.catalog import catalog_summary, query_catalog, query_catalog_page, list_catalog_scans, store_inventory
 from archivia.inventory import CATEGORIES, inventory
 
 
@@ -166,6 +166,47 @@ class CatalogTests(unittest.TestCase):
             for invalid_size in (0, 101, True):
                 with self.assertRaises(ValueError):
                     query_catalog_page(db, page_size=invalid_size)
+
+    def test_history_lists_snapshots_and_selects_previous_scan(self):
+        # TEST-ONLY: histórico isolado em tests/.runtime, nunca banco do usuário.
+        with temporary_test_directory() as tmp:
+            root_a = tmp / "origem_a"
+            root_b = tmp / "origem_b"
+            root_a.mkdir()
+            root_b.mkdir()
+            (root_a / "foto.jpg").write_bytes(b"a")
+            (root_b / "manual.pdf").write_bytes(b"bb")
+            database = tmp / "data" / "catalogo.sqlite3"
+            first = store_inventory(inventory(root_a), database)
+            second = store_inventory(inventory(root_b), database)
+            scans = list_catalog_scans(database)
+            self.assertEqual([s["id"] for s in scans], [second["scan_id"], first["scan_id"]])
+            self.assertEqual([s["indexed_files"] for s in scans], [1, 1])
+            older = query_catalog_page(database, scan_id=first["scan_id"])
+            current = query_catalog_page(database)
+            self.assertEqual(older["root"], str(root_a))
+            self.assertEqual(older["files"][0]["relative_path"], "foto.jpg")
+            self.assertEqual(current["root"], str(root_b))
+            self.assertEqual(current["files"][0]["relative_path"], "manual.pdf")
+            self.assertEqual(list_catalog_scans(database, limit=1)[0]["id"], second["scan_id"])
+
+    def test_history_rejects_invalid_ids_and_missing_database(self):
+        with temporary_test_directory() as tmp:
+            database = tmp / "data" / "catalogo.sqlite3"
+            with self.assertRaises(ValueError):
+                list_catalog_scans(database)
+            self.assertFalse(database.exists())
+            root = tmp / "origem"
+            root.mkdir()
+            store_inventory(inventory(root), database)
+            with self.assertRaises(ValueError):
+                query_catalog_page(database, scan_id=9999)
+            for invalid in (0, -1, True):
+                with self.assertRaises(ValueError):
+                    query_catalog_page(database, scan_id=invalid)
+            for invalid in (0, 1001, True):
+                with self.assertRaises(ValueError):
+                    list_catalog_scans(database, limit=invalid)
 
     def test_query_missing_database_does_not_create_it(self):
         with temporary_test_directory() as tmp:
