@@ -126,6 +126,10 @@ Limitações deliberadas: as origens são agrupadas pelo texto exato do caminho;
 
 Na seção **Biblioteca catalogada**, a GUI possui campos **Nome/caminho** e **Extensão**, além de **Limpar busca**. Uma pesquisa por `ventilador` procura esse termo no caminho relativo, inclusive pastas; extensão `pdf` ou `.pdf` aplica filtro exato. Filtros de categoria e snapshot histórico também são respeitados. `%` e `_` são tratados como caracteres literais, não como curingas. A busca é realizada exclusivamente no SQLite via `query_catalog_page()`, com paginação de 50 resultados. Não há revarredura nem alteração do banco. O agente Ollama ainda não tem uma ferramenta de busca nesta revisão.
 
+## Busca com agente Ollama — integração experimental
+
+A ferramenta `buscar_arquivos_catalogo` está disponível ao Qwen3 pela interface, via dispatcher de ferramentas autorizado. Ela reutiliza a busca paginada SQLite; aceita nome/caminho, extensão e categoria e limita cada página a 20 arquivos (padrão 10). O agente usa o snapshot global mais recente salvo, **não** a seleção atual do histórico, a menos que a ferramenta receba um `scan_id` explícito. As respostas geradas devem ser verificadas no painel de ferramentas utilizadas. Nenhuma operação de escrita foi acrescentada.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
