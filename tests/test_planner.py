@@ -43,6 +43,24 @@ class PlannerTests(unittest.TestCase):
             self.assertEqual(plan["actions"][0]["reason"], "destino_ja_existe_ou_link")
             self.assertEqual(existing.read_bytes(), b"existing")
 
+    def test_blocks_duplicate_target_names_from_different_folders(self):
+        # TEST-ONLY: nomes iguais em pastas distintas não devem competir pelo destino.
+        with temporary_test_directory() as tmp:
+            source = tmp / "midias"
+            target = tmp / "destino"
+            (source / "a").mkdir(parents=True)
+            (source / "b").mkdir()
+            target.mkdir()
+            (source / "a" / "foto.jpg").write_bytes(b"um")
+            (source / "b" / "foto.jpg").write_bytes(b"dois")
+            db = tmp / "data" / "catalogo.sqlite3"
+            store_inventory(inventory(source), db)
+            plan = propose_moves(target, "imagem", db_path=db)
+            self.assertEqual(plan["selected"], 2)
+            self.assertEqual(plan["blocked"], 1)
+            self.assertEqual(sum(a["status"] == "proposto" for a in plan["actions"]), 1)
+            self.assertEqual(plan["actions"][1]["reason"], "destino_duplicado_no_plano")
+
     def test_blocks_changed_file(self):
         with temporary_test_directory() as tmp:
             source = tmp / "midias"
