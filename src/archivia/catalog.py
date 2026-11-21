@@ -175,6 +175,7 @@ def query_catalog_page(
     category: str | None = None,
     page: int = 1,
     page_size: int = 50,
+    scan_id: int | None = None,
 ) -> dict[str, Any]:
     """Lista página limitada do último snapshot em SQLite somente leitura.
 
@@ -182,6 +183,8 @@ def query_catalog_page(
     """
     if category is not None and category not in CATEGORIES:
         raise ValueError("Categoria inválida: use imagem, video ou audio.")
+    if scan_id is not None and (not isinstance(scan_id, int) or isinstance(scan_id, bool) or scan_id < 1):
+        raise ValueError("ID de snapshot inválido.")
     if not isinstance(page, int) or isinstance(page, bool) or page < 1:
         raise ValueError("Página deve ser um inteiro positivo.")
     if (not isinstance(page_size, int) or isinstance(page_size, bool)
@@ -194,9 +197,16 @@ def query_catalog_page(
     try:
         with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
             conn.row_factory = sqlite3.Row
-            scan = conn.execute(
-                "SELECT id, root, scanned_utc FROM scans ORDER BY id DESC LIMIT 1"
-            ).fetchone()
+            if scan_id is None:
+                scan = conn.execute(
+                    "SELECT id, root, scanned_utc FROM scans ORDER BY id DESC LIMIT 1"
+                ).fetchone()
+            else:
+                scan = conn.execute(
+                    "SELECT id, root, scanned_utc FROM scans WHERE id=?", (scan_id,)
+                ).fetchone()
+                if scan is None:
+                    raise ValueError(f"Snapshot não encontrado: #{scan_id}")
             if scan is None:
                 return {
                     "database": str(path), "scan_id": None, "root": None,
@@ -229,3 +239,27 @@ def query_catalog_page(
             }
     except sqlite3.Error as exc:
         raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
+
+
+def list_catalog_scans(db_path: Path = DEFAULT_DB, limit: int = 100) -> list[dict[str, Any]]:
+    """Histórico dos inventários gravados, sem ler a árvore de arquivos.
+
+    O histórico é retornado em ordem decrescente. A lista nunca apaga snapshots.
+    """
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
+        raise ValueError("Limite do histórico deve estar entre 1 e 1000.")
+    path = Path(db_path).expanduser().absolute()
+    if not path.is_file():
+        raise ValueError(f"Catálogo não encontrado: {path}")
+    try:
+        with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """SELECT s.id, s.root, s.scanned_utc, s.media_files,
+                          s.other_files, s.bytes_media,
+                          (SELECT COUNT(*) FROM media m WHERE m.scan_id=s.id) AS indexed_files
+                   FROM scans s ORDER BY s.id DESC LIMIT ?""", (limit,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+    except sqlite3.Error as exc:
+        raise ValueError(f"Não foi possível consultar o histórico: {exc}") from exc
