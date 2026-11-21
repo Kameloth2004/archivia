@@ -147,7 +147,12 @@ def catalog_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
             ).fetchone()
             if scan is None:
                 return {"database": str(path), "scan_id": None, "media_files": 0,
-                        "bytes_media": 0, "by_category": {category: 0 for category in CATEGORIES}}
+                        "bytes_media": 0, "indexed_files": 0, "bytes_indexed": 0,
+                        "by_category": {category: 0 for category in CATEGORIES}}
+            totals = conn.execute(
+                "SELECT COUNT(*), COALESCE(SUM(size_bytes), 0) FROM media WHERE scan_id=?",
+                (scan[0],),
+            ).fetchone()
             counts = {category: 0 for category in CATEGORIES}
             for category, amount in conn.execute(
                 "SELECT category, COUNT(*) FROM media WHERE scan_id=? GROUP BY category",
@@ -158,7 +163,8 @@ def catalog_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
                 "database": str(path), "scan_id": scan[0], "root": scan[1],
                 "scanned_utc": scan[2], "media_files": scan[3],
                 "other_files": scan[4], "symlinks_skipped": scan[5],
-                "bytes_media": scan[6], "by_category": counts,
+                "bytes_media": scan[6], "indexed_files": totals[0],
+                "bytes_indexed": totals[1], "by_category": counts,
             }
     except sqlite3.Error as exc:
         raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
