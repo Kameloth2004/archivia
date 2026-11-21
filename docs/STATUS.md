@@ -152,6 +152,17 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Esta aprovação valida a consulta por nome e a exibição da GUI; não implica homologação do filtro/ordenação cronológicos nem movimentação física.
 - Próxima validação funcional: filtro de datas `AAAA-MM-DD` e ordenação **Mais recentes / Mais antigos** na aba Biblioteca.
 
+## Configurações — preferência regional de data (aguardando homologação)
+
+- Criada quinta aba **Configurações** para preferências que não precisam ocupar os painéis de trabalho.
+- Primeiro ajuste: formato de data da interface — brasileiro `DD/MM/AAAA` (padrão inicial), internacional ISO 8601 `AAAA-MM-DD`, norte-americano `MM/DD/AAAA`.
+- Nova rotina isolada `src/archivia/date_formats.py` valida entradas e converte para ISO antes de consultar SQLite. A tabela Biblioteca exibe `Modificado (UTC)` na preferência selecionada, mantendo hora e indicação UTC.
+- Preferência persistida pelo Qt `QSettings` como INI no perfil do usuário, não no banco de dados nem no repositório. Ao trocar a preferência, campos válidos preenchidos são convertidos e datas da tabela já exibida são atualizadas sem nova busca.
+- Testes sintéticos em `tests/test_date_formats.py` para Brasil, ISO, EUA, datas inválidas e UTC (3 novos testes).
+- **Pendente de homologação no Windows:** confirmar mudança entre formatos, persistência ao reabrir a GUI e consulta por período usando `DD/MM/AAAA`.
+- Os filtros e o banco continuam recebendo/armazenando datas ISO 8601; nada altera datas reais de arquivos ou snapshots.
+- Preferências adicionais poderão ser incluídas nesta aba posteriormente.
+
 ## Próximo passo seguro
 
 **Validação concluída:** Qwen3 retornou 26.970 correspondências para o termo `backup` em todas as categorias e cinco exemplos, com `filter_category=null`. Próxima evolução sugerida: separar busca pelo nome do arquivo e busca pelo caminho, mantendo paginação e leitura SQLite.
