@@ -144,6 +144,16 @@ A busca por nome-base ignora o caminho de pastas: `BACKUPS/relatorio.pdf` não c
 
 **Organização cronológica física em pastas ano/mês:** explicitamente planejada, mas não executada nesta fase. Exigirá um planejador dedicado, prévia de conflitos, aprovação e trilha de auditoria.
 
+## Configurações — formato de data (aguardando homologação)
+
+A quinta aba **Configurações** reúne preferências globais da interface. Primeira opção: **Formato de data** — Brasileiro `DD/MM/AAAA` (padrão inicial), Internacional ISO `AAAA-MM-DD` e Norte-americano `MM/DD/AAAA`. Essa distinção evita chamar ISO de formato americano.
+
+A escolha é salva automaticamente em configuração **INI de usuário pelo QSettings**, fora do banco e do repositório. Ao reabrir o ArchivIA, a opção é restaurada. A Biblioteca aplica o formato aos dois campos de período e à coluna **Modificado (UTC)**; alterar o formato converte datas válidas já digitadas e reexibe as datas da tabela. Os horários permanecem indicados como UTC, sem conversão de fuso.
+
+A pesquisa continua usando valores internos ISO `AAAA-MM-DD` e `modified_utc`; nenhuma data é alterada no SQLite nem nos arquivos. Exemplo para filtrar todo o ano de 2024: `01/01/2024` até `31/12/2024` no modo Brasileiro. Datas incompletas ou inválidas são rejeitadas antes da busca.
+
+Para testar: `git pull`, rodar testes, abrir GUI, mudar preferência para EUA, voltar à Biblioteca e conferir o formato, fechar e reabrir; depois trocar para Brasileiro e testar um intervalo de 2024. Preferências adicionais serão consideradas posteriormente. O histórico bruto e a saída de diagnóstico do agente podem continuar usando ISO nesta primeira etapa.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
