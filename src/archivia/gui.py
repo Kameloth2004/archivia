@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from .agent import ask_agent
-from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page
+from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans
 from .cataloging import catalog_verified_preview
 from .inventory import inventory
 from .preview import preview_inventory_page
@@ -33,7 +33,7 @@ class QueryWorker(QThread):
 
     def __init__(self, mode: str, database: Path, question: str = "", model: str = "",
                  page: int = 1, category: str | None = None,
-                 preview: dict | None = None) -> None:
+                 preview: dict | None = None, scan_id: int | None = None) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -42,6 +42,7 @@ class QueryWorker(QThread):
         self.page = page
         self.category = category
         self.preview = preview
+        self.scan_id = scan_id
 
     def run(self) -> None:
         try:
@@ -50,7 +51,9 @@ class QueryWorker(QThread):
             elif self.mode == "agent":
                 result = ask_agent(self.question, self.model, self.database)
             elif self.mode == "catalog_page":
-                result = query_catalog_page(self.database, self.category, page=self.page)
+                result = query_catalog_page(self.database, self.category, page=self.page, scan_id=self.scan_id)
+            elif self.mode == "history":
+                result = list_catalog_scans(self.database)
             elif self.mode == "inventory_preview":
                 result = inventory(self.question)
             elif self.mode == "catalog_verified_preview":
@@ -180,6 +183,16 @@ class ArchivIAWindow(QMainWindow):
 
         catalog_box = QGroupBox("Biblioteca catalogada — somente leitura")
         catalog_layout = QVBoxLayout(catalog_box)
+        history_row = QHBoxLayout()
+        history_row.addWidget(QLabel("Histórico de snapshots:"))
+        self.history_select = QComboBox()
+        self.history_select.addItem("Mais recente (automático)", None)
+        self.history_select.currentIndexChanged.connect(self._reset_catalog_page)
+        history_row.addWidget(self.history_select, 1)
+        self.history_button = QPushButton("Atualizar histórico")
+        self.history_button.clicked.connect(self._load_history)
+        history_row.addWidget(self.history_button)
+        catalog_layout.addLayout(history_row)
         catalog_toolbar = QHBoxLayout()
         catalog_toolbar.addWidget(QLabel("Categoria:"))
         self.category_filter = QComboBox()
@@ -366,6 +379,16 @@ class ArchivIAWindow(QMainWindow):
             self._worker is None and self._preview_page < self._preview_pages
         )
 
+    def _load_history(self) -> None:
+        if self._worker is not None:
+            return
+        try:
+            database = self._database_path()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._start_worker("history", database)
+
     def _reset_catalog_page(self, *_args) -> None:
         self._page = 1
         self._load_catalog_page()
@@ -380,7 +403,8 @@ class ArchivIAWindow(QMainWindow):
             return
         self._start_worker(
             "catalog_page", database, page=self._page,
-            category=self.category_filter.currentData()
+            category=self.category_filter.currentData(),
+            scan_id=self.history_select.currentData()
         )
 
     def _previous_page(self) -> None:
@@ -417,13 +441,14 @@ class ArchivIAWindow(QMainWindow):
     def _start_worker(
         self, mode: str, database: Path, question: str = "", model: str = "",
         page: int = 1, category: str | None = None,
-        preview: dict | None = None
+        preview: dict | None = None,
+        scan_id: int | None = None
     ) -> None:
         if self._worker is not None:
             return
         self._set_busy(True)
         self.status.setText("Aguardando Ollama..." if mode == "agent" else "Processando consulta local...")
-        worker = QueryWorker(mode, database, question, model, page, category, preview)
+        worker = QueryWorker(mode, database, question, model, page, category, preview, scan_id)
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
         worker.failed.connect(self._show_error)
@@ -449,6 +474,8 @@ class ArchivIAWindow(QMainWindow):
         self.preview_next.setEnabled(not busy and self._preview_page < self._preview_pages)
         self.category_filter.setEnabled(not busy)
         self.list_button.setEnabled(not busy)
+        self.history_button.setEnabled(not busy)
+        self.history_select.setEnabled(not busy)
         self.prev_button.setEnabled(not busy and self._page > 1)
         self.next_button.setEnabled(not busy and self._page < self._pages)
 
@@ -503,6 +530,23 @@ class ArchivIAWindow(QMainWindow):
             self.page_label.setText("Novo snapshot salvo — clique em Listar catálogo")
             self.prev_button.setEnabled(False)
             self.next_button.setEnabled(False)
+        elif mode == "history":
+            current = self.history_select.currentData()
+            self.history_select.blockSignals(True)
+            self.history_select.clear()
+            self.history_select.addItem("Mais recente (automático)", None)
+            for scan in result:
+                label = (
+                    f"#{scan['id']} | {scan['scanned_utc']} | "
+                    f"{scan['indexed_files']} arquivos | {scan['root']}"
+                )
+                self.history_select.addItem(label, scan["id"])
+            index = self.history_select.findData(current)
+            self.history_select.setCurrentIndex(max(0, index))
+            self.history_select.blockSignals(False)
+            self.status.setText(
+                f"Histórico consultado: {len(result)} snapshots encontrados (máximo 100)."
+            )
         elif mode == "catalog_page":
             self._page = result["page"]
             self._pages = result["pages"]
@@ -517,7 +561,7 @@ class ArchivIAWindow(QMainWindow):
             self.page_label.setText(
                 f"Página {self._page} de {self._pages or 0} — {result['count']} arquivos"
             )
-            self.status.setText("Lista do último inventário carregada, sem escrita no SQLite.")
+            self.status.setText("Snapshot #{} consultado em modo somente leitura.".format(result["scan_id"]))
         else:
             answer = result.get("answer") or "(Resposta textual vazia)"
             tools = result.get("tools_used", [])
