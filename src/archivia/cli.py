@@ -9,6 +9,7 @@ import sys
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog, store_inventory
 from .inventory import inventory
 from .planner import propose_moves
+from .agent import ask_agent
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -37,10 +38,18 @@ def main(argv: list[str] | None = None) -> int:
     planner.add_argument("--limite", type=int, default=100, help="Máximo de operações propostas (1 a 100)")
     planner.add_argument("--banco", default=str(DEFAULT_DB), help="Caminho do SQLite")
 
+    agent = commands.add_parser("agente", help="Consultar agente Ollama local com ferramentas restritas")
+    agent.add_argument("pergunta", help="Instrução em linguagem natural")
+    agent.add_argument("--modelo", required=True, help="Nome exato do modelo instalado no Ollama")
+    agent.add_argument("--banco", default=str(DEFAULT_DB), help="Caminho do SQLite")
+
     args = parser.parse_args(argv)
 
     try:
-        if args.command == "planejar":
+        if args.command == "agente":
+            output = ask_agent(args.pergunta, args.modelo, db_path=args.banco)
+            result = {"errors": []}
+        elif args.command == "planejar":
             output = propose_moves(args.destino, args.categoria, db_path=args.banco, limit=args.limite)
             result = {"errors": []}
         elif args.command == "resumo":
