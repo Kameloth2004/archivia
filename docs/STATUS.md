@@ -27,13 +27,15 @@ Atualizado em 2026-11-21.
 - **Segunda integração real aprovada em 2026-11-21.** O Qwen3 chamou `simular_movimentacao`, categoria `imagem`, destino `tests/fixtures/manual/destino`, obteve `selected=1`, `blocked=0`, `mode=simulation`, `executable=false`, `files_modified=false`. Nenhum arquivo foi movido.
 - Os testes comprovam integração por ferramentas, **não** reconhecimento visual, mecanismo de aprovação ou operações sobre arquivos.
 
+**GUI: agente validado em 2026-11-21.** A pergunta pela interface retornou `O catálogo contém 1 imagem.`, com `tools_used` incluindo `resumo_catalogo`, `scan_id=1`, `imagem=1`, `files_modified=false`. Essa evidência comprova a rota GUI → Ollama → Python → SQLite → GUI.
+
 ## GUI Standard
 
-Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. **Usuário confirmou que dependências instalaram e a janela abriu normalmente em 2026-11-21**, com captura de tela. O botão **Atualizar resumo** foi testado e aprovado pelo usuário; falta validar a interação com o agente pela GUI. A interface atual é explicitamente provisória: redesenhar futuramente para aparência moderna, melhor hierarquia visual, navegação intuitiva e fluxos claros. Ver [GUI.md](GUI.md).
+Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip install -e ".[gui]"`. **Usuário confirmou que dependências instalaram e a janela abriu normalmente em 2026-11-21**, com captura de tela. O botão **Atualizar resumo** foi testado e aprovado pelo usuário; a interação com o agente pela GUI foi aprovada: `resumo_catalogo` devolveu 1 imagem via Qwen3. A interface atual é explicitamente provisória: redesenhar futuramente para aparência moderna, melhor hierarquia visual, navegação intuitiva e fluxos claros. Ver [GUI.md](GUI.md).
 
 ## Próximo passo seguro
 
-**Próxima validação, uma por vez:** com a GUI aberta, testar `Perguntar ao agente` com a pergunta sobre a quantidade de imagens, verificando a ferramenta `resumo_catalogo`. O botão `Atualizar resumo` já foi aprovado. Não executar movimentações reais. Preservar motor independente da GUI/Ollama para as futuras edições Lite.
+**Próxima validação, uma por vez:** com a GUI aberta, testar a ferramenta `simular_movimentacao` por linguagem natural, usando somente a pasta sintética `tests/fixtures/manual/destino`; confirmar que não há movimentação física. Ambos os botões de resumo e consulta ao agente foram aprovados. Não executar movimentações reais. Preservar motor independente da GUI/Ollama para as futuras edições Lite.
 
 ## Limitações e evolução
 
