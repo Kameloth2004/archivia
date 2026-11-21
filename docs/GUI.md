@@ -134,7 +134,7 @@ A ferramenta `buscar_arquivos_catalogo` está disponível ao Qwen3 pela interfac
 
 A tela anterior empilhava todas as seções e escondia **Agente Ollama local** abaixo do limite do monitor. A interface foi reorganizada em **QTabWidget**, com quatro abas: **Visão geral** (catálogo SQLite e origens), **Inventário** (seleção, prévia e catalogação confirmada), **Biblioteca** (histórico, pesquisa e paginação) e **Agente IA** (modelo, pergunta, resposta e ferramentas). O indicador de status permanece visível na parte inferior. Tamanho inicial ajustado de 960×1020 para 960×760, com mínimo 760×540. Não foi alterada a lógica de inventário, SQLite, Ollama ou permissões de arquivos.
 
-A separação por abas é um ajuste estrutural de acessibilidade, **não o redesign visual definitivo**. Testar abertura e acessibilidade do painel **Agente IA** mesmo sem maximizar a janela. Código ainda não validado no Windows.
+A separação por abas é um ajuste estrutural de acessibilidade, **não o redesign visual definitivo**. **Homologado no Windows pelo usuário em 2026-11-21:** a interface abriu corretamente em quatro abas. Próxima validação: solicitar busca pelo Qwen3 na aba Agente IA.
 
 ## Planejamento posterior
 
