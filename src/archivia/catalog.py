@@ -176,8 +176,10 @@ def query_catalog_page(
     page: int = 1,
     page_size: int = 50,
     scan_id: int | None = None,
+    name_contains: str | None = None,
+    extension: str | None = None,
 ) -> dict[str, Any]:
-    """Lista página limitada do último snapshot em SQLite somente leitura.
+    """Lista página limitada, opcionalmente filtrada, em SQLite somente leitura.
 
     Diferente de query_catalog(), não carrega todos os arquivos na memória.
     """
@@ -185,6 +187,18 @@ def query_catalog_page(
         raise ValueError("Categoria inválida: use imagem, video ou audio.")
     if scan_id is not None and (not isinstance(scan_id, int) or isinstance(scan_id, bool) or scan_id < 1):
         raise ValueError("ID de snapshot inválido.")
+    if name_contains is not None and (not isinstance(name_contains, str) or len(name_contains) > 200):
+        raise ValueError("Busca por nome deve ter até 200 caracteres.")
+    if extension is not None and (not isinstance(extension, str) or len(extension) > 30):
+        raise ValueError("Extensão deve ter até 30 caracteres.")
+    # % e _ são literais: não são curingas quando digitados pelo usuário.
+    def escape_like(value: str) -> str:
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    normalized_name = (name_contains or "").strip()
+    normalized_extension = (extension or "").strip().lower()
+    if normalized_extension and not normalized_extension.startswith("."):
+        normalized_extension = "." + normalized_extension
     if not isinstance(page, int) or isinstance(page, bool) or page < 1:
         raise ValueError("Página deve ser um inteiro positivo.")
     if (not isinstance(page_size, int) or isinstance(page_size, bool)
@@ -211,6 +225,7 @@ def query_catalog_page(
                 return {
                     "database": str(path), "scan_id": None, "root": None,
                     "scanned_utc": None, "filter_category": category,
+                    "filter_name": normalized_name, "filter_extension": normalized_extension,
                     "page": page, "page_size": page_size, "count": 0,
                     "pages": 0, "files": [],
                 }
@@ -220,6 +235,12 @@ def query_catalog_page(
             if category is not None:
                 where += " AND category=?"
                 params += (category,)
+            if normalized_name:
+                where += " AND relative_path LIKE ? ESCAPE '\\'"
+                params += ("%" + escape_like(normalized_name) + "%",)
+            if normalized_extension:
+                where += " AND extension = ?"
+                params += (normalized_extension,)
             count = conn.execute(
                 f"SELECT COUNT(*) FROM media WHERE {where}", params
             ).fetchone()[0]
@@ -233,6 +254,7 @@ def query_catalog_page(
             return {
                 "database": str(path), "scan_id": scan["id"], "root": scan["root"],
                 "scanned_utc": scan["scanned_utc"], "filter_category": category,
+                "filter_name": normalized_name, "filter_extension": normalized_extension,
                 "page": page, "page_size": page_size, "count": count,
                 "pages": (count + page_size - 1) // page_size,
                 "files": [dict(row) for row in rows],
