@@ -37,7 +37,7 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 - O botão de resumo usa sempre o **último snapshot global** do banco, não a soma consolidada de múltiplas origens.
 - A conversa não mantém histórico entre perguntas; uma pergunta gera uma solicitação independente.
 - A interface não autentica nem gerencia instâncias Ollama; pressupõe serviço local disponível em `127.0.0.1:11434`.
-- O primeiro teste exige execução manual no Windows. **Ainda não foi validado no computador do desenvolvedor.**
+- Instalação opcional PySide6 e abertura de `archivia-gui` **confirmadas no Windows em 2026-11-21** com captura de tela; funcionalidades internas da GUI ainda aguardam validação.
 - Fechar a janela durante uma chamada ao Ollama é bloqueado até ela terminar para não interromper threads.
 
 ## Regras de arquitetura
@@ -51,9 +51,13 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 ## Próxima validação
 
 1. Rodar testes existentes após instalação opcional.
-2. Abrir `archivia-gui`; confirmar resumo SQLite, incluindo 1 imagem do fixture manual.
+2. Abertura de `archivia-gui` **confirmada**. Próximo: clicar em **Atualizar resumo** e verificar 1 imagem do fixture manual.
 3. Perguntar **Quantas imagens existem no meu catálogo?**; conferir resposta e `resumo_catalogo`.
 4. Se ocorrer erro, anotar traceback/saída e corrigir antes de adicionar novas funções.
+
+## Decisão de UX registrada em 2026-11-21
+
+O usuário aprovou a abertura da GUI como marco técnico, **mas pediu explicitamente uma reformulação visual posterior**. A janela atual é apenas bancada funcional de homologação. Planejar interface mais bonita, moderna e intuitiva, com navegação clara, organização de painéis, seleção visual de diretórios, estados de carregamento, mensagens compreensíveis, miniaturas e prévia de operações. Não priorizar polimento visual antes da validação do motor e do fluxo agente-ferramentas; não esquecer esta exigência ao avançar o produto.
 
 ## Planejamento posterior
 
