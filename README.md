@@ -56,6 +56,10 @@ python -m unittest discover -s tests -v
 
 Instalação opcional no Windows: `python -m pip install -e ".[gui]"`. Abrir com `archivia-gui`. A janela inicial permite consultar resumo SQLite e conversar com o Ollama; não move arquivos. Consulte [GUI.md](docs/GUI.md).
 
+## Catalogar pela GUI (confirmação necessária)
+
+Após **Examinar pasta — prévia**, o botão **Salvar inventário no catálogo SQLite...** fica disponível se a leitura não tiver erros. Uma caixa de diálogo solicita confirmação; o motor reexamina a pasta e só grava um novo snapshot se o conteúdo listado e os metadados ainda coincidirem com a prévia. A gravação altera apenas o banco SQLite; nenhum arquivo da pasta é modificado. Um inventário antigo permanece disponível no histórico, embora a interface liste somente o último snapshot. Consulte [GUI.md](docs/GUI.md) e [INVENTORY.md](docs/INVENTORY.md).
+
 ## Agente Ollama local (experimental)
 
 O agente utiliza apenas ferramentas autorizadas: `resumo_catalogo` e `simular_movimentacao`. Não pode mover, renomear ou apagar arquivos.
