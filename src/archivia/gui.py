@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, QSettings
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
 from .agent import ask_agent
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary
 from .cataloging import catalog_verified_preview
+from .date_formats import DATE_FORMATS, parse_user_date, display_date, display_timestamp
 from .inventory import inventory
 from .preview import preview_inventory_page
 
@@ -90,6 +92,9 @@ class ArchivIAWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self._worker: QueryWorker | None = None
+        self._settings = QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope, "ArchivIA", "Standard")
+        stored_format = self._settings.value("interface/date_format", "br")
+        self._date_format = stored_format if stored_format in DATE_FORMATS else "br"
         self._page = 1
         self._pages = 0
         self._preview_result: dict | None = None
@@ -125,10 +130,13 @@ class ArchivIAWindow(QMainWindow):
         library_layout = QVBoxLayout(library_page)
         agent_page = QWidget()
         agent_page_layout = QVBoxLayout(agent_page)
+        settings_page = QWidget()
+        settings_layout = QVBoxLayout(settings_page)
         self.tabs.addTab(overview_page, "Visão geral")
         self.tabs.addTab(inventory_page, "Inventário")
         self.tabs.addTab(library_page, "Biblioteca")
         self.tabs.addTab(agent_page, "Agente IA")
+        self.tabs.addTab(settings_page, "Configurações")
         root.addWidget(self.tabs, 1)
 
         database_box = QGroupBox("Catálogo SQLite")
@@ -295,13 +303,13 @@ class ArchivIAWindow(QMainWindow):
         date_row = QHBoxLayout()
         date_row.addWidget(QLabel("Modificado de:"))
         self.catalog_date_from = QLineEdit()
-        self.catalog_date_from.setPlaceholderText("AAAA-MM-DD")
+        self.catalog_date_from.setPlaceholderText(DATE_FORMATS[self._date_format][1])
         self.catalog_date_from.setMaximumWidth(112)
         self.catalog_date_from.returnPressed.connect(self._reset_catalog_page)
         date_row.addWidget(self.catalog_date_from)
         date_row.addWidget(QLabel("até:"))
         self.catalog_date_to = QLineEdit()
-        self.catalog_date_to.setPlaceholderText("AAAA-MM-DD")
+        self.catalog_date_to.setPlaceholderText(DATE_FORMATS[self._date_format][1])
         self.catalog_date_to.setMaximumWidth(112)
         self.catalog_date_to.returnPressed.connect(self._reset_catalog_page)
         date_row.addWidget(self.catalog_date_to)
@@ -363,9 +371,81 @@ class ArchivIAWindow(QMainWindow):
         result_layout.addWidget(self.result_view)
         agent_page_layout.addWidget(result_box, 1)
 
+        date_settings = QGroupBox("Preferências de data")
+        date_settings_layout = QVBoxLayout(date_settings)
+        format_row = QHBoxLayout()
+        format_row.addWidget(QLabel("Formato:"))
+        self.date_format_select = QComboBox()
+        self.date_format_select.addItem("Brasileiro — DD/MM/AAAA", "br")
+        self.date_format_select.addItem("Internacional (ISO) — AAAA-MM-DD", "iso")
+        self.date_format_select.addItem("Norte-americano — MM/DD/AAAA", "us")
+        self.date_format_select.setCurrentIndex(
+            max(0, self.date_format_select.findData(self._date_format))
+        )
+        format_row.addWidget(self.date_format_select, 1)
+        date_settings_layout.addLayout(format_row)
+        self.date_format_info = QLabel(
+            "Aplica-se aos campos de data e à coluna Modificado na Biblioteca. "
+            "O catálogo permanece em ISO 8601 UTC."
+        )
+        self.date_format_info.setWordWrap(True)
+        date_settings_layout.addWidget(self.date_format_info)
+        self.date_format_select.currentIndexChanged.connect(self._change_date_format)
+        settings_layout.addWidget(date_settings)
+        settings_layout.addStretch(1)
+
+        self._refresh_date_placeholders()
+
         self.status = QLabel("Pronto. Nenhuma operação de escrita em mídias está disponível.")
         root.addWidget(self.status)
         self.setCentralWidget(content)
+
+    def _refresh_date_placeholders(self) -> None:
+        hint = DATE_FORMATS[self._date_format][1]
+        self.catalog_date_from.setPlaceholderText(hint)
+        self.catalog_date_to.setPlaceholderText(hint)
+
+    def _change_date_format(self, *_args) -> None:
+        next_format = self.date_format_select.currentData()
+        if next_format == self._date_format:
+            return
+        previous_format = self._date_format
+        # Se o campo contém data válida, preserve a data ao trocar a notação.
+        # Se inválida, mantenha o texto para o usuário corrigir.
+        for widget in (self.catalog_date_from, self.catalog_date_to):
+            raw = widget.text().strip()
+            if raw:
+                try:
+                    iso = parse_user_date(raw, previous_format)
+                    widget.setText(display_date(iso, next_format))
+                except ValueError:
+                    widget.clear()
+                    self.status.setText(
+                        "Uma data inválida foi limpa após alterar o formato."
+                    )
+        self._date_format = next_format
+        self._settings.setValue("interface/date_format", next_format)
+        self._settings.sync()
+        self._refresh_date_placeholders()
+        self.catalog_table.setHorizontalHeaderLabels(
+            ["Arquivo (caminho relativo)", "Categoria", "Extensão", "Bytes",
+             "Modificado (UTC)"]
+        )
+        # Atualiza datas exibidas sem fazer outra consulta ou modificar snapshots.
+        for row in range(self.catalog_table.rowCount()):
+            cell = self.catalog_table.item(row, 4)
+            if cell is not None and cell.text():
+                try:
+                    iso = datetime.strptime(
+                        cell.text(), DATE_FORMATS[previous_format][0] + " %H:%M:%S UTC"
+                    ).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+                    cell.setText(display_timestamp(iso, next_format))
+                except ValueError:
+                    pass
+        self.status.setText(
+            f"Formato de data salvo: {DATE_FORMATS[next_format][1]}. "
+            "Catálogo SQLite não alterado."
+        )
 
     def _database_path(self) -> Path:
         value = self.database.text().strip()
@@ -519,6 +599,12 @@ class ArchivIAWindow(QMainWindow):
         except ValueError as exc:
             self._show_error(str(exc))
             return
+        try:
+            date_from = parse_user_date(self.catalog_date_from.text(), self._date_format)
+            date_to = parse_user_date(self.catalog_date_to.text(), self._date_format)
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
         self._start_worker(
             "catalog_page", database, page=self._page,
             category=self.category_filter.currentData(),
@@ -526,8 +612,8 @@ class ArchivIAWindow(QMainWindow):
             name_contains=self.catalog_name_filter.text().strip(),
             extension=self.catalog_extension_filter.text().strip(),
             search_scope=self.catalog_search_scope.currentData(),
-            date_from=self.catalog_date_from.text().strip(),
-            date_to=self.catalog_date_to.text().strip(),
+            date_from=date_from,
+            date_to=date_to,
             sort_by=self.catalog_sort.currentData(),
         )
 
@@ -714,7 +800,8 @@ class ArchivIAWindow(QMainWindow):
             for row_index, item in enumerate(items):
                 for column, value in enumerate((
                     item["relative_path"], item["category"],
-                    item["extension"], str(item["size_bytes"]), item["modified_utc"]
+                    item["extension"], str(item["size_bytes"]),
+                    display_timestamp(item["modified_utc"], self._date_format)
                 )):
                     self.catalog_table.setItem(row_index, column, QTableWidgetItem(value))
             self.page_label.setText(
