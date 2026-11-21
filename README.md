@@ -42,6 +42,22 @@ Para executar os testes:
 python -m unittest discover -s tests -v
 ```
 
+## Documentação para manutenção e retomada
+
+- [Arquitetura e segurança](docs/ARCHITECTURE.md)
+- [Estado atual e próximos passos](docs/STATUS.md)
+- [Política de testes e mocks](tests/README.md)
+
+## Planejador em modo simulação
+
+O comando `planejar` oferece apenas uma prévia, **sem mover ou alterar arquivos**. Ele lê o último snapshot SQLite e exige um diretório de destino existente. Para testes, utilize pastas dentro de `tests/fixtures/manual/`.
+
+```bash
+python -m archivia planejar --categoria imagem --destino "D:/PROJETOS/archivia/tests/fixtures/manual/destino"
+```
+
+A saída JSON é exibida no terminal, **não** é salva como arquivo. Operações são apenas propostas ou bloqueadas. Não existe executor. Um plano não é autorização para movimentar mídias. A operação inicial é limitada a 100 propostas; internamente ainda carrega a listagem da categoria em memória — consulte as limitações em `docs/ARCHITECTURE.md`.
+
 ## Resumo compacto do catálogo
 
 O comando padrão para obter totais sem listar todas as mídias:
