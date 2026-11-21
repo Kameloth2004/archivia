@@ -4,7 +4,7 @@ Bibliotecário digital local em Python, planejado para catalogar, classificar, r
 
 ## Estado do projeto
 
-**Etapa experimental do agente Ollama: ferramentas de consulta e simulação sobre o motor Python.** O Ollama ainda não é utilizado. Nenhuma operação de renomeação, movimentação ou exclusão foi implementada.
+**Etapa experimental do agente Ollama: ferramentas de consulta e simulação sobre o motor Python.** A integração local com `qwen3:8b-q4_K_M` já foi validada. Nenhuma operação de renomeação, movimentação ou exclusão foi implementada.
 
 ### Princípios
 
@@ -44,7 +44,9 @@ python -m unittest discover -s tests -v
 
 ## Documentação para manutenção e retomada
 
-- [Arquitetura e segurança](docs/ARCHITECTURE.md)\n- [Agente Ollama: protocolo e limitações](docs/AGENT.md)
+- [Arquitetura e segurança](docs/ARCHITECTURE.md)
+- [Agente Ollama: protocolo e limitações](docs/AGENT.md)
+- [Edições planejadas: Standard e duas Lite](docs/EDITIONS.md)
 - [Estado atual e próximos passos](docs/STATUS.md)
 - [Política de testes e mocks](tests/README.md)
 
@@ -105,7 +107,7 @@ python -m archivia catalogar "D:/PROJETOS/archivia/tests/fixtures/manual"
 
 O arquivo será criado automaticamente em `D:/PROJETOS/archivia/data/catalogo.sqlite3`. O caminho pode ser alterado com `--banco`, caso necessário. A pasta `data/` é ignorada pelo Git: **não publique o banco**, pois contém caminhos e nomes dos arquivos.
 
-Cada execução grava um novo snapshot identificado por `scan_id`; não remove registros de inventários anteriores. Se houver erros na varredura, nenhum snapshot é gravado. O catálogo guarda apenas metadados, e **não renomeia, altera, abre ou movimenta as mídias**. É necessário ter permissão de escrita apenas na pasta do banco. Não há integração com Ollama nesta etapa.
+Cada execução grava um novo snapshot identificado por `scan_id`; não remove registros de inventários anteriores. Se houver erros na varredura, nenhum snapshot é gravado. O catálogo guarda apenas metadados, e **não renomeia, altera, abre ou movimenta as mídias**. É necessário ter permissão de escrita apenas na pasta do banco. A integração Ollama está disponível somente nos comandos de agente autorizados; o inventário e catálogo não dependem dela.
 
 ### Saída
 
@@ -118,7 +120,7 @@ Os metadados incluem caminho relativo, categoria baseada **somente na extensão*
 - Inventários grandes são mantidos na memória antes de imprimir o JSON.
 - O inventário pode mudar durante uma varredura; não é um snapshot atômico.
 - Permissões do sistema operacional são respeitadas: leia somente diretórios de sua confiança.
-- Nenhuma identificação de duplicatas por hash, reconhecimento visual ou integração com Ollama ainda.
+- Nenhuma identificação de duplicatas por hash ou reconhecimento visual ainda; a conexão Ollama com ferramentas de consulta e simulação já foi testada.
 
 ## Próximas etapas planejadas
 
