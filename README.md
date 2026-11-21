@@ -19,6 +19,7 @@ Bibliotecário digital local em Python, planejado para catalogar, classificar, r
 Requer Python 3.10 ou superior. Na raiz do repositório:
 
 ```bash
+python -m pip install -e .
 python -m archivia inventario "D:\\Minhas Midias"
 ```
 
