@@ -269,6 +269,44 @@ class ArchivIAWindow(QMainWindow):
             self.folder.setText(chosen)
             self._clear_preview()
 
+    def _folder_changed(self, *_args) -> None:
+        if self._preview_result is not None:
+            self._clear_preview()
+            self.inventory_view.setText("Pasta alterada. Examine novamente antes de catalogar.")
+
+    def _confirm_catalog_preview(self) -> None:
+        if self._worker is not None or self._preview_result is None:
+            return
+        preview = self._preview_result
+        if preview.get("errors"):
+            self._show_error("Prévia incompleta: catalogação indisponível.")
+            return
+        if self.folder.text().strip() != self._preview_source_path:
+            self._show_error("Pasta alterada. Examine novamente.")
+            return
+        try:
+            database = self._database_path()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        count = preview["summary"]["indexed_files"]
+        answer = QMessageBox.question(
+            self, "Confirmar catalogação",
+            f"Origem: {preview['root']}\n"
+            f"Arquivos: {count}\n"
+            f"Banco: {database}\n\n"
+            "A pasta será examinada novamente antes da gravação.\n"
+            "Somente o banco SQLite será alterado; os arquivos serão preservados.\n"
+            "Um novo snapshot será adicionado sem remover os anteriores.\n\n"
+            "Deseja salvar o inventário?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            self.status.setText("Catalogação cancelada; nenhum dado gravado.")
+            return
+        self._start_worker("catalog_verified_preview", database, preview=preview)
+
     def _run_inventory_preview(self) -> None:
         path = self.folder.text().strip()
         if not path:
@@ -447,6 +485,20 @@ class ArchivIAWindow(QMainWindow):
             # Um erro antigo de outra seção não deve permanecer após esta prévia bem-sucedida.
             if self.result_view.toPlainText().startswith("Erro:"):
                 self.result_view.clear()
+        elif mode == "catalog_verified_preview":
+            self.status.setText(
+                f"Snapshot #{result['scan_id']} salvo no SQLite. "
+                "Arquivos originais preservados."
+            )
+            self.summary_view.setText(
+                "Novo snapshot salvo. Clique em Atualizar resumo para conferir os totais."
+            )
+            self._page = 1
+            self._pages = 0
+            self.catalog_table.setRowCount(0)
+            self.page_label.setText("Novo snapshot salvo — clique em Listar catálogo")
+            self.prev_button.setEnabled(False)
+            self.next_button.setEnabled(False)
         elif mode == "catalog_page":
             self._page = result["page"]
             self._pages = result["pages"]
