@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from .agent import ask_agent
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page
+from .cataloging import catalog_verified_preview
 from .inventory import inventory
 from .preview import preview_inventory_page
 
@@ -31,7 +32,8 @@ class QueryWorker(QThread):
     failed = Signal(str)
 
     def __init__(self, mode: str, database: Path, question: str = "", model: str = "",
-                 page: int = 1, category: str | None = None) -> None:
+                 page: int = 1, category: str | None = None,
+                 preview: dict | None = None) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -39,6 +41,7 @@ class QueryWorker(QThread):
         self.model = model
         self.page = page
         self.category = category
+        self.preview = preview
 
     def run(self) -> None:
         try:
@@ -50,6 +53,10 @@ class QueryWorker(QThread):
                 result = query_catalog_page(self.database, self.category, page=self.page)
             elif self.mode == "inventory_preview":
                 result = inventory(self.question)
+            elif self.mode == "catalog_verified_preview":
+                if self.preview is None:
+                    raise ValueError("Nenhuma prévia para catalogar.")
+                result = catalog_verified_preview(self.preview, self.database)
             else:
                 raise ValueError("Ação não autorizada na interface.")
             self.finished_result.emit(result)
@@ -67,6 +74,7 @@ class ArchivIAWindow(QMainWindow):
         self._page = 1
         self._pages = 0
         self._preview_result: dict | None = None
+        self._preview_source_path: str | None = None
         self._preview_page = 1
         self._preview_pages = 0
         self.setWindowTitle("ArchivIA Standard — Prévia")
@@ -108,6 +116,7 @@ class ArchivIAWindow(QMainWindow):
         folder_layout = QVBoxLayout(folder_box)
         folder_row = QHBoxLayout()
         self.folder = QLineEdit()
+        self.folder.textChanged.connect(self._folder_changed)
         self.folder.setPlaceholderText("Escolha uma pasta para examinar, sem catalogar")
         folder_row.addWidget(self.folder)
         self.folder_button = QPushButton("Escolher pasta...")
@@ -120,6 +129,10 @@ class ArchivIAWindow(QMainWindow):
         self.inventory_view = QLabel("Nenhuma pasta examinada nesta sessão.")
         self.inventory_view.setWordWrap(True)
         folder_layout.addWidget(self.inventory_view)
+        self.catalog_preview_button = QPushButton("Salvar inventário no catálogo SQLite...")
+        self.catalog_preview_button.setEnabled(False)
+        self.catalog_preview_button.clicked.connect(self._confirm_catalog_preview)
+        folder_layout.addWidget(self.catalog_preview_button)
 
         preview_toolbar = QHBoxLayout()
         preview_toolbar.addWidget(QLabel("Filtrar prévia:"))
@@ -267,6 +280,8 @@ class ArchivIAWindow(QMainWindow):
 
     def _clear_preview(self) -> None:
         self._preview_result = None
+        self._preview_source_path = None
+        self.catalog_preview_button.setEnabled(False)
         self._preview_page = 1
         self._preview_pages = 0
         self.preview_table.setRowCount(0)
@@ -363,13 +378,14 @@ class ArchivIAWindow(QMainWindow):
 
     def _start_worker(
         self, mode: str, database: Path, question: str = "", model: str = "",
-        page: int = 1, category: str | None = None
+        page: int = 1, category: str | None = None,
+        preview: dict | None = None
     ) -> None:
         if self._worker is not None:
             return
         self._set_busy(True)
         self.status.setText("Aguardando Ollama..." if mode == "agent" else "Processando consulta local...")
-        worker = QueryWorker(mode, database, question, model, page, category)
+        worker = QueryWorker(mode, database, question, model, page, category, preview)
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
         worker.failed.connect(self._show_error)
@@ -385,6 +401,11 @@ class ArchivIAWindow(QMainWindow):
         self.folder.setEnabled(not busy)
         self.folder_button.setEnabled(not busy)
         self.inventory_button.setEnabled(not busy)
+        self.catalog_preview_button.setEnabled(
+            not busy and self._preview_result is not None
+            and not self._preview_result.get("errors")
+            and self.folder.text().strip() == self._preview_source_path
+        )
         self.preview_filter.setEnabled(not busy)
         self.preview_prev.setEnabled(not busy and self._preview_page > 1)
         self.preview_next.setEnabled(not busy and self._preview_page < self._preview_pages)
@@ -409,6 +430,7 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText("Resumo consultado. Banco não alterado.")
         elif mode == "inventory_preview":
             self._preview_result = result
+            self._preview_source_path = self.folder.text().strip()
             self._preview_page = 1
             self._show_preview_page()
             info = result["summary"]
