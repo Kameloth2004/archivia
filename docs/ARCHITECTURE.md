@@ -9,7 +9,7 @@ Aplicativo desktop local para inventariar, catalogar, analisar e futuramente org
 - `src/archivia/planner.py`: **somente simulação** de movimento, sem operações de escrita em mídias.
 - `src/archivia/cli.py`: interface transitória de testes/uso, não contém regras de negócio.
 - `tests/`: testes automatizados, fixtures e mocks. Nunca incorporar mocks ao motor.
-- Futuros adaptadores: Ollama (coordenador/visão), UI desktop PySide6, embeddings visuais, executor auditável.
+- `src/archivia/agent.py`: adaptador experimental Ollama (somente ferramentas de resumo e simulação). Ver [AGENT.md](AGENT.md).\n- Futuros adaptadores: modelo visual, UI desktop PySide6, embeddings visuais, executor auditável.
 
 ## Fluxo desejado
 Usuário -> interface -> agente Ollama -> ferramentas do motor -> SQLite/metadados -> plano validado -> prévia -> aprovação explícita -> executor futuro.
