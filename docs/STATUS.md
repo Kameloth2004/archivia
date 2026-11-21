@@ -115,12 +115,12 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - GUI reorganizada em **Visão geral, Inventário, Biblioteca e Agente IA** usando PySide6 QTabWidget.
 - Janela inicial reduzida para 960×760 (mínimo 760×540), status mantido fora das abas.
 - Nenhuma mudança no motor SQLite, função de busca do agente, catálogo ou autorização de movimentação.
-- Próximo teste visual: abrir GUI e selecionar aba **Agente IA**; campo de pergunta e resposta devem permanecer acessíveis.
+- **Homologado pelo usuário:** GUI abriu corretamente com as quatro abas em 2026-11-21; o problema da janela única foi resolvido no teste visual. O fluxo da nova ferramenta de busca pelo Ollama continua pendente.
 - Redesign moderno e intuitivo continua como etapa posterior, agora sobre estrutura modular.
 
 ## Próximo passo seguro
 
-**Validação de busca GUI:** aprovada pelo usuário com `backup` no snapshot #2, Bash sem erros reportados. **Próximo teste:** atualizar, rodar a suíte e confirmar as quatro abas; somente após isso testar na aba Agente IA uma pergunta ao Qwen3 pedindo arquivos com `backup` no caminho. Conferir `tools_used` e os resultados limitados, sem movimentação.
+**Validação de busca GUI:** aprovada pelo usuário com `backup` no snapshot #2, Bash sem erros reportados. **Próximo teste:** pela aba **Agente IA**, solicitar ao Qwen3 busca de arquivos com `backup` no nome ou caminho e verificar `tools_used[0].tool=buscar_arquivos_catalogo`, quantidade e resultados limitados. Quatro abas já homologadas. Conferir `tools_used` e os resultados limitados, sem movimentação.
 
 ## Limitações e evolução
 
