@@ -94,6 +94,10 @@ python -m archivia resumo
 
 Usa consulta agregada no SQLite em modo somente leitura, recuperando somente o último snapshot. Exibe contagens por categoria, bytes e data da última catalogação. Não produz arquivo JSON no disco nem varre mídias. O resultado no terminal ainda é JSON pequeno, para permitir integração futura com interface gráfica.
 
+## Configurações de data
+
+Na aba **Configurações**, selecione a apresentação de datas **Brasileiro (DD/MM/AAAA)**, **Internacional (AAAA-MM-DD)** ou **Norte-americano (MM/DD/AAAA)**. A preferência é persistida localmente e aplica-se à pesquisa por período e à coluna de modificação da Biblioteca, sem alterar datas no SQLite. Ver [GUI.md](docs/GUI.md).
+
 ## Consulta por data e pelo nome do arquivo
 
 A busca da Biblioteca permite distinguir **somente o nome-base** do **caminho completo**, filtrar por intervalo de modificação `AAAA-MM-DD` e ordenar **Mais recentes** ou **Mais antigos**. Essas ações não modificam o disco: não há função para mover arquivos por ano/mês nesta versão. Consulte [GUI.md](docs/GUI.md) e [AGENT.md](docs/AGENT.md).
