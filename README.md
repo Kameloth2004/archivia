@@ -1,6 +1,6 @@
 # ArchivIA
 
-Bibliotecário digital local em Python, planejado para catalogar, classificar, renomear e organizar mídias com apoio do Ollama.
+Bibliotecário digital local em Python, planejado para catalogar, classificar, renomear e organizar arquivos com apoio do Ollama.
 
 ## Estado do projeto
 
@@ -10,7 +10,7 @@ Bibliotecário digital local em Python, planejado para catalogar, classificar, r
 
 - Python e biblioteca padrão nesta primeira etapa; nenhuma dependência de nuvem.
 - Operações que alteram arquivos somente em etapas futuras, com prévia e aprovação.
-- A varredura examina nomes e metadados do sistema de arquivos; **não abre o conteúdo** das mídias.
+- A varredura examina nomes e metadados dos arquivos, incluindo documentos, compactados e código; **não abre conteúdo nem arquivos ZIP**.
 - Links simbólicos não são percorridos; falhas de acesso são reportadas, não escondidas.
 - O inventário é emitido no terminal; o comando separado `catalogar` grava somente no SQLite local.
 
@@ -45,6 +45,7 @@ python -m unittest discover -s tests -v
 ## Documentação para manutenção e retomada
 
 - [Arquitetura e segurança](docs/ARCHITECTURE.md)
+- [Categorias e inventário universal](docs/INVENTORY.md)
 - [Agente Ollama: protocolo e limitações](docs/AGENT.md)
 - [Edições planejadas: Standard e duas Lite](docs/EDITIONS.md)
 - [Estado atual e próximos passos](docs/STATUS.md)
@@ -94,7 +95,7 @@ python -m archivia consultar
 python -m archivia consultar --categoria imagem
 ```
 
-O comando `consultar` abre o SQLite em modo somente leitura (`mode=ro`), sem criar tabelas nem modificar dados. O filtro `--categoria` aceita `imagem`, `video` ou `audio`. Apenas o inventário mais recente é retornado; snapshots anteriores permanecem preservados no banco. Uma origem não é varrida novamente durante a consulta.
+O comando `consultar` abre o SQLite em modo somente leitura (`mode=ro`), sem criar tabelas nem modificar dados. O filtro `--categoria` aceita `imagem`, `video` ou `audio`. Apenas o inventário mais recente é retornado; snapshots anteriores permanecem preservados no banco. Uma origem não é varrida novamente durante a consulta. Snapshots antigos permanecem com as categorias que estavam disponíveis quando foram gravados.
 
 ## Política de testes e mocks
 
@@ -116,7 +117,7 @@ Cada execução grava um novo snapshot identificado por `scan_id`; não remove r
 
 ### Saída
 
-Um objeto JSON em UTF-8, contendo `root`, `files`, `summary` e `errors`. A lista inclui apenas extensões de mídias conhecidas (imagem, vídeo e áudio). Tipos não reconhecidos são contabilizados, mas não listados. Arquivos e diretórios simbólicos são ignorados. Arquivos ocultos não são excluídos automaticamente.
+Um objeto JSON em UTF-8, contendo `root`, `files`, `summary` e `errors`. A lista inclui todos os arquivos regulares: imagem, vídeo, áudio, documento, planilha, apresentação, compactado, código e outros. Tipos desconhecidos entram como `outro`. Arquivos e diretórios simbólicos são ignorados. Arquivos ocultos não são excluídos automaticamente.
 
 Os metadados incluem caminho relativo, categoria baseada **somente na extensão**, extensão, tamanho em bytes e instante de modificação (UTC). Essa categorização inicial não é classificação semântica.
 
