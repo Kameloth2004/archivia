@@ -11,6 +11,7 @@ Receber instruções em linguagem natural, selecionar ferramentas autorizadas e 
 ## Ferramentas autorizadas
 1. `resumo_catalogo({})`: consulta estatísticas do último snapshot SQLite.
 2. `simular_movimentacao({categoria, destino, limite?})`: gera prévia não executável para categoria `imagem|video|audio` e destino existente.
+3. `buscar_arquivos_catalogo({nome?, extensao?, categoria?, pagina?, limite?, scan_id?})`: busca por trecho literal do caminho e extensão exata, com categoria opcional e snapshot específico. Abre SQLite somente leitura e retorna uma página de no máximo 20 registros; padrão 10. `pagina` no máximo 100 por chamada.
 
 ## Fluxo
 1. O usuário envia uma pergunta e o nome exato de um modelo instalado localmente.
@@ -21,6 +22,7 @@ Receber instruções em linguagem natural, selecionar ferramentas autorizadas e 
 
 ## Segurança
 - O agente não recebe nenhum método de execução arbitrária de código, shell, SQL ou ações em disco.
+- A busca valida os parâmetros independentemente do modelo, não aceita propriedades extras, não interpreta `%` nem `_` como curingas e não altera os arquivos.
 - `simular_movimentacao` reutiliza validações do planejador e nunca escreve nos arquivos de mídia.
 - Instruções do usuário ou do modelo não alteram o allowlist.
 - O endpoint Ollama é fixo em localhost. Não há serviços em nuvem no protocolo.
@@ -32,7 +34,7 @@ Receber instruções em linguagem natural, selecionar ferramentas autorizadas e 
 - A compatibilidade de tool calling depende da versão e do modelo Ollama; testar localmente.
 - O formato de resposta e o uso de ferramentas variam por modelo. Alguns podem responder sem acionar ferramenta.
 - Sem sessões persistentes nem memória de diálogo entre invocações.
-- Os resultados do catálogo podem ser grandes; uma ferramenta de listagem paginada virá depois.
+- A nova busca limita a quantidade de resultados por página, mas pesquisas com muitas correspondências podem requerer várias solicitações; o modelo não vê todos os resultados automaticamente.
 - Sem análise do conteúdo de imagens, sem embeddings e sem modelo visual integrado.
 - Respostas do modelo podem ser incorretas: resultados estruturados das ferramentas são a referência.
 - A prévia do planejador ainda carrega dados do último snapshot na memória.
@@ -51,6 +53,16 @@ python -m archivia agente "Quantas imagens há no meu catálogo?" --modelo "qwen
 ```
 
 O nome acima é apenas exemplo baseado no ambiente conhecido; confirmar com `ollama list`.
+
+## Busca por linguagem natural — etapa experimental
+
+Depois de validar os testes e instalar a atualização, na GUI pedir:
+
+```text
+Procure no catálogo arquivos com backup no nome ou caminho. Mostre os cinco primeiros.
+```
+
+No resultado `tools_used`, verificar ferramenta `buscar_arquivos_catalogo`, `count` total e `files` limitada a cinco se o modelo escolher `limite=5`. A ferramenta consulta o **snapshot global mais recente**, exceto se `scan_id` for enviado explicitamente pelo modelo. A seleção de histórico feita na GUI **não** é transmitida automaticamente à ferramenta. O modelo pode escolher argumentos incorretos ou não chamar a ferramenta; confirmar sempre o JSON estruturado. Não interpretar a busca como reconhecimento visual.
 
 ## Próxima validação
 1. Executar testes com mocks (não precisam de Ollama).
