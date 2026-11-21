@@ -4,7 +4,7 @@ Bibliotecário digital local em Python, planejado para catalogar, classificar, r
 
 ## Estado do projeto
 
-**Etapa 2: inventário somente leitura das mídias e persistência local no SQLite.** O Ollama ainda não é utilizado. Nenhuma operação de renomeação, movimentação ou exclusão foi implementada.
+**Etapa experimental do agente Ollama: ferramentas de consulta e simulação sobre o motor Python.** O Ollama ainda não é utilizado. Nenhuma operação de renomeação, movimentação ou exclusão foi implementada.
 
 ### Princípios
 
@@ -44,9 +44,19 @@ python -m unittest discover -s tests -v
 
 ## Documentação para manutenção e retomada
 
-- [Arquitetura e segurança](docs/ARCHITECTURE.md)
+- [Arquitetura e segurança](docs/ARCHITECTURE.md)\n- [Agente Ollama: protocolo e limitações](docs/AGENT.md)
 - [Estado atual e próximos passos](docs/STATUS.md)
 - [Política de testes e mocks](tests/README.md)
+
+## Agente Ollama local (experimental)
+
+O agente utiliza apenas ferramentas autorizadas: `resumo_catalogo` e `simular_movimentacao`. Não pode mover, renomear ou apagar arquivos.
+
+```bash
+python -m archivia agente "Quantas imagens há no catálogo?" --modelo "qwen3:8b-q4_K_M"
+```
+
+É necessário que o Ollama local esteja ativo e que o nome do modelo corresponda ao retornado por `ollama list`. O suporte a tool calling varia por modelo. Primeiro execute os testes automatizados. Para detalhes e limites de segurança, leia [AGENT.md](docs/AGENT.md).
 
 ## Planejador em modo simulação
 
