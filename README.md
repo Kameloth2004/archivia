@@ -60,6 +60,10 @@ Instalação opcional no Windows: `python -m pip install -e ".[gui]"`. Abrir com
 
 Após **Examinar pasta — prévia**, o botão **Salvar inventário no catálogo SQLite...** fica disponível se a leitura não tiver erros. Uma caixa de diálogo solicita confirmação; o motor reexamina a pasta e só grava um novo snapshot se o conteúdo listado e os metadados ainda coincidirem com a prévia. A gravação altera apenas o banco SQLite; nenhum arquivo da pasta é modificado. Um inventário antigo permanece disponível no histórico, embora a interface liste somente o último snapshot. Consulte [GUI.md](docs/GUI.md) e [INVENTORY.md](docs/INVENTORY.md).
 
+## Busca em linguagem natural com Ollama
+
+A ferramenta `buscar_arquivos_catalogo` permite que um modelo compatível com tool calling procure arquivos pelo nome/caminho, extensão e categoria no SQLite. Cada consulta devolve até 20 linhas e não altera o disco. Na interface, experimente: `Procure no catálogo arquivos com backup no caminho e mostre cinco exemplos.` Consulte [AGENT.md](docs/AGENT.md) para limites e verificação de `tools_used`.
+
 ## Agente Ollama local (experimental)
 
 O agente utiliza apenas ferramentas autorizadas: `resumo_catalogo` e `simular_movimentacao`. Não pode mover, renomear ou apagar arquivos.
