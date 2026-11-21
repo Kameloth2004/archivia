@@ -32,6 +32,9 @@ SYSTEM_PROMPT = (
     "Deixe explícito que uma página de exemplos não esgota a pesquisa. "
     "Não afirme um total geral de todas as categorias se houver filtro de categoria. "
     "Não confunda resultados parciais com a biblioteca inteira. "
+    "Para busca somente no nome do arquivo, use escopo=nome; para incluir pastas, use escopo=caminho. "
+    "Para datas, utilize modificação de arquivo, não data de criação; filtros estão em UTC, AAAA-MM-DD. "
+    "Ordene pela data quando solicitado; não confunda ordenar resultados com movimentar arquivos. "
     "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
 )
@@ -70,13 +73,25 @@ TOOLS: list[dict[str, Any]] = [
                 "Busca arquivos pelo nome/caminho relativo e/ou extensão/categoria no "
                 "SQLite, sem acessar os arquivos físicos. Consulta somente um snapshot, "
                 "o mais recente por padrão. Retorna no máximo 20 arquivos por página. "
-                "NÃO aplique categoria ou extensão se o usuário não solicitar."
+                "NÃO aplique categoria ou extensão se o usuário não solicitar. "
+                "escopo=nome busca somente nome-base, escopo=caminho inclui diretórios. "
+                "Permite período de modificação e ordenação cronológica."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "nome": {"type": "string", "description": "Trecho literal do nome ou caminho"},
                     "extensao": {"type": "string", "description": "Exemplo: pdf, .jpg"},
+                    "escopo": {
+                        "type": "string", "enum": ["nome", "caminho"],
+                        "description": "Use nome para buscar somente no nome-base; caminho inclui pastas. Padrão: caminho."
+                    },
+                    "data_inicial": {"type": "string", "description": "Data inicial de modificação UTC em AAAA-MM-DD"},
+                    "data_final": {"type": "string", "description": "Data final de modificação UTC em AAAA-MM-DD"},
+                    "ordenacao": {
+                        "type": "string", "enum": ["nome", "recentes", "antigos"],
+                        "description": "Ordenação da listagem, sem mover arquivos."
+                    },
                     "categoria": {"type": "string", "enum": list(CATEGORIES),
                                   "description": "OPCIONAL: só informar quando o usuário limitar explicitamente a categoria"},
                     "pagina": {"type": "integer", "minimum": 1, "maximum": 100},
@@ -102,10 +117,11 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             raise ValueError("resumo_catalogo não aceita argumentos.")
         return catalog_summary(db_path)
     if name == "buscar_arquivos_catalogo":
-        allowed = {"nome", "extensao", "categoria", "pagina", "limite", "scan_id"}
+        allowed = {"nome", "extensao", "categoria", "pagina", "limite", "scan_id",
+                   "escopo", "data_inicial", "data_final", "ordenacao"}
         if set(arguments) - allowed:
             raise ValueError("Argumento não permitido na busca.")
-        for key in ("nome", "extensao", "categoria"):
+        for key in ("nome", "extensao", "categoria", "escopo", "data_inicial", "data_final", "ordenacao"):
             if key in arguments and not isinstance(arguments[key], str):
                 raise ValueError(f"{key} deve ser texto.")
         for key, maximum in (("pagina", 100), ("limite", 20), ("scan_id", None)):
@@ -114,6 +130,12 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
                 if (not isinstance(value, int) or isinstance(value, bool)
                         or value < 1 or (maximum is not None and value > maximum)):
                     raise ValueError(f"{key} inválido.")
+        scope = arguments.get("escopo", "caminho")
+        if scope not in ("nome", "caminho"):
+            raise ValueError("Escopo inválido.")
+        order = arguments.get("ordenacao", "nome")
+        if order not in ("nome", "recentes", "antigos"):
+            raise ValueError("Ordenação inválida.")
         category = arguments.get("categoria")
         if category is not None and category not in CATEGORIES:
             raise ValueError("Categoria desconhecida.")
@@ -125,6 +147,10 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             page=arguments.get("pagina", 1),
             page_size=arguments.get("limite", 10),
             scan_id=arguments.get("scan_id"),
+            search_scope={"nome": "filename", "caminho": "path"}[scope],
+            date_from=arguments.get("data_inicial"),
+            date_to=arguments.get("data_final"),
+            sort_by={"nome": "name", "recentes": "newest", "antigos": "oldest"}[order],
         )
     if name == "simular_movimentacao":
         if set(arguments) - {"categoria", "destino", "limite"}:
