@@ -8,6 +8,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from .inventory import CATEGORIES
+
 # src/archivia/catalog.py -> raiz do projeto (D:/PROJETOS/archivia no Windows).
 DEFAULT_DB = Path(__file__).resolve().parents[2] / "data" / "catalogo.sqlite3"
 
@@ -87,7 +89,7 @@ def query_catalog(
     db_path: Path = DEFAULT_DB, category: str | None = None
 ) -> dict[str, Any]:
     """Consulta somente o último inventário. Abre o SQLite em modo somente leitura."""
-    if category is not None and category not in ("imagem", "video", "audio"):
+    if category is not None and category not in CATEGORIES:
         raise ValueError("Categoria inválida: use imagem, video ou audio.")
 
     path = Path(db_path).expanduser().absolute()
@@ -145,8 +147,8 @@ def catalog_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
             ).fetchone()
             if scan is None:
                 return {"database": str(path), "scan_id": None, "media_files": 0,
-                        "bytes_media": 0, "by_category": {"imagem": 0, "video": 0, "audio": 0}}
-            counts = {"imagem": 0, "video": 0, "audio": 0}
+                        "bytes_media": 0, "by_category": {category: 0 for category in CATEGORIES}}
+            counts = {category: 0 for category in CATEGORIES}
             for category, amount in conn.execute(
                 "SELECT category, COUNT(*) FROM media WHERE scan_id=? GROUP BY category",
                 (scan[0],),
@@ -172,7 +174,7 @@ def query_catalog_page(
 
     Diferente de query_catalog(), não carrega todos os arquivos na memória.
     """
-    if category is not None and category not in ("imagem", "video", "audio"):
+    if category is not None and category not in CATEGORIES:
         raise ValueError("Categoria inválida: use imagem, video ou audio.")
     if not isinstance(page, int) or isinstance(page, bool) or page < 1:
         raise ValueError("Página deve ser um inteiro positivo.")
