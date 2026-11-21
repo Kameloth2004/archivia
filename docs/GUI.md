@@ -30,6 +30,8 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 - Indicador de status/erros.
 - Worker em thread separada para que a janela continue responsiva durante consultas lentas.
 
+Observação de UX: o Qwen3 pode sugerir que o usuário aprove uma movimentação; **não existe atualmente recurso de aprovação nem executor**, de modo que tal sugestão é apenas texto do modelo. Ajustar o agente para deixar isso claro.
+
 ## Limites explícitos
 
 - Não há operação de movimentação, renomeação ou exclusão. Pedidos para organizar somente geram **simulação** pelo agente.
@@ -54,7 +56,8 @@ PySide6 é **dependência opcional**: a instalação base `python -m pip install
 2. Abertura de `archivia-gui` e clique em **Atualizar resumo** **confirmados pelo usuário**.
 3. Pergunta **Quantas imagens existem no meu catálogo?** pela GUI **aprovada**, com chamada `resumo_catalogo` e resultado de 1 imagem.
 4. Se ocorrer erro, anotar traceback/saída e corrigir antes de adicionar novas funções.
-5. Testar simulação pela GUI com destino `D:/PROJETOS/archivia/tests/fixtures/manual/destino`, sem executar movimentações.
+5. **Aprovado em 2026-11-21:** simulação pela GUI com destino `D:/PROJETOS/archivia/tests/fixtures/manual/destino`: 1 arquivo proposto, 0 bloqueios, nenhum arquivo movido.
+6. Próxima etapa: seleção visual de pastas e navegação no catálogo, mantendo tudo em leitura/simulação.
 
 ## Decisão de UX registrada em 2026-11-21
 
