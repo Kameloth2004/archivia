@@ -54,6 +54,10 @@ python -m archivia agente "Quantas imagens há no meu catálogo?" --modelo "qwen
 
 O nome acima é apenas exemplo baseado no ambiente conhecido; confirmar com `ollama list`.
 
+## Precisão dos filtros da busca
+
+A integração real Qwen3 → SQLite foi validada: primeira consulta retornou cinco exemplos entre 2.298 correspondências **filtradas pelo próprio modelo na categoria `outro`**. Essa categoria não havia sido solicitada pelo usuário. Atualizadas as instruções do agente e a descrição de ferramenta para **não adicionar categoria, extensão nem snapshot quando não pedidos** e informar sempre `count`, quantidade de `files` e filtros efetivos. Isso melhora a orientação, mas o modelo pode continuar cometendo desvios: a conferência deve ser feita em `tools_used`. Futuramente, avaliar contrato estruturado que impeça filtros arbitrários, se necessário.
+
 ## Busca por linguagem natural — etapa experimental
 
 Depois de validar os testes e instalar a atualização, na GUI pedir:
