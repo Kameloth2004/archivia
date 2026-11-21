@@ -130,6 +130,12 @@ Na seção **Biblioteca catalogada**, a GUI possui campos **Nome/caminho** e **E
 
 A ferramenta `buscar_arquivos_catalogo` está disponível ao Qwen3 pela interface, via dispatcher de ferramentas autorizado. Ela reutiliza a busca paginada SQLite; aceita nome/caminho, extensão e categoria e limita cada página a 20 arquivos (padrão 10). O agente usa o snapshot global mais recente salvo, **não** a seleção atual do histórico, a menos que a ferramenta receba um `scan_id` explícito. As respostas geradas devem ser verificadas no painel de ferramentas utilizadas. Nenhuma operação de escrita foi acrescentada.
 
+## Correção de usabilidade — abas funcionais (aguardando validação)
+
+A tela anterior empilhava todas as seções e escondia **Agente Ollama local** abaixo do limite do monitor. A interface foi reorganizada em **QTabWidget**, com quatro abas: **Visão geral** (catálogo SQLite e origens), **Inventário** (seleção, prévia e catalogação confirmada), **Biblioteca** (histórico, pesquisa e paginação) e **Agente IA** (modelo, pergunta, resposta e ferramentas). O indicador de status permanece visível na parte inferior. Tamanho inicial ajustado de 960×1020 para 960×760, com mínimo 760×540. Não foi alterada a lógica de inventário, SQLite, Ollama ou permissões de arquivos.
+
+A separação por abas é um ajuste estrutural de acessibilidade, **não o redesign visual definitivo**. Testar abertura e acessibilidade do painel **Agente IA** mesmo sem maximizar a janela. Código ainda não validado no Windows.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
