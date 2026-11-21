@@ -47,6 +47,7 @@ def propose_moves(
     candidates = snapshot["files"][:limit]
     actions: list[dict[str, Any]] = []
     blocked = 0
+    reserved_targets: set[str] = set()
     for item in candidates:
         relative = PurePosixPath(item["relative_path"])
         if (relative.is_absolute() or not relative.parts
@@ -60,6 +61,8 @@ def propose_moves(
         reason = None
         if _contains_symlink(source) or not source.is_file():
             reason = "origem_ausente_ou_link"
+        elif os.path.normcase(os.path.abspath(target)) in reserved_targets:
+            reason = "destino_duplicado_no_plano"
         elif _contains_symlink(target) or target.exists():
             reason = "destino_ja_existe_ou_link"
         elif os.path.normcase(os.path.abspath(source)) == os.path.normcase(os.path.abspath(target)):
@@ -82,6 +85,8 @@ def propose_moves(
         })
         if reason:
             blocked += 1
+        else:
+            reserved_targets.add(os.path.normcase(os.path.abspath(target)))
 
     return {
         "schema_version": 1,
