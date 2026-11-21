@@ -122,6 +122,10 @@ Além do histórico, o painel **Origens catalogadas — último snapshot por pas
 
 Limitações deliberadas: as origens são agrupadas pelo texto exato do caminho; pastas aninhadas ou caminhos alternativos podem provocar contagem duplicada de arquivos físicos. Por isso o total é uma soma de inventários distintos, **não necessariamente o total de arquivos físicos exclusivos**. O histórico e o resumo superior permanecem com seus comportamentos anteriores. Nenhum arquivo ou registro é escrito nesta consulta.
 
+## Busca paginada na biblioteca — aguardando homologação
+
+Na seção **Biblioteca catalogada**, a GUI possui campos **Nome/caminho** e **Extensão**, além de **Limpar busca**. Uma pesquisa por `ventilador` procura esse termo no caminho relativo, inclusive pastas; extensão `pdf` ou `.pdf` aplica filtro exato. Filtros de categoria e snapshot histórico também são respeitados. `%` e `_` são tratados como caracteres literais, não como curingas. A busca é realizada exclusivamente no SQLite via `query_catalog_page()`, com paginação de 50 resultados. Não há revarredura nem alteração do banco. O agente Ollama ainda não tem uma ferramenta de busca nesta revisão.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
