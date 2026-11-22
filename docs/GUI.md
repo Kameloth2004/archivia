@@ -202,6 +202,12 @@ Limites e cautela: arquivos acima do orçamento ou modificados são ignorados co
 
 **Teste sugerido:** snapshot #3 com os oito arquivos sintéticos, 100 arquivos no campo de limite: devem aparecer novamente 2 grupos, 5 arquivos idênticos e barra concluída. Os testes automatizados também criam arquivos sintéticos entre páginas 1 e 2 para validar a comparação entre páginas.
 
+## Homologação manual de duas páginas SHA-256 — 134 arquivos
+
+Executar na raiz do projeto `python tests/generate_sha256_paged_demo.py`. O script cria somente dados de teste em `tests/fixtures/manual/sha256_paginado`, sem sobrescrever, e não é necessário executá-lo para testes automatizados. Depois, em **Inventário**, examinar explicitamente essa pasta e salvar o snapshot mediante confirmação. Na subaba **Organização → Duplicatas (SHA-256)**, clicar Atualizar histórico, selecionar o snapshot recém-criado, categoria **Imagens**, quantidade **200**; clique Verificar. Esperado: **134 analisados, 2 lotes SQL, 3 grupos, 7 arquivos iguais, 0 ignorados**, progresso concluído. Com limite 100, aparecerá `AMOSTRA PARCIAL`, porque há 134 arquivos na categoria.
+
+O cenário contém arquivos sintéticos com extensão `.jpg` que não são JPEGs válidos. Não utilizar tratamento visual. A rotina de hash permanece estritamente leitura. O script não remove a pasta para não apagar dados sem autorização; uma segunda execução sobre a mesma pasta será recusada.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
