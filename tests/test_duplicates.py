@@ -89,6 +89,75 @@ class DuplicateHashTests(unittest.TestCase):
             self.assertEqual(failures["B/alias_nome_diferente.jpg"], "arquivo_ausente")
             self.assertFalse(any("A/foto_igual.jpg" in g["files"] for g in result["groups"]))
 
+    def test_paged_scan_detects_equal_content_across_pages(self):
+        # TEST-ONLY: dois conteúdos iguais separados por mais de 100 nomes.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            root.mkdir()
+            for number in range(125):
+                (root / f"m{number:03d}.jpg").write_bytes(
+                    f"conteudo-{number:03d}".encode("ascii")
+                )
+            (root / "a_primeiro.jpg").write_bytes(b"mesmos-bytes-entre-paginas")
+            (root / "z_ultimo.jpg").write_bytes(b"mesmos-bytes-entre-paginas")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            events = []
+            result = verify_duplicate_hashes(
+                db, category="imagem", limit=150, progress=events.append
+            )
+            self.assertEqual(result["selected"], 127)
+            self.assertEqual(result["pages_scanned"], 2)
+            self.assertFalse(result["truncated"])
+            self.assertEqual(result["confirmed_groups_in_sample"], 1)
+            self.assertEqual(result["groups"][0]["files"], [
+                "a_primeiro.jpg", "z_ultimo.jpg",
+            ])
+            self.assertTrue(any(e["phase"] == "catalog" for e in events))
+            self.assertTrue(any(e["phase"] == "hash" for e in events))
+            self.assertEqual(events[-1]["phase"], "done")
+            self.assertFalse(result["files_modified"])
+
+    def test_page_limit_prevents_false_global_completeness(self):
+        # TEST-ONLY: um par de duplicatas atravessa o limite da amostra.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            root.mkdir()
+            for number in range(110):
+                (root / f"b{number:03d}.jpg").write_bytes(
+                    f"unico-{number:03d}".encode("ascii")
+                )
+            (root / "a_inicio.jpg").write_bytes(b"PAR_EM_PAGINAS")
+            (root / "z_final.jpg").write_bytes(b"PAR_EM_PAGINAS")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            first = verify_duplicate_hashes(db, category="imagem", limit=100)
+            complete = verify_duplicate_hashes(db, category="imagem", limit=200)
+            self.assertTrue(first["truncated"])
+            self.assertEqual(first["confirmed_groups_in_sample"], 0)
+            self.assertFalse(complete["truncated"])
+            self.assertEqual(complete["confirmed_groups_in_sample"], 1)
+            self.assertEqual(complete["selected"], 112)
+
+    def test_progress_input_validation_and_budget_maximum(self):
+        with temporary_test_directory() as tmp:
+            root, db, _ = self._catalog_fixture(tmp)
+            for kwargs in (
+                {"limit": 1001}, {"max_total_bytes": 256 * 1024 * 1024 + 1},
+                {"progress": "não é callback"},
+            ):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(ValueError):
+                        verify_duplicate_hashes(db, category="imagem", **kwargs)
+            progress = []
+            verified = verify_duplicate_hashes(
+                db, category="imagem", limit=1000, progress=progress.append
+            )
+            self.assertEqual(verified["selected"], 8)
+            self.assertTrue(progress)
+            self.assertEqual(progress[-1], {"phase": "done", "processed": 8, "total": 8})
+            self.assertTrue((root / "A" / "foto_igual.jpg").exists())
+
     def test_total_read_budget_is_respected(self):
         with temporary_test_directory() as tmp:
             _, db, _ = self._catalog_fixture(tmp)
