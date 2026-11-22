@@ -265,6 +265,55 @@ class AgentTests(unittest.TestCase):
             self.assertIn("error", output["tools_used"][0]["result"])
             self.assertFalse(output["files_modified"])
 
+    def test_agent_consolidation_preview_uses_selected_origin_and_blocks_collision(self):
+        # TEST-ONLY / MOCK-ONLY: arquivos em subpastas, com nome repetido.
+        with temporary_test_directory() as tmp:
+            origin = tmp / "Adele"
+            other = tmp / "Outra"
+            destination = tmp / "Imagens Adele"
+            (origin / "shows").mkdir(parents=True)
+            (origin / "capas").mkdir()
+            other.mkdir()
+            destination.mkdir()
+            (origin / "shows" / "foto.jpg").write_bytes(b"primeira")
+            (origin / "capas" / "foto.jpg").write_bytes(b"segunda")
+            (origin / "capas" / "capa.png").write_bytes(b"capa")
+            (origin / "shows" / "audio.mp3").write_bytes(b"audio")
+            (other / "outra.jpg").write_bytes(b"outra")
+            db = tmp / "catalogo.sqlite3"
+            selected = store_inventory(inventory(origin), db)["scan_id"]
+            store_inventory(inventory(other), db)  # último global é outra pasta
+
+            arguments = {"categoria": "imagem", "destino": str(destination)}
+            mock_call = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {"name": "simular_movimentacao", "arguments": arguments}}
+            ]}
+            final = {"role": "assistant", "content": "Plano apenas simulado."}
+            with patch("archivia.agent._ollama_chat", side_effect=[mock_call, final]):
+                reply = ask_agent(
+                    "Reúna as imagens da pasta escolhida", "modelo-falso", db,
+                    context_scan_id=selected,
+                )
+            self.assertEqual(reply["tools_used"][0]["arguments"], arguments)
+            plan = reply["tools_used"][0]["result"]
+            self.assertEqual(plan["scan_id"], selected)
+            self.assertEqual(plan["root"], str(origin))
+            self.assertEqual(plan["total_matches"], 3)
+            self.assertEqual(plan["selected"], 3)
+            self.assertEqual(plan["blocked"], 1)
+            self.assertFalse(plan["truncated"])
+            self.assertFalse(plan["executable"])
+            self.assertEqual(plan["mode"], "simulation")
+            self.assertTrue(any(
+                action.get("reason") == "destino_duplicado_no_plano"
+                for action in plan["actions"]
+            ))
+            self.assertEqual(len(list(origin.rglob("*.jpg"))), 2)
+            self.assertTrue((origin / "capas" / "capa.png").exists())
+            self.assertTrue((origin / "shows" / "audio.mp3").exists())
+            self.assertEqual(list(destination.iterdir()), [])
+            self.assertFalse(reply["files_modified"])
+
     def test_agent_logs_real_tool_arguments_and_missing_limit_uses_default(self):
         # MOCK-ONLY: texto narrado pelo modelo pode diferir do tool_call real.
         with temporary_test_directory() as tmp:
