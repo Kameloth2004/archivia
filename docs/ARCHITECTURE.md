@@ -36,6 +36,10 @@ Antes de propor, verifica existência e integridade (tamanho/mtime) da origem, l
 
 O agrupamento utiliza data de **modificação UTC**, não EXIF, data de criação nem as preferências regionais da interface. Diretórios já organizados podem produzir proposta de caminho idêntico e são bloqueados. Não executar manualmente as ações do JSON sem revisão e cópia de segurança.
 
+## Prévia enriquecida: conflitos e suspeitas
+
+O simulador cronológico adiciona `name_collisions` e `potential_duplicate_items` como métricas somente da **amostra paginada**. `possible_duplicate_by_metadata` verifica nome-base normalizado + tamanho maior que zero dentro da amostra, sem hash; isso não comprova cópias idênticas. Para colisões com destinos existentes ou reservados no plano, fornece `alternative_name_suggestion` (sufixo `__2`, etc.) para análise, mantendo `status=bloqueado`. Nenhum nome alternativo é reservado ou usado para execução. Política definitiva de colisões, hashes e duplicatas confirmadas ficam para uma etapa separada.
+
 ## Garantias e limites
 - Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
