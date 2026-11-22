@@ -230,9 +230,9 @@ Existe uma primeira implementação de sessões progressivas em `src/archivia/du
 
 O indicador separado de cobertura (**GLOBAL INCOMPLETA**, **VERIFICAÇÃO COMPLETA**) já foi implementado, mas sua homologação visual permanece pendente.
 
-## Contexto automático para consultas do agente (homologado para consulta)
+## Contexto automático para consultas do agente (fluxo temporário pendente de homologação)
 
-Na aba **Inventário**, a pasta selecionada define o contexto da aba **Agente IA**: ao enviar uma pergunta, a GUI procura o snapshot mais recente da origem exata e restringe as ferramentas do Ollama a ele, sem exigir que o usuário informe `scan_id`. Se a pasta não estiver catalogada, o usuário recebe aviso para usar **Examinar pasta** e **Salvar inventário**; não há catalogação automática, alteração de mídias ou consulta silenciosa a outra origem. Se não houver pasta selecionada, o comportamento anterior continua usando o último snapshot geral, por compatibilidade. Essa vinculação é uma primeira integração, **não** o fluxo completo de clique único nem o redesign prometido.
+Na aba **Inventário**, a pasta selecionada define o contexto da aba **Agente IA**: ao enviar uma pergunta, o worker refaz o inventário e cria **SQLite temporário descartável** da origem, restringindo as ferramentas do Ollama ao snapshot dessa sessão. **Não é mais necessário clicar em Examinar pasta ou Salvar inventário antes de perguntar ao agente**. Não há alteração de mídias ou gravação no banco persistente. Se não houver pasta selecionada, o comportamento anterior continua usando o último snapshot geral, por compatibilidade. Essa vinculação é uma primeira integração, **não** o fluxo completo de clique único nem o redesign prometido.
 
 ## Planejamento posterior
 
