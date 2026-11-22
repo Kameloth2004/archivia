@@ -113,6 +113,129 @@ def propose_moves(
     }
 
 
+
+def summarize_consolidation(
+    destination: str | Path,
+    category: str,
+    db_path: Path = DEFAULT_DB,
+    scan_id: int | None = None,
+    max_candidates: int = 10000,
+) -> dict[str, Any]:
+    """Analisa até 10 mil arquivos do snapshot em lotes; somente resumo de simulação.
+
+    O resultado NÃO é uma lista de ações executáveis. O conjunto de nomes-base
+    reservados persiste entre as páginas, inclusive para detectar colisões remotas.
+    """
+    if category not in ALLOWED_CATEGORIES:
+        raise ValueError("Categoria inválida: imagem, video ou audio.")
+    if (not isinstance(max_candidates, int) or isinstance(max_candidates, bool)
+            or not 1 <= max_candidates <= 10000):
+        raise ValueError("Máximo de candidatos deve estar entre 1 e 10000.")
+    dest = Path(destination).expanduser().absolute()
+    if _contains_symlink(dest) or not dest.is_dir():
+        raise ValueError("Destino deve ser diretório real já existente, sem links simbólicos.")
+
+    first = query_catalog_page(
+        db_path=db_path, category=category, scan_id=scan_id,
+        page=1, page_size=min(MAX_PLAN_ITEMS, max_candidates),
+        sort_by="name",
+    )
+    if first["scan_id"] is None:
+        raise ValueError("Catálogo sem inventário.")
+    root = Path(first["root"]).absolute()
+    if _contains_symlink(root) or not root.is_dir():
+        raise ValueError("Origem do catálogo não está disponível ou contém link simbólico.")
+
+    total = first["count"]
+    examined = 0
+    proposed = 0
+    blocked = 0
+    by_reason: dict[str, int] = {}
+    reserved_names: set[str] = set()
+    # Os nomes em um destino Windows são, em geral, insensíveis a caixa.
+    # Considerar também os nomes presentes no destino, mesmo em Linux.
+    try:
+        occupied_names = {entry.name.casefold() for entry in dest.iterdir()}
+    except OSError as exc:
+        raise ValueError(f"Não foi possível examinar o destino: {exc}") from exc
+    page = 1
+    pages_read = 0
+
+    while examined < min(total, max_candidates):
+        batch = (first if page == 1 else query_catalog_page(
+            db_path=db_path, category=category, scan_id=first["scan_id"],
+            page=page, page_size=min(MAX_PLAN_ITEMS, max_candidates), sort_by="name",
+        ))
+        if batch["scan_id"] != first["scan_id"] or batch["count"] != total:
+            raise ValueError("Catálogo alterado durante o planejamento.")
+        if not batch["files"]:
+            raise ValueError("Catálogo incompleto durante o planejamento.")
+        pages_read += 1
+        for item in batch["files"]:
+            if examined >= max_candidates:
+                break
+            examined += 1
+            path_text = item["relative_path"]
+            relative = PurePosixPath(path_text)
+            reason = None
+            if (relative.is_absolute() or not relative.parts
+                    or any(part in (".", "..") for part in relative.parts)
+                    or "\\\\" in path_text or ":" in path_text):
+                reason = "caminho_invalido"
+            else:
+                source = root.joinpath(*relative.parts)
+                target = dest / source.name
+                name_key = source.name.casefold()
+                if _contains_symlink(source) or not source.is_file():
+                    reason = "origem_ausente_ou_link"
+                elif os.path.normcase(os.path.abspath(source)) == os.path.normcase(os.path.abspath(target)):
+                    reason = "mesmo_caminho"
+                elif name_key in occupied_names or _contains_symlink(target) or target.exists():
+                    reason = "destino_ja_existe_ou_link"
+                elif name_key in reserved_names:
+                    reason = "destino_duplicado_no_plano"
+                else:
+                    try:
+                        info = source.stat()
+                        expected = datetime.fromisoformat(item["modified_utc"]).timestamp()
+                        if info.st_size != item["size_bytes"] or abs(info.st_mtime - expected) > 0.001:
+                            reason = "origem_alterada_desde_inventario"
+                    except (OSError, ValueError, OverflowError):
+                        reason = "metadados_indisponiveis"
+                if reason is None:
+                    reserved_names.add(name_key)
+            if reason:
+                blocked += 1
+                by_reason[reason] = by_reason.get(reason, 0) + 1
+            else:
+                proposed += 1
+        page += 1
+
+    return {
+        "schema_version": 1,
+        "operation": "move",
+        "mode": "simulation",
+        "executable": False,
+        "requires_explicit_approval": True,
+        "summary_only": True,
+        "scan_id": first["scan_id"],
+        "root": str(root),
+        "destination": str(dest),
+        "category": category,
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "total_matches": total,
+        "examined": examined,
+        "proposed": proposed,
+        "blocked": blocked,
+        "pending": total - examined,
+        "complete": examined == total,
+        "truncated": examined < total,
+        "pages_scanned": pages_read,
+        "blocked_by_reason": by_reason,
+        "actions": [],
+    }
+
+
 def propose_date_moves(
     destination: str | Path,
     category: str,
