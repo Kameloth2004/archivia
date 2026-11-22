@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timezone
 
 from support import temporary_test_directory
-from archivia.catalog import store_inventory
+from archivia.catalog import store_inventory, query_catalog_page
 from archivia.inventory import inventory
 from archivia.planner import propose_moves, propose_date_moves
 
@@ -89,6 +89,61 @@ class PlannerTests(unittest.TestCase):
                 propose_moves(tmp / "inexistente", "imagem", db_path=db)
             with self.assertRaises(ValueError):
                 propose_moves(tmp, "imagem", db_path=db, limit=0)
+
+    def test_flat_consolidation_is_paginated_without_loading_full_catalog(self):
+        # TEST-ONLY: exemplo Adele, centenas de imagens em subpastas sintéticas.
+        with temporary_test_directory() as tmp:
+            source = tmp / "Adele"
+            destination = tmp / "Imagens Adele"
+            destination.mkdir()
+            for folder_number in range(6):
+                folder = source / f"subpasta_{folder_number:02d}" / "fotos"
+                folder.mkdir(parents=True)
+                for image_number in range(35):
+                    (folder / f"foto_{folder_number:02d}_{image_number:02d}.jpg").write_bytes(
+                        f"TEST-ONLY-{folder_number}-{image_number}".encode()
+                    )
+                (folder / "musica.mp3").write_bytes(b"audio-teste")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(source), db)
+            from unittest.mock import patch
+            with patch("archivia.planner.query_catalog_page", wraps=query_catalog_page) as page:
+                first = propose_moves(destination, "imagem", db_path=db, limit=50)
+                self.assertEqual(page.call_count, 1)
+                self.assertEqual(page.call_args.kwargs["page_size"], 50)
+            self.assertEqual(first["total_matches"], 210)
+            self.assertEqual(first["selected"], 50)
+            self.assertTrue(first["truncated"])
+            self.assertEqual(first["blocked"], 0)
+            self.assertTrue(all(
+                action["destination"] == str(destination / action["file"].split("/")[-1])
+                for action in first["actions"]
+            ))
+            self.assertFalse(any(destination.iterdir()))
+            self.assertEqual(len(list(source.rglob("*.jpg"))), 210)
+
+    def test_flat_plan_can_select_older_snapshot_without_changing_sources(self):
+        with temporary_test_directory() as tmp:
+            old_root = tmp / "antiga"
+            new_root = tmp / "nova"
+            dest = tmp / "destino"
+            old_root.mkdir()
+            new_root.mkdir()
+            dest.mkdir()
+            (old_root / "foto.jpg").write_bytes(b"imagem")
+            (new_root / "outra.jpg").write_bytes(b"outra")
+            db = tmp / "catalogo.sqlite3"
+            old = store_inventory(inventory(old_root), db)
+            store_inventory(inventory(new_root), db)
+            plan = propose_moves(
+                dest, "imagem", db_path=db, scan_id=old["scan_id"]
+            )
+            self.assertEqual(plan["root"], str(old_root))
+            self.assertEqual(plan["selected"], 1)
+            self.assertEqual(plan["actions"][0]["file"], "foto.jpg")
+            with self.assertRaises(ValueError):
+                propose_moves(dest, "imagem", db_path=db, scan_id=99999)
+            self.assertFalse(any(dest.iterdir()))
 
     def test_date_plan_proposes_year_month_without_writing(self):
         # TEST-ONLY: destino AAAA/MM fictício, nunca criado.
