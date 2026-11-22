@@ -420,9 +420,19 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Homologação local pendente:** esperados **83 testes** (82 anteriores + 1 novo), com um possível teste de symlink ignorado. Depois repetir a consulta na GUI e observar o novo campo `arguments` para localizar o argumento problemático, se o erro persistir.
 - Nenhuma movimentação, exclusão ou renomeação foi habilitada.
 
+## Homologação Ollama real — pasta selecionada Ashley, snapshot #6
+
+- Usuário confirmou execução pela GUI: selecionou `E:\\Ashley`, examinou a prévia, salvou inventário e perguntou ao agente quantas imagens existiam na pasta.
+- `buscar_arquivos_catalogo` recebeu **argumentos reais** `{"categoria":"imagem","escopo":"caminho","scan_id":6}`, sem `limite` explícito.
+- Resposta estruturada: `root=E:\\Ashley`, `scan_id=6`, `count=1344`, `page_size=10`, `pages=135`, `files` com 10 exemplos.
+- Ollama respondeu corretamente: 1.344 imagens, pasta Ashley e snapshot #6, destacando que a página mostrava apenas 10 exemplos.
+- O erro anterior **`limite inválido` não reapareceu**. Com o valor omitido, o padrão 10 funcionou.
+- Integração selecionador de pasta → snapshot SQLite → agente real **homologada para consulta somente leitura**. Isso não valida classificação visual, movimentação real ou planejamento completo de todos os arquivos.
+- **Próximo objetivo:** consolidar o fluxo de planejamento por origem para tarefa de organização em pasta única, sem criar abas, novas dependências ou novos mecanismos auxiliares; usar apenas fixtures na primeira homologação.
+
 ## Próximo passo seguro
 
-**Diagnóstico do erro `limite inválido` publicado, não declarado resolvido.** Atualizar main, executar 83 testes, repetir o pedido do agente na GUI e verificar o campo real `arguments` em `tools_used`. Somente então decidir a correção específica, preservando limites e origem escolhida.
+**Consulta real Ollama homologada:** 1.344 imagens em `E:\\Ashley`, snapshot #6, 10 exemplos paginados e ausência de erros. Próxima prioridade é planejar a consolidação por tipo de arquivo com prévia segura, não expandir diagnóstico ou SHA-256.
 
 ## Limitações e evolução
 
