@@ -139,12 +139,21 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - O diagnóstico verifica a estrutura dos registros JSONL e a permanência da origem e do destino; classifica como `concluido_registrado`, `falha_registrada` ou `revisao_manual_obrigatoria`.
 - A situação `INTERROMPIDO_REMOCAO` pode deixar dois nomes para o mesmo conteúdo no mesmo volume. A inspeção reporta presença, **não prova igualdade nem recupera automaticamente**.
 - Três testes sintéticos novos: conclusão normal, falha simulada na remoção com ambos os caminhos preservados, journal ausente/inválido e isolamento da área de testes.
-- **Suíte esperada: 103 testes** (100 anteriores + 3), um possivelmente ignorado. Homologação pendente.
+- **103 testes homologados no Windows**: `Ran 103 tests in 5.516s`, `OK (skipped=1)`; 102 aprovados, um ignorado.
 - Pendências antes de permitir arquivos pessoais: identidade verificável, journal resistente a múltiplas operações, análise de condições de corrida, recuperação idempotente e suporte seguro a volumes diferentes.
+
+## Recuperação restrita do hardlink TEST-ONLY — aguardando homologação
+
+- Adicionada `rollback_interrupted_test_move()` a `executor.py`. Só aceita journal com sequência exata `PREPARADO → DESTINO_CRIADO → INTERROMPIDO_REMOCAO` e aprovação literal `CONFIRMO TESTE ARCHIVIA`.
+- Verifica que ambos os arquivos são regulares, estão no mesmo caso isolado em `tests/.runtime` e possuem **mesma identidade física (device e inode)**; revalida identidade, tamanho e mtime imediatamente antes da operação.
+- Nesse estado delimitado, elimina **apenas o hardlink extra do destino**, preservando a origem; registra `RECUPERACAO_INICIADA` e `RECUPERADO` no journal e recusa reexecuções posteriores.
+- Três testes `TEST-ONLY` adicionados: recuperação de falha de remoção, recusa de destino substituído/sem aprovação e recusa de operação concluída. **Suíte esperada: 106 testes**, com um possivelmente ignorado; ainda não executada pelo usuário.
+- **Limitação de segurança:** o caminho pode ser substituído por outro processo entre a última verificação e `os.unlink` (TOCTOU); não há garantia de integridade sob concorrência adversarial, nem suporte a volumes diferentes. Portanto, ainda não liberar arquivos reais nem integrar a GUI/Ollama.
+- A inspeção anterior permanece somente leitura; o rollback exige autorização explícita e continua restrito à fixture. A recuperação automática geral **não existe**.
 
 ## Próxima etapa
 
-Executar `git pull origin main` e `python -m unittest discover -s tests -v` no Windows, com **103 testes esperados**. Se aprovados, revisar os estados de falha e a política de recuperação com mais fixtures. O executor permanece sem integração GUI/CLI/Ollama e fisicamente limitado a `tests/.runtime`.
+Executar `git pull origin main` e `python -m unittest discover -s tests -v` no Windows, com **106 testes esperados**. Investigar eventual falha antes de ampliar escopo. Continuar somente com fixtures isoladas. Para mídias reais, será necessário eliminar riscos de concorrência e projetar movimentação segura entre unidades com journal durável, sem sobrescrita ou exclusão de dados.
 
 ## Referências
 
