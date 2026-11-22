@@ -138,6 +138,54 @@ class PlannerTests(unittest.TestCase):
             self.assertEqual(changed["actions"][0]["reason"], "origem_alterada_desde_inventario")
             self.assertFalse((dest / "2025").exists())
 
+    def test_date_plan_flags_metadata_duplicates_without_hashing_or_writing(self):
+        # TEST-ONLY: mesmo nome e tamanho são apenas suspeita, não duplicidade comprovada.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            (root / "a").mkdir(parents=True)
+            (root / "b").mkdir()
+            dest.mkdir()
+            ts = datetime(2025, 2, 5, tzinfo=timezone.utc).timestamp()
+            for subfolder, payload in (("a", b"ABC"), ("b", b"XYZ")):
+                file = root / subfolder / "foto.jpg"
+                file.write_bytes(payload)
+                os.utime(file, (ts, ts))
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            plan = propose_date_moves(dest, "imagem", db)
+            self.assertEqual(plan["potential_duplicate_items"], 2)
+            self.assertEqual(plan["name_collisions"], 1)
+            self.assertEqual(plan["duplicate_detection"], "metadata_only_name_and_size_not_verified")
+            self.assertTrue(all(a["possible_duplicate_by_metadata"] for a in plan["actions"]))
+            blocked = next(a for a in plan["actions"] if a["status"] == "bloqueado")
+            self.assertEqual(blocked["reason"], "destino_duplicado_no_plano")
+            self.assertTrue(blocked["alternative_name_suggestion"].endswith("foto__2.jpg"))
+            self.assertFalse((dest / "2025").exists())
+
+    def test_date_plan_suggests_name_when_target_exists_without_overwriting(self):
+        # TEST-ONLY: destino existente bloqueia proposta, alternativa é apenas texto.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            root.mkdir()
+            (dest / "2024" / "07").mkdir(parents=True)
+            file = root / "foto.jpg"
+            file.write_bytes(b"nova")
+            instant = datetime(2024, 7, 19, tzinfo=timezone.utc).timestamp()
+            os.utime(file, (instant, instant))
+            occupied = dest / "2024" / "07" / "foto.jpg"
+            occupied.write_bytes(b"existente")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            plan = propose_date_moves(dest, "imagem", db)
+            self.assertEqual(plan["blocked"], 1)
+            self.assertEqual(plan["name_collisions"], 1)
+            self.assertEqual(plan["actions"][0]["reason"], "destino_ja_existe")
+            self.assertTrue(plan["actions"][0]["alternative_name_suggestion"].endswith("foto__2.jpg"))
+            self.assertEqual(occupied.read_bytes(), b"existente")
+            self.assertFalse((dest / "2024" / "07" / "foto__2.jpg").exists())
+
     def test_date_plan_rejects_missing_destination_and_invalid_limits(self):
         with temporary_test_directory() as tmp:
             root = tmp / "origem"
