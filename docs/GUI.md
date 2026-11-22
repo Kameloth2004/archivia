@@ -164,6 +164,14 @@ A máscara facilita a digitação, **não valida sozinha se a data existe**; a r
 
 Implementação experimental em `src/archivia/planner.py`, função `propose_date_moves()`. Calcula caminhos futuros `AAAA/MM` com base na modificação UTC e verifica conflitos; não cria subpastas nem move arquivos. Restrito a mídias e 100 propostas por consulta. **Ainda não há controle gráfico para esta função**; primeiro executar testes da suíte local Windows. A preferência de data em Configurações afeta exclusivamente a visualização, não a organização temporal simulada.
 
+## Aba Organização — prévia cronológica não executável
+
+Adicionada aba **Organização** para o planejador `propose_date_moves()`. O usuário seleciona uma pasta **destino-base já existente**, uma categoria de mídia e um snapshot (histórico atualizado pelo botão específico). A interface solicita uma simulação em thread e apresenta, numa tabela, os caminhos de origem, destinos propostos `AAAA/MM`, situação `proposto/bloqueado` e motivos de bloqueio. São exibidos **no máximo 50 arquivos** do snapshot e categoria escolhidos; a contagem de correspondências totais e o aviso de amostra parcial são apresentados.
+
+**Nenhuma pasta de ano/mês é criada**, nenhum arquivo é movido, apagado ou renomeado. As subpastas aparecem somente no texto das propostas. Não há botão de executar ou aprovar; toda operação segue `executable=false`. O modelo de IA não recebe nova permissão. A data usada é `modified_utc` do inventário, independentemente do formato regional de exibição.
+
+**Teste manual recomendado:** selecionar snapshot #1 de `tests/fixtures/manual` (contém `foto_teste.jpg`), definir como destino uma pasta de testes já existente, clicar em **Simular organização** e verificar uma proposta de destino conforme ano/mês da foto. Confirmar que `AAAA/MM` não foi criado. Evitar testar primeiro em pastas de produção.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
