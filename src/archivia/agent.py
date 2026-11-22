@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page
-from .inventory import CATEGORIES
+from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, store_inventory
+from .inventory import CATEGORIES, inventory
 from .planner import propose_moves, propose_date_moves, summarize_consolidation
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
@@ -366,3 +367,21 @@ def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
         message = _ollama_chat({"model": model, "messages": messages, "stream": False})
     return {"model": model, "answer": str(message.get("content") or ""),
             "tools_used": results, "files_modified": False}
+
+
+def ask_agent_for_folder(prompt: str, model: str, folder: str | Path) -> dict[str, Any]:
+    """Consulta uma pasta diretamente com catálogo descartável, sem salvar histórico.
+
+    Não altera arquivos de origem. O banco e seus arquivos auxiliares vivem apenas
+    durante esta solicitação; falha de inventário impede consulta parcial ao agente.
+    """
+    source = Path(folder).expanduser().absolute()
+    if not source.is_dir():
+        raise ValueError("Selecione uma pasta de origem válida.")
+    with TemporaryDirectory(prefix="archivia-session-") as temp:
+        db = Path(temp) / "catalogo.sqlite3"
+        scan = store_inventory(inventory(source), db)
+        result = ask_agent(prompt, model, db, context_scan_id=scan["scan_id"])
+        result["temporary_catalog"] = True
+        result["source_root"] = scan["root"]
+        return result
