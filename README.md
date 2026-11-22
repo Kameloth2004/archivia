@@ -163,12 +163,13 @@ Os metadados incluem caminho relativo, categoria baseada **somente na extensão*
 - Inventários grandes são mantidos na memória antes de imprimir o JSON.
 - O inventário pode mudar durante uma varredura; não é um snapshot atômico.
 - Permissões do sistema operacional são respeitadas: leia somente diretórios de sua confiança.
-- Nenhuma identificação de duplicatas por hash ou reconhecimento visual ainda; a conexão Ollama com ferramentas de consulta e simulação já foi testada.
+- A comparação SHA-256 já existe (amostra e seleção global). **Reconhecimento visual de conteúdo** ainda não foi implementado.
 
 ## Próximas etapas planejadas
 
-1. Consultas e filtros do último snapshot SQLite (implementados).
-2. Detecção de duplicatas e leitura controlada de metadados especializados.
-3. Adaptador local Ollama para categorização semântica.
-4. Plano de mudanças em modo simulação, com aprovação explícita e trilha de auditoria.
-5. Organização efetiva, com medidas de recuperação e proteção contra conflitos.
+1. Homologar a proposta de consolidação de arquivos de subpastas em um destino único, ainda em simulação.
+2. Especificar planejamento completo de milhares de itens e revisão dos conflitos entre páginas.
+3. Integrar uma experiência simples de escolha de pasta, categoria, comando e prévia, mantendo detalhes técnicos em Avançado.
+4. Projetar, auditar e testar executor separado e recuperável antes de qualquer movimentação real; classificação visual/semântica requer planejamento próprio.
+
+O estado atualizado e os limites vigentes estão em [STATUS.md](docs/STATUS.md) e [SCOPE.md](docs/SCOPE.md).
