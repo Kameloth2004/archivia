@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from .agent import ask_agent, ask_agent_for_folder
-from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary, scan_for_folder
+from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary
 from .cataloging import catalog_verified_preview
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .inventory import inventory
