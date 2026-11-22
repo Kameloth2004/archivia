@@ -1138,7 +1138,11 @@ class ArchivIAWindow(QMainWindow):
             self._show_error("Descreva a consulta ou simulação.")
             return
         destination = self.home_destination.text().strip()
-        if destination:
+        # O destino é pertinente somente a pedidos de simulação, não a contagens.
+        wants_plan = any(word in prompt.casefold() for word in (
+            "simul", "organiza", "reunir", "consolida", "mover", "movimenta",
+        ))
+        if destination and wants_plan:
             target = Path(destination).expanduser().absolute()
             if not target.is_dir() or target.is_symlink():
                 self._show_error("A pasta de destino deve existir e ser um diretório real.")
