@@ -191,9 +191,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - O resumo informa quantidade selecionada, total da categoria e se a amostra é parcial. A consulta considera apenas um snapshot por vez.
 - **Aguardando confirmação na GUI Windows**. Testar preferencialmente com snapshot de fixtures e um destino-base descartável já existente.
 
+## Simulação cronológica na GUI — homologada visualmente
+
+- Captura do usuário confirmou aba **Organização** funcional: snapshot #1, origem `D:/PROJETOS/archivia/tests/fixtures/manual`, categoria imagem.
+- `foto_teste.jpg` apresentou situação `proposto`, zero bloqueios e destino sugerido `D:/IW8 CONSTRUMAQ/2026/11/foto_teste.jpg` com indicação **Subpasta futura**.
+- Interface exibiu `1 examinados de 1`, `Categoria completa` e **SIMULAÇÃO: nenhuma operação de escrita**.
+- **Atenção de segurança:** o destino-base escolhido foi uma pasta de trabalho real (`D:/IW8 CONSTRUMAQ`). Embora a operação atual seja estritamente não executável, testes futuros envolvendo qualquer criação/movimento devem usar apenas pastas descartáveis em `tests/`.
+- Evidência confirma cálculo do plano e apresentação de prévia; não comprova execução de arquivos nem existência de subpastas no destino. O motor não contém operações de escrita nesse fluxo.
+- Próxima evolução possível: ampliar parâmetros de planejamento/validação e somente depois avaliar exposição da simulação ao Ollama, sem introduzir executor.
+
 ## Próximo passo seguro
 
-**Suíte de 52 testes confirmada pelo usuário como aprovada.** Próximo teste: atualizar e abrir a GUI; na aba Organização, selecionar destino-base de teste já existente, categoria imagem e snapshot de teste, gerar a simulação e confirmar que não são criadas subpastas. Não executar movimentos.
+**Suíte de 52 testes confirmada como aprovada e prévia da aba Organização homologada visualmente.** Próximos testes devem utilizar destino descartável; nenhuma movimentação real está autorizada.
 
 ## Limitações e evolução
 
