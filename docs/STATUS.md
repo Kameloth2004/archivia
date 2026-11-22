@@ -21,7 +21,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 | GUI PySide6 de homologação (6 abas) | Implementada, **não** é o design definitivo |
 | Contexto de pasta para agente | Implementado: na GUI, pasta catalogada selecionada vincula `scan_id` ao agente |
 | Ollama com ferramentas autorizadas | Integrado para consultas e simulações, sem shell e sem executor |
-| Planejador genérico de consolidação em uma pasta | **Somente simulação**; lê até 100 itens de **uma** página SQLite; aceita `scan_id` |
+| Planejador genérico de consolidação em uma pasta | **Somente simulação**; `propose_moves()` lê até 100 ações e `summarize_consolidation()` examina até 10.000 candidatos em lotes, retornando estatísticas globais; aceita `scan_id` |
 | Planejador cronológico `AAAA/MM` | Somente simulação; até 100 propostas, com bloqueio de colisões |
 | SHA-256 em amostra e modo global | Homologado com fixtures; resultados parciais destacados |
 | Sessão progressiva SHA-256 | Motor em memória testado, **não** integrado na GUI; não ampliar agora |
@@ -37,7 +37,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 ## Limites e cuidados
 
-1. **Uma página não é um plano de todo o acervo.** O planejador de destino único não detecta colisões entre páginas distintas. `truncated=true` sinaliza parcialidade. Não executar seus JSONs manualmente.
+1. **Uma prévia de 100 ações não é um plano completo.** `propose_moves()` ainda não detecta conflitos fora da sua página. O novo `summarize_consolidation()` detecta colisões entre páginas dos candidatos examinados e informa pendências; **não retorna lista de ações**, não pode executar e tem teto de 10.000 arquivos.
 2. O agente só usa o catálogo da pasta selecionada **se ela já estiver catalogada**. Sem pasta selecionada, conserva o comportamento legado de usar o snapshot global mais recente. A interface final deverá tornar a origem obrigatória no fluxo principal.
 3. Inventário classifica por extensão; nenhuma fotografia é interpretada visualmente pelo Ollama nesta versão. Hashes identificam igualdade de bytes apenas dos arquivos lidos.
 4. `gui.py` é uma bancada de homologação e está grande (~1.400 linhas). Modularizar **por responsabilidades**, quando realmente for iniciado o redesign; não espalhar arquivos por capricho.
@@ -57,11 +57,16 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Padrão inicial: **bloquear colisões**, sem renomear nem sobrescrever automaticamente. Não retornar milhares de ações ao Ollama nem presumir conclusão quando a amostra estiver incompleta.
 - **Somente documentação nesta etapa.** Os algoritmos atuais continuam com prévias limitadas a 100 itens; nenhuma mudança executável.
 
+## Implementação em homologação — resumo global
+
+- Publicada `summarize_consolidation()` em `src/archivia/planner.py`: análise em lotes SQL de até 100, teto explícito de 10.000, identificação de nomes em conflito entre páginas e comparação de nomes de arquivos existentes com `casefold()`.
+- Retorno limitado a estatísticas `total_matches`, `examined`, `proposed`, `blocked`, `pending`, `complete`, `truncated`, `pages_scanned`, `blocked_by_reason`. O campo `actions` é vazio; não é um plano executável.
+- Três testes sintéticos novos para colisões na página 1 vs página 3 (210 imagens), limite com 34 pendentes e destino ocupado/arquivo modificado. **Suíte esperada: 87 testes** (84 anteriores + 3), um possivelmente ignorado. Aguardando execução no Windows.
+- `propose_moves()` anterior permanece compatível. A nova função ainda **não foi conectada à GUI nem exposta à IA**; isso ficará para etapa posterior, somente após aprovação dos testes. Nenhuma dependência ou módulo novo.
+
 ## Próxima etapa
 
-**84 testes aprovados no Windows.** O contrato de consolidação completa de milhares de arquivos foi especificado em [ARCHITECTURE.md](ARCHITECTURE.md) (somente documentação, ainda não implementado). Próximo incremento de produção: mecanismo de prévia **global** no planejador existente, com verificação de conflitos entre páginas, contagens completas e cobertura explícita, homologado inicialmente com fixtures sintéticas.
-
-Não adicionar novas abas, agentes, modos SHA-256, dependências ou execução de movimentos. A interface definitiva deverá reduzir a experiência a origem, tipo de arquivo, instrução e revisão, com aspectos técnicos em Avançado.
+**Validar os 87 testes localmente.** Após confirmação, integrar de forma enxuta o resumo global ao agente ou à prévia principal, sem movimentação real. Antes de qualquer executor, revisar atomicidade da leitura SQLite, junctions/reparse points do Windows e condições de corrida.
 
 ## Referências
 
