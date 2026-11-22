@@ -508,6 +508,30 @@ class AgentTests(unittest.TestCase):
                         ask_agent_for_folder("Conte", "modelo-falso", folder)
                     chat.assert_not_called()
 
+    def test_search_absolute_origin_path_is_not_a_filename_filter(self):
+        # TEST-ONLY: caminho absoluto da origem não pode reduzir contagem a zero.
+        with temporary_test_directory() as tmp:
+            root = tmp / "Ashley"
+            root.mkdir()
+            (root / "imagem.jpg").write_bytes(b"imagem")
+            db = tmp / "catalogo.sqlite3"
+            selected = store_inventory(inventory(root), db)["scan_id"]
+            query = dispatch_tool(
+                "buscar_arquivos_catalogo",
+                {"categoria": "imagem", "escopo": "caminho",
+                 "nome": str(root).replace("\\\\", "/")},
+                db, context_scan_id=selected,
+            )
+            self.assertEqual(query["root"], str(root))
+            self.assertEqual(query["count"], 1)
+            self.assertEqual(query["filter_name"], "")
+            with self.assertRaisesRegex(ValueError, "caminho absoluto"):
+                dispatch_tool(
+                    "buscar_arquivos_catalogo",
+                    {"categoria": "imagem", "nome": str(tmp / "Outra")},
+                    db, context_scan_id=selected,
+                )
+
     def test_agent_logs_real_tool_arguments_and_missing_limit_uses_default(self):
         # MOCK-ONLY: texto narrado pelo modelo pode diferir do tool_call real.
         with temporary_test_directory() as tmp:
