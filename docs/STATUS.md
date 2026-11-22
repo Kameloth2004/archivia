@@ -115,9 +115,17 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Limite da evidência:** confirmação do mesmo caminho comprova reutilização do catálogo, não mede diretamente novas leituras físicas; a ausência de nova varredura decorre do fluxo do código e é coberta por teste de mock. Descarte após fechar a GUI também permanece coberto por código/testes, sem observação direta nesta execução.
 - Fluxo principal estável para consultas; priorizar simplificação de interface e futura revisão das propostas antes de qualquer executor.
 
+## Primeira migração visual — Início simplificado (pendente de homologação)
+
+- A interface possui agora **Início, Biblioteca e Configurações** como abas principais. O botão alternável **Avançado** exibe a bancada original dentro de uma aba temporária com Visão geral, Inventário, Organização e Agente IA.
+- **Início** tem seletor de pasta sincronizado com o controle antigo, atalhos de contagem de imagens/vídeos/áudios, instrução natural, pasta de destino opcional para pedidos de simulação, atualização do catálogo temporário e uma resposta textual simples. Reutiliza o mesmo `_run_agent()` e `FolderCatalogSession`; nenhuma lógica nova sobre mídia.
+- A configuração do modelo Ollama foi realocada para **Configurações**. A resposta detalhada com `tools_used` segue acessível em Avançado → Agente IA.
+- **Limites da primeira migração:** a aba Biblioteca ainda depende do fluxo histórico do banco persistente; a tela Início exige Ollama para os atalhos de contagem e não possui ainda fluxo local equivalente no modo sem IA. Não é o redesign final nem habilita executor.
+- **Código publicado, sem suíte executada nesta atualização de layout.** Os últimos testes informados pelo usuário foram os 94 testes anteriores; a atualização subsequente de filtro de origem acrescentou um teste (95 previstos). Validar testes e abertura da GUI no Windows antes de ocultar/remover mais controles.
+
 ## Próxima etapa
 
-Executar **95 testes** no Windows. Reabrir o ArchivIA; na aba Inventário, confirmar que `E:\\Ashley` está de fato no campo de pasta. Somente então perguntar ao agente quantas imagens há na **pasta selecionada**, sem passar caminho absoluto no campo de busca. Conferir `database` temporário, `root`, `count` e reuso em segunda consulta; em seguida validar atualização explícita com fixtures.
+Executar a suíte no Windows (95 testes previstos após o teste de filtro de origem), iniciar `archivia-gui` e verificar: três abas iniciais, Início → escolher pasta → contar imagens, Configurações → modelo, Avançado → quatro telas técnicas preservadas, alternância de Avançado, ausência de escrita em mídias. **Não iniciar segunda migração antes da homologação visual.**
 
 ## Referências
 
