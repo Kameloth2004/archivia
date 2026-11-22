@@ -86,6 +86,7 @@ class GlobalCandidatesTests(unittest.TestCase):
             shutil.copytree(FIXTURES, root)
             db = tmp / "db.sqlite3"
             store_inventory(inventory(root), db)
+            original_bytes = (root / "A" / "foto_igual.jpg").read_bytes()
             for arguments in (
                 {"max_candidates": 0}, {"max_candidates": 5001},
                 {"max_candidates": True}, {"scan_id": True},
@@ -100,8 +101,9 @@ class GlobalCandidatesTests(unittest.TestCase):
             )
             self.assertFalse(result["complete"])
             self.assertGreater(len(result["skipped"]), 0)
-            self.assertEqual((root / "A" / "foto_igual.jpg").read_bytes(),
-                             b"TEST-ONLY: IMAGEM SINTETICA 0001\n")
+            self.assertEqual(
+                (root / "A" / "foto_igual.jpg").read_bytes(), original_bytes
+            )
 
 
 if __name__ == "__main__":
