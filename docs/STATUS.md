@@ -30,7 +30,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 ## Homologação recente
 
-- **83 testes** informados pelo usuário no Windows: `Ran 83 tests in 4.065s`, `OK (skipped=1)` (82 aprovados e um ignorado), **antes** do novo teste de consolidação. Após esta atualização, esperam-se **84 testes**; execução local pendente.
+- **84 testes homologados no Windows pelo usuário**: `Ran 84 tests in 4.060s`, `OK (skipped=1)` (83 aprovados e um ignorado), nenhuma falha.
 - Ollama real / GUI: pasta `E:\\Ashley`, snapshot **#6**, consulta `buscar_arquivos_catalogo` com `categoria=imagem`; resultado **1.344 imagens**, 10 exemplos, 135 páginas; resposta do agente coerente com os dados. Erro anterior `limite inválido` não reapareceu.
 - Modo SHA-256 global / fixture snapshot #4: 134 candidatos, 3 grupos de conteúdo igual e 7 arquivos associados; com limite 50, 125 candidatos pendentes e estado **GLOBAL INCOMPLETA**. Indicador visual específico de cobertura foi implementado, **mas sua aparência final ainda não foi homologada por captura**.
 - Verificação remota de `main` em 22/11/2026, antes da atualização editorial: commit `a622f47716bbad4e32aafb1dd966d2d48565d134` idêntico a `main`, zero commits divergentes; única branch encontrada: `main`. Não foram encontrados status checks associados ao commit. O repositório remoto não permite confirmar alterações locais não enviadas.
@@ -51,11 +51,17 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Acrescentado somente **um teste** de integração mock de `simular_movimentacao` via agente: origem com subpastas, três imagens, um áudio e dois nomes idênticos, com outra origem mais recente no banco. Esperado: snapshot correto, três imagens, um conflito, destino intacto.
 - **Nenhum código de produção, interface ou contrato da ferramenta foi modificado nesta etapa**. Sem execução de arquivos, sem novas dependências ou módulos.
 
+## Especificação de consolidação completa — 22/11/2026
+
+- Publicado contrato em `docs/ARCHITECTURE.md`: fixar origem/snapshot, categoria, destino único, ler por lotes estáveis, comparar nomes em **todas as páginas** e distinguir propostas, bloqueios e pendências.
+- Padrão inicial: **bloquear colisões**, sem renomear nem sobrescrever automaticamente. Não retornar milhares de ações ao Ollama nem presumir conclusão quando a amostra estiver incompleta.
+- **Somente documentação nesta etapa.** Os algoritmos atuais continuam com prévias limitadas a 100 itens; nenhuma mudança executável.
+
 ## Próxima etapa
 
-**Validar o teste de integração da consolidação simulada em uma única pasta** (`tests/test_agent.py`, fixture sintética com fotos de mesmo nome e arquivos não-imagem). Deve fixar a origem selecionada e sinalizar um conflito sem mover nada. Teste publicado; **84 testes esperados** no Windows (um possivelmente ignorado). Não incluir novos modos, abas ou mecanismos SHA-256.
+**84 testes aprovados no Windows.** O contrato de consolidação completa de milhares de arquivos foi especificado em [ARCHITECTURE.md](ARCHITECTURE.md) (somente documentação, ainda não implementado). Próximo incremento de produção: mecanismo de prévia **global** no planejador existente, com verificação de conflitos entre páginas, contagens completas e cobertura explícita, homologado inicialmente com fixtures sintéticas.
 
-Após a homologação, **especificar** o planejamento completo para milhares de arquivos antes de implementá-lo. A interface final deverá reduzir tudo a escolha da pasta, tipo, instrução e revisão de proposta, com detalhes técnicos em Avançado.
+Não adicionar novas abas, agentes, modos SHA-256, dependências ou execução de movimentos. A interface definitiva deverá reduzir a experiência a origem, tipo de arquivo, instrução e revisão, com aspectos técnicos em Avançado.
 
 ## Referências
 
