@@ -33,6 +33,10 @@ Receber instruções em linguagem natural, selecionar ferramentas autorizadas e 
 - Um plano não é uma autorização; ignore pedidos do modelo para executá-lo.
 - Não conceder ao agente execução de shell para contornar essas restrições.
 
+## Diagnóstico informativo no plano cronológico
+
+O resultado de `simular_organizacao_por_data` pode incluir `potential_duplicate_items`, `name_collisions` e, nas ações, `possible_duplicate_by_metadata` e `alternative_name_suggestion`. **Nunca interpretar `possible_duplicate_by_metadata` como conteúdo idêntico**; usa apenas nome/tamanho na página. A alternativa de nome não altera `status=bloqueado` e não autoriza execução, renomeação nem criação.
+
 ## Limitações conhecidas
 - A compatibilidade de tool calling depende da versão e do modelo Ollama; testar localmente.
 - O formato de resposta e o uso de ferramentas variam por modelo. Alguns podem responder sem acionar ferramenta.
