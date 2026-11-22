@@ -67,27 +67,22 @@ def _exclusive_fixture_lock(test_root: Path):
     folder = _safe_path(test_root)
     if folder.parent != runtime or not folder.is_dir():
         raise ValueError("Lock limitado a caso isolado em tests/.runtime.")
+    # Diretório de lock é criado atomicamente. Não usar unlink aqui:
+    # a operação de remoção do arquivo de origem pode falhar em testes.
     lock = _safe_path(folder / ".archivia-operation.lock")
     try:
-        handle = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        os.mkdir(lock)
     except FileExistsError as exc:
         raise ValueError(
             "Outro processo ArchivIA pode estar operando neste caso; "
             "lock presente. Inspeção manual necessária."
         ) from exc
     try:
-        try:
-            os.write(handle, str(os.getpid()).encode("ascii"))
-            os.fsync(handle)
-        finally:
-            os.close(handle)
         yield
     finally:
-        # Não remover lock se outro processo o substituiu.
-        # Falha em liberar mantém o teste bloqueado de maneira conservadora.
+        # Em caso de falha de remoção, manter bloqueado e exigir revisão.
         try:
-            if lock.is_file() and not lock.is_symlink():
-                lock.unlink()
+            os.rmdir(lock)
         except OSError:
             pass
 
