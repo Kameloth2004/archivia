@@ -3,6 +3,7 @@ import unittest
 from datetime import datetime, timezone
 import os
 from unittest.mock import patch
+from pathlib import Path
 
 from support import temporary_test_directory
 from archivia.agent import ask_agent, ask_agent_for_folder, dispatch_tool
@@ -384,13 +385,22 @@ class AgentTests(unittest.TestCase):
             db = tmp / "permanente.sqlite3"
             saved = store_inventory(inventory(folder), db)
             original_bytes = db.read_bytes()
+            from tempfile import TemporaryDirectory
+            created = []
+            def tracked_temporary(**kwargs):
+                work = TemporaryDirectory(**kwargs)
+                created.append(work.name)
+                return work
             first = {"role": "assistant", "content": "", "tool_calls": [
                 {"function": {"name": "buscar_arquivos_catalogo",
                               "arguments": {"categoria": "imagem"}}}
             ]}
             last = {"role": "assistant", "content": "Uma imagem."}
-            with patch("archivia.agent._ollama_chat", side_effect=[first, last]):
-                response = ask_agent_for_folder("Conte as imagens", "modelo-falso", folder)
+            with patch("archivia.agent.TemporaryDirectory", side_effect=tracked_temporary):
+                with patch("archivia.agent._ollama_chat", side_effect=[first, last]):
+                    response = ask_agent_for_folder("Conte as imagens", "modelo-falso", folder)
+            self.assertEqual(len(created), 1)
+            self.assertFalse(Path(created[0]).exists())
             self.assertTrue(response["temporary_catalog"])
             self.assertEqual(response["source_root"], str(folder))
             result = response["tools_used"][0]["result"]
@@ -408,11 +418,18 @@ class AgentTests(unittest.TestCase):
             folder = tmp / "origem"
             folder.mkdir()
             (folder / "foto.jpg").write_bytes(b"teste")
-            def fail_chat(_payload):
-                raise ValueError("Falha simulada no Ollama")
-            with patch("archivia.agent._ollama_chat", side_effect=fail_chat):
-                with self.assertRaisesRegex(ValueError, "Falha simulada"):
-                    ask_agent_for_folder("Conte", "modelo-falso", folder)
+            from tempfile import TemporaryDirectory
+            created = []
+            def tracked_temporary(**kwargs):
+                work = TemporaryDirectory(**kwargs)
+                created.append(work.name)
+                return work
+            with patch("archivia.agent.TemporaryDirectory", side_effect=tracked_temporary):
+                with patch("archivia.agent._ollama_chat", side_effect=ValueError("Falha simulada no Ollama")):
+                    with self.assertRaisesRegex(ValueError, "Falha simulada"):
+                        ask_agent_for_folder("Conte", "modelo-falso", folder)
+            self.assertEqual(len(created), 1)
+            self.assertFalse(Path(created[0]).exists())
             self.assertTrue((folder / "foto.jpg").exists())
 
     def test_auto_folder_session_rejects_unreadable_inventory_without_agent_call(self):
