@@ -4,6 +4,9 @@ Bibliotecário digital local em Python, planejado para catalogar, classificar, r
 
 ## Estado do projeto
 
+**Novo fluxo em homologação:** na GUI, selecionar uma pasta na aba Inventário e perguntar ao agente inicia inventário e catálogo SQLite temporários automaticamente, sem exigir o botão Salvar inventário. O banco histórico existente permanece opcional no fluxo manual de testes. Uma nova pergunta reexamina a pasta; nenhuma mídia é alterada.
+
+
 **Etapa experimental do agente Ollama: ferramentas de consulta e simulação sobre o motor Python.** A integração local com `qwen3:8b-q4_K_M` já foi validada. Nenhuma operação de renomeação, movimentação ou exclusão foi implementada.
 
 ### Princípios
