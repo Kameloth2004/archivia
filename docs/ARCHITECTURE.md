@@ -50,6 +50,12 @@ A verificação de tamanho/mtime e hash não cria garantia atômica contra alter
 
 A análise de duplicatas aceita amostras de até **1000 registros**, mas consulta SQLite sempre em páginas de **100**, com `scan_id` fixado na primeira página (quando automático). Reúne somente metadados da amostra para agrupar tamanhos iguais; hashes entre páginas são então comparados em memória. Esse desenho reduz a carga frente à consulta integral, mas a memória ainda cresce proporcionalmente à amostra limitada. Limites por arquivo (16 MiB) e leitura total (até 256 MiB, padrão 64 MiB) são validados. Eventos de progresso `catalog/hash/done` são enviados à interface em worker Qt; não há escrita em disco nem estimativa temporal.
 
+## Seleção global de candidatos SHA-256 sem carga integral de caminhos
+
+`verify_snapshot_duplicate_candidates()` usa `sqlite3` em `mode=ro`, escolhe um snapshot fixo e utiliza `GROUP BY size_bytes HAVING COUNT(*) > 1` para localizar tamanhos repetidos em todo o snapshot. Guarda contadores tamanho/quantidade e percorre os registros de cada grupo com `fetchmany(100)`, sem reunir todos os caminhos em memória. Grupos de tamanho que ultrapassam o limite restante de candidatos são **omitidos por inteiro**, reportados como pendentes e nunca parcialmente declarados verificados. O teto é de 5.000 candidatos por execução. As proteções SHA-256 anteriores permanecem.
+
+O modo global não identifica duplicatas em snapshots diferentes nem permite execução de movimentos. A seleção global por tamanho é completa, mas a **verificação por hash só pode ser considerada completa** quando `unprocessed_candidate_files=0`, `skipped=[]` e `complete=true`. Limites por arquivo, orçamento I/O, alterações da origem e arquivos inacessíveis impedem conclusões sobre itens não lidos. A GUI indica a incompletude; a ausência de grupos retornados não comprova unicidade no acervo.
+
 ## Garantias e limites
 - Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
