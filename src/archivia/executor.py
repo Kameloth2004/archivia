@@ -187,7 +187,7 @@ def inspect_test_journal(test_directory: str | Path) -> dict[str, Any]:
                     event.get("event") not in (
                         "PREPARADO", "FALHA_CRIACAO", "DESTINO_CRIADO",
                         "INTERROMPIDO_VERIFICACAO", "INTERROMPIDO_REMOCAO",
-                        "CONCLUIDO",
+                        "CONCLUIDO", "RECUPERACAO_INICIADA", "RECUPERADO",
                     ) or not isinstance(event.get("source"), str) or
                     not isinstance(event.get("destination"), str)):
                 raise ValueError("Registro do journal inválido.")
@@ -207,6 +207,8 @@ def inspect_test_journal(test_directory: str | Path) -> dict[str, Any]:
         raise ValueError("Journal não começa com preparação válida.")
     if events[-1] == "CONCLUIDO":
         status = "concluido_registrado"
+    elif events[-1] == "RECUPERADO":
+        status = "recuperado_registrado"
     elif events[-1] == "FALHA_CRIACAO":
         status = "falha_registrada"
     else:
@@ -221,4 +223,58 @@ def inspect_test_journal(test_directory: str | Path) -> dict[str, Any]:
         "destination": str(destination),
         "test_only": True,
         "automatic_recovery": False,
+    }
+
+
+def rollback_interrupted_test_move(
+    test_directory: str | Path, *, approval: str,
+) -> dict[str, Any]:
+    """Reverte APENAS o hardlink extra de uma falha TEST-ONLY conhecida.
+
+    A origem precisa permanecer intacta e compartilhar a identidade física do
+    destino. Outros estados exigem inspeção manual. Não oferece garantia contra
+    troca simultânea de caminhos por outro processo; não usar com arquivos reais.
+    """
+    if approval != _CONFIRM:
+        raise ValueError("Confirmação explícita de recuperação ausente.")
+    report = inspect_test_journal(test_directory)
+    if report["events"] != [
+        "PREPARADO", "DESTINO_CRIADO", "INTERROMPIDO_REMOCAO",
+    ]:
+        raise ValueError("Estado do journal não permite recuperação automática.")
+    source = _safe_path(Path(report["source"]))
+    target = _safe_path(Path(report["destination"]))
+    if not source.is_file() or not target.is_file():
+        raise ValueError("Origem e destino devem existir como arquivos regulares.")
+    before_source = source.stat(follow_symlinks=False)
+    before_target = target.stat(follow_symlinks=False)
+    if (not stat.S_ISREG(before_source.st_mode) or
+            not stat.S_ISREG(before_target.st_mode) or
+            (before_source.st_dev, before_source.st_ino) !=
+            (before_target.st_dev, before_target.st_ino) or
+            before_source.st_nlink < 2):
+        raise ValueError("Identidade física não comprovada: revisão manual obrigatória.")
+    journal = _safe_path(Path(test_directory) / "archivia-executor-journal.jsonl")
+    _record(journal, "RECUPERACAO_INICIADA", source, target)
+    # Segunda checagem imediatamente antes do unlink; contenção de escopo
+    # permanece obrigatória, mesmo após inspeção e aprovação.
+    _inside_runtime(source)
+    _inside_runtime(target)
+    current_source = source.stat(follow_symlinks=False)
+    current_target = target.stat(follow_symlinks=False)
+    if ((current_source.st_dev, current_source.st_ino,
+         current_source.st_size, current_source.st_mtime_ns) !=
+        (before_source.st_dev, before_source.st_ino,
+         before_source.st_size, before_source.st_mtime_ns) or
+        (current_target.st_dev, current_target.st_ino) !=
+        (before_source.st_dev, before_source.st_ino)):
+        raise ValueError("Arquivo alterado durante recuperação. Revisão manual.")
+    os.unlink(target)
+    _record(journal, "RECUPERADO", source, target)
+    return {
+        "status": "recuperado",
+        "source_exists": source.exists(),
+        "destination_exists": target.exists(),
+        "journal": str(journal),
+        "test_only": True,
     }
