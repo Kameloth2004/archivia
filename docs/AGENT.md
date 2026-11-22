@@ -120,3 +120,7 @@ O banco é **temporário por solicitação**; uma nova pergunta faz uma nova lei
 2. Verificar `ollama list` e escolher um modelo instalado com tool calling.
 3. Testar `resumo_catalogo` em uma única pergunta.
 4. Só depois testar simulações de movimento, sempre dentro de `tests/fixtures/manual/`.
+
+## Sessão de origem reutilizável (aguardando homologação)
+
+`FolderCatalogSession` encapsula SQLite em `TemporaryDirectory`, cria o inventário na primeira consulta `ask()`, preserva o snapshot entre perguntas e oferece `refresh()` para atualizar o catálogo sob comando do usuário. `close()` elimina o diretório temporário; mudanças externas podem tornar o snapshot antigo, por isso os retornos apresentam `catalog_scanned_utc` e `catalog_may_be_stale=true`. Não há monitoramento automático de subpastas. Na GUI, a troca da origem e o encerramento normal liberam a sessão. O mecanismo anterior `ask_agent_for_folder()` permanece para chamadas isoladas.
