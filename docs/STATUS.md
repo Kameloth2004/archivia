@@ -129,13 +129,22 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Escopo físico obrigatório:** origem e destino dentro do **mesmo caso isolado** em `tests/.runtime/`, com diretório de destino previamente existente. Não suporta caminhos pessoais, `E:\\Ashley`, movimentação entre discos ou operações em lote. Não introduzir opção que contorne essa contenção nesta etapa.
 - Valida a proposta contra o catálogo e o estado físico antes da operação. Rejeita links simbólicos e junctions detectáveis; bloqueia destinos já ocupados (inclusive diferença de maiúsculas/minúsculas); testa mesmo volume e identidade do arquivo.
 - Usa `os.link` sem substituição do destino, seguido de `os.unlink` da origem, e grava eventos em `archivia-executor-journal.jsonl` dentro da fixture, com `fsync`. **Não é transação atômica**: falha após criar o hardlink pode deixar os dois caminhos. Nessa condição, **não repetir automaticamente** nem alegar rollback; revisão manual do journal é obrigatória.
-- Cinco testes `TEST-ONLY` novos cobrem movimentação de fixture, ausência de consentimento, destino ocupado/arquivo alterado, plano adulterado ou parcial e tentativa de saída de `tests/.runtime`. Execução Windows ainda pendente.
+- Cinco testes `TEST-ONLY` novos cobrem movimentação de fixture, ausência de consentimento, destino ocupado/arquivo alterado, plano adulterado ou parcial e tentativa de saída de `tests/.runtime`. **100 testes homologados no Windows** (`Ran 100 tests in 5.329s`, `OK (skipped=1)`); 99 aprovados e um ignorado.
 - **Não implementado:** recuperação automática, rollback confiável, movimentação entre unidades, segurança completa contra condições de corrida, autorização de lote, interface de revisão e executor generalizado.
-- **Suíte esperada:** 100 testes, assumindo 95 anteriores (o teste 95 ainda não teve homologação reportada). Nenhuma mídia do usuário deve ser usada nesta fase.
+- **Suíte anterior homologada:** 100 testes, com 1 ignorado. Nenhuma mídia do usuário deve ser usada nesta fase.
+
+## Inspeção do journal e falhas interrompidas — aguardando testes Windows
+
+- Em `executor.py`, adicionada `inspect_test_journal(test_directory)`, inspeção **somente leitura** restrita a `tests/.runtime/<caso>`. Não desfaz, repete, apaga ou modifica mídias.
+- O diagnóstico verifica a estrutura dos registros JSONL e a permanência da origem e do destino; classifica como `concluido_registrado`, `falha_registrada` ou `revisao_manual_obrigatoria`.
+- A situação `INTERROMPIDO_REMOCAO` pode deixar dois nomes para o mesmo conteúdo no mesmo volume. A inspeção reporta presença, **não prova igualdade nem recupera automaticamente**.
+- Três testes sintéticos novos: conclusão normal, falha simulada na remoção com ambos os caminhos preservados, journal ausente/inválido e isolamento da área de testes.
+- **Suíte esperada: 103 testes** (100 anteriores + 3), um possivelmente ignorado. Homologação pendente.
+- Pendências antes de permitir arquivos pessoais: identidade verificável, journal resistente a múltiplas operações, análise de condições de corrida, recuperação idempotente e suporte seguro a volumes diferentes.
 
 ## Próxima etapa
 
-No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (100 testes esperados). Se passarem, conferir especificamente `tests/test_executor.py` e depois planejar reversão/recuperação antes de considerar testes manuais. **Não utilizar arquivos de `E:\\Ashley` nem habilitar integração com GUI/Ollama.**
+Executar `git pull origin main` e `python -m unittest discover -s tests -v` no Windows, com **103 testes esperados**. Se aprovados, revisar os estados de falha e a política de recuperação com mais fixtures. O executor permanece sem integração GUI/CLI/Ollama e fisicamente limitado a `tests/.runtime`.
 
 ## Referências
 
