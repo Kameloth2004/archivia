@@ -333,9 +333,17 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Corrigido `tests/test_duplicates_global.py` para capturar os bytes reais antes de executar a verificação e compará-los com os bytes posteriores, testando diretamente a propriedade desejada: **nenhuma modificação da origem**.
 - Relatório anterior: `Ran 72 tests in 2.757s`, `FAILED (failures=1, skipped=1)`. Correção publicada; **aguardando nova execução local no Windows**.
 
+## SHA-256 global — suíte de 72 testes homologada após correção CRLF/LF
+
+- Usuário confirmou em Windows: `Ran 72 tests in 2.780s`, `OK (skipped=1)` — 71 aprovações, 1 teste ignorado e nenhuma falha.
+- Correção de `test_global_rejects_invalid_args_and_preserves_originals` validada: compara bytes anteriores e posteriores em vez de assumir `LF` (Windows pode apresentar `CRLF`).
+- Motor de candidatos globais aprovado na suíte automatizada. **Homologação visual do novo modo na GUI ainda pendente**; usar snapshot sintético #4.
+- Próximo teste: Organização → Duplicatas (SHA-256), `Tipo de análise = Candidatos em todo o snapshot`, categoria Imagens, snapshot #4, limite de candidatos 200, MiB/arquivo 16, leitura total 64 MiB. Esperado: 134 candidatos, 3 grupos, 7 arquivos repetidos, zero pendentes e modo completo.
+- Nenhuma movimentação, exclusão ou alteração de arquivos permitida.
+
 ## Próximo passo seguro
 
-**Falha de teste CRLF/LF corrigida no repositório e pendente de reexecução no Windows.** Atualizar main e executar 72 testes; após aprovação, usar snapshot #4 com modo Candidatos em todo o snapshot e limite 200. Verificar 3 grupos, 7 arquivos e zero candidatos pendentes. Nenhum arquivo será movido ou excluído.
+**Suíte de 72 testes homologada no Windows após correção CRLF/LF.** Próxima validação: GUI no modo Candidatos em todo o snapshot, snapshot #4, limite 200; verificar 134 candidatos, 3 grupos, 7 arquivos repetidos e zero pendentes. Nenhuma movimentação ou exclusão habilitada.
 
 ## Limitações e evolução
 
