@@ -273,9 +273,19 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Teste comprova a classificação na fixture e a apresentação na GUI, **não** uma varredura completa de duplicatas nos discos reais.
 - Próxima evolução recomendada: paginação e análise ampliada de candidatos, preservando limites de I/O e sem habilitar operações de exclusão ou movimentação.
 
+## SHA-256 por lotes e progresso — versão aguardando homologação
+
+- `verify_duplicate_hashes()` ampliado para **até 1.000 arquivos por execução**, lendo páginas SQLite de 100 registros do mesmo snapshot. O agrupamento por tamanho considera metadados de todas as páginas da **amostra selecionada**, identificando pares distribuídos entre páginas diferentes.
+- **Limites independentes:** até 16 MiB por arquivo e orçamento de 256 MiB por execução (configuráveis para valores inferiores). Valores padrão: 50 arquivos, 16 MiB e 64 MiB. O orçamento é reservado antes da tentativa de leitura, incluindo falhas.
+- `progress` opcional recebe fase `catalog`/`hash`/`done`, processados e total. A GUI recebe atualizações via signal Qt, mostrando barra de progresso sem travar a janela.
+- Na subaba **Organização → Duplicatas (SHA-256)**, novos controles numéricos para quantidade de arquivos, tamanho por arquivo e orçamento de leitura; mostra o número de páginas SQLite percorridas e conserva agrupamento/ignorados.
+- Três testes novos cobrem pares iguais em páginas diferentes, amostra limitada que não comprova unicidade, callback e validação de limites.
+- Os hashes só são calculados para arquivos de mesmo tamanho na **amostra**. A operação continua read-only, sem escrita de mídias, alteração SQLite ou exclusão. Não é varredura exaustiva dos 44 mil arquivos.
+- **Ainda não validado no Windows** nesta revisão. Suíte esperada: 65 testes, com um possivelmente ignorado.
+
 ## Próximo passo seguro
 
-**Suíte de 62 testes e verificação visual SHA-256 homologadas.** Próxima evolução: ampliar cobertura das amostras com limites de I/O e progresso, sem executar movimentações. Teste anterior utilizou a pasta sintética `tests/fixtures/sha256_demo` pela aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado, categoria Imagens e verificar **2 grupos / 5 arquivos com conteúdo igual** (3 arquivos de dados e 2 vazios). Os nomes iguais com bytes diferentes não devem formar grupo.
+**Próximo teste:** atualizar main e executar a suíte (65 testes esperados); na subaba Duplicatas, escolher snapshot #3, aumentar a amostra para 100 e conferir os **2 grupos / 5 arquivos** e progresso. Não mover nem alterar arquivos.
 
 ## Limitações e evolução
 
