@@ -60,6 +60,10 @@ Instalação opcional no Windows: `python -m pip install -e ".[gui]"`. Abrir com
 
 Após **Examinar pasta — prévia**, o botão **Salvar inventário no catálogo SQLite...** fica disponível se a leitura não tiver erros. Uma caixa de diálogo solicita confirmação; o motor reexamina a pasta e só grava um novo snapshot se o conteúdo listado e os metadados ainda coincidirem com a prévia. A gravação altera apenas o banco SQLite; nenhum arquivo da pasta é modificado. Um inventário antigo permanece disponível no histórico, embora a interface liste somente o último snapshot. Consulte [GUI.md](docs/GUI.md) e [INVENTORY.md](docs/INVENTORY.md).
 
+## Comparação SHA-256 de arquivos duplicados
+
+Na aba **Organização → Duplicatas (SHA-256)**, o ArchivIA compara conteúdo de arquivos de um snapshot em modo somente leitura, com amostra e limites de leitura. Para homologação, há um cenário sintético em `tests/fixtures/sha256_demo`. Hash igual comprova bytes iguais apenas nos arquivos realmente comparados; não é uma análise completa do disco. Consulte [GUI.md](docs/GUI.md) e [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Simulação cronológica pelo agente local
 
 A ferramenta Ollama `simular_organizacao_por_data` pode apresentar propostas de organização `AAAA/MM` sem alterar mídia ou criar pastas. É necessário informar categoria e destino-base existente; a seleção de histórico da GUI não é transmitida automaticamente ao agente. A função permanece `executable=false` e limitada a 50 itens por chamada. Consulte [AGENT.md](docs/AGENT.md).
