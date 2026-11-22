@@ -109,6 +109,12 @@ Disponível no contrato do agente (aguardando homologação local): solicita **a
 
 Resultado: `total_matches`, `examined`, `proposed`, `blocked`, `pending`, `complete`, `truncated`, `blocked_by_reason`, `actions=[]`, `mode=simulation`, `executable=false`. Não envia milhares de caminhos ao modelo. Um resultado com `pending>0` não é completo. **Nenhum arquivo é alterado**, e a ferramenta não cria destinos. O fluxo de aprovação/execução ainda não existe.
 
+## Catálogo temporário automático para pasta selecionada (aguardando testes)
+
+`ask_agent_for_folder(prompt, model, folder)` cria um inventário novo da pasta selecionada, grava somente em um SQLite privado dentro de `TemporaryDirectory`, executa `ask_agent()` fixando o `scan_id` temporário e descarta o diretório ao sair. Não exige que o usuário clique **Salvar inventário**, não altera o catálogo histórico `data/catalogo.sqlite3` nem nenhuma mídia. Inventários com falhas são recusados; a chamada ao modelo nem começa se ocorrer erro na varredura. O `scan_id` desse fluxo é local à sessão e pode ser `#1` em várias consultas, sem representar o histórico permanente.
+
+O banco é **temporário por solicitação**; uma nova pergunta faz uma nova leitura. A limpeza acontece ao final da chamada, também em caso de erro; arquivos auxiliares do sistema operacional após encerramentos abruptos são limitação a avaliar. A GUI mantém a possibilidade antiga de consultar o catálogo histórico se nenhuma origem estiver selecionada, exclusivamente para compatibilidade da bancada técnica.
+
 ## Próxima validação
 1. Executar testes com mocks (não precisam de Ollama).
 2. Verificar `ollama list` e escolher um modelo instalado com tool calling.
