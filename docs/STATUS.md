@@ -341,9 +341,17 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Próximo teste: Organização → Duplicatas (SHA-256), `Tipo de análise = Candidatos em todo o snapshot`, categoria Imagens, snapshot #4, limite de candidatos 200, MiB/arquivo 16, leitura total 64 MiB. Esperado: 134 candidatos, 3 grupos, 7 arquivos repetidos, zero pendentes e modo completo.
 - Nenhuma movimentação, exclusão ou alteração de arquivos permitida.
 
+## SHA-256 global — homologação visual concluída no Windows
+
+- Captura do usuário comprova a execução local da aba **Organização → Duplicatas (SHA-256)** com `Tipo de análise = Candidatos em todo o snapshot`, snapshot **#4**, categoria Imagens, teto de 200 candidatos, 16 MiB por arquivo e 64 MiB de leitura.
+- Indicadores exibidos: **134 de 134 candidatos selecionados**, **134 hashes calculados**, **3 grupos confirmados**, **7 arquivos com conteúdo idêntico**, **0 ignorados**, **0 candidatos pendentes**, barra de progresso concluída e estado **Todos os candidatos verificados**.
+- Foram apresentados **5 lotes SQL** nesse modo, diferentemente dos 2 lotes do processamento por nome: o novo motor consulta membros de cada grupo de tamanho em lotes, e o contador representa essas leituras, não uma partição única dos 134 registros.
+- Os grupos conferem com os fixtures sintéticos (3 + 2 + 2 arquivos); nenhuma operação de escrita ou execução foi habilitada.
+- A homologação abrange o cenário sintético completo e a interface. Bibliotecas reais maiores continuam sujeitas aos limites de candidatos, orçamento de I/O, arquivos acima do tamanho permitido e possíveis mudanças nos arquivos após o inventário.
+
 ## Próximo passo seguro
 
-**Suíte de 72 testes homologada no Windows após correção CRLF/LF.** Próxima validação: GUI no modo Candidatos em todo o snapshot, snapshot #4, limite 200; verificar 134 candidatos, 3 grupos, 7 arquivos repetidos e zero pendentes. Nenhuma movimentação ou exclusão habilitada.
+**Suíte de 72 testes e modo global SHA-256 homologados no Windows com fixtures:** snapshot #4, 134 candidatos completos, 3 grupos, 7 arquivos idênticos, 0 pendentes e 5 lotes SQL. Próxima etapa recomendada: verificar o comportamento com limites restritos e grupos pendentes, ainda somente leitura; não habilitar operações de arquivos.
 
 ## Limitações e evolução
 
