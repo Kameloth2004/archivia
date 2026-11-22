@@ -265,6 +265,39 @@ class AgentTests(unittest.TestCase):
             self.assertIn("error", output["tools_used"][0]["result"])
             self.assertFalse(output["files_modified"])
 
+    def test_agent_logs_real_tool_arguments_and_missing_limit_uses_default(self):
+        # MOCK-ONLY: texto narrado pelo modelo pode diferir do tool_call real.
+        with temporary_test_directory() as tmp:
+            root = tmp / "Adele"
+            root.mkdir()
+            (root / "foto.jpg").write_bytes(b"teste")
+            db = tmp / "catalogo.sqlite3"
+            recorded = store_inventory(inventory(root), db)
+            args = {"categoria": "imagem", "escopo": "caminho"}
+            first = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {
+                    "name": "buscar_arquivos_catalogo",
+                    "arguments": args,
+                }}
+            ]}
+            final = {"role": "assistant", "content": "Uma imagem."}
+            with patch("archivia.agent._ollama_chat", side_effect=[first, final]):
+                response = ask_agent(
+                    "Quantas imagens?", "modelo-falso", db,
+                    context_scan_id=recorded["scan_id"],
+                )
+            call = response["tools_used"][0]
+            self.assertEqual(call["arguments"], args)
+            self.assertEqual(call["result"]["count"], 1)
+            self.assertEqual(call["result"]["scan_id"], recorded["scan_id"])
+            self.assertEqual(call["result"]["page_size"], 10)
+            invalid = dict(args, limite="10")
+            with self.assertRaisesRegex(ValueError, "limite inválido"):
+                dispatch_tool(
+                    "buscar_arquivos_catalogo", invalid, db,
+                    context_scan_id=recorded["scan_id"],
+                )
+
     def test_ollama_mock_cannot_execute_unknown_tool(self):
         with temporary_test_directory() as tmp:
             message = {"role": "assistant", "content": "", "tool_calls": [
