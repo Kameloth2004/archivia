@@ -217,3 +217,188 @@ def verify_duplicate_hashes(
             "da amostra; não demonstra ausência de duplicatas no catálogo inteiro."
         ),
     }
+
+
+
+MAX_GLOBAL_CANDIDATES = 5000
+
+
+def verify_snapshot_duplicate_candidates(
+    db_path: Path = DEFAULT_DB,
+    category: str | None = None,
+    scan_id: int | None = None,
+    max_candidates: int = 1000,
+    max_file_bytes: int = MAX_FILE_BYTES,
+    max_total_bytes: int = 64 * 1024 * 1024,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Verifica grupos de mesmo tamanho em todo o snapshot, com I/O limitado.
+
+    O SQLite identifica os grupos de tamanho na integralidade do snapshot,
+    sem carregar a lista inteira em Python. Grupos são selecionados inteiros:
+    se não couberem no orçamento de candidatos, permanecem não verificados.
+    SHA-256 e origens continuam estritamente em somente leitura.
+    """
+    import sqlite3
+    from contextlib import closing
+    from .inventory import CATEGORIES
+
+    if category is not None and category not in CATEGORIES:
+        raise ValueError("Categoria inválida.")
+    if scan_id is not None and (
+        not isinstance(scan_id, int) or isinstance(scan_id, bool) or scan_id < 1
+    ):
+        raise ValueError("ID de snapshot inválido.")
+    for value, maximum, label in (
+        (max_candidates, MAX_GLOBAL_CANDIDATES, "Quantidade de candidatos"),
+        (max_file_bytes, MAX_FILE_BYTES, "Limite por arquivo"),
+        (max_total_bytes, MAX_TOTAL_HASH_BYTES, "Orçamento de leitura"),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= maximum:
+            raise ValueError(f"{label} inválido: use 1 a {maximum}.")
+    if progress is not None and not callable(progress):
+        raise ValueError("Callback de progresso inválido.")
+
+    def report(phase: str, processed: int, total: int) -> None:
+        if progress is not None:
+            progress({"phase": phase, "processed": processed, "total": total})
+
+    db = Path(db_path).expanduser().absolute()
+    if not db.is_file():
+        raise ValueError(f"Catálogo não encontrado: {db}")
+
+    try:
+        with closing(sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA temp_store=MEMORY")
+            if scan_id is None:
+                scan = conn.execute(
+                    "SELECT id, root FROM scans ORDER BY id DESC LIMIT 1"
+                ).fetchone()
+            else:
+                scan = conn.execute(
+                    "SELECT id, root FROM scans WHERE id=?", (scan_id,)
+                ).fetchone()
+            if scan is None:
+                raise ValueError("Snapshot não encontrado.")
+            selected_scan = scan["id"]
+            root = Path(scan["root"]).expanduser().absolute()
+            if _is_symlink_component(root) or not root.is_dir():
+                raise ValueError("Origem indisponível ou com link simbólico.")
+
+            where = "scan_id=?"
+            params: tuple[Any, ...] = (selected_scan,)
+            if category is not None:
+                where += " AND category=?"
+                params += (category,)
+            total_matches = conn.execute(
+                f"SELECT COUNT(*) FROM media WHERE {where}", params
+            ).fetchone()[0]
+            # SQL calcula grupos globais: não selecionamos apenas a primeira página.
+            sizes = conn.execute(
+                f"""SELECT size_bytes, COUNT(*) AS amount FROM media
+                    WHERE {where} GROUP BY size_bytes HAVING COUNT(*) > 1
+                    ORDER BY size_bytes""", params
+            )
+            # Guardar somente grupos de tamanho/ccontagem; não guardar caminhos.
+            size_groups = [(row["size_bytes"], row["amount"]) for row in sizes]
+            candidates_total = sum(amount for _, amount in size_groups)
+            report("catalog", total_matches, total_matches)
+
+            processed = 0
+            groups_selected = 0
+            groups_omitted = 0
+            omitted_candidates = 0
+            skipped: list[dict[str, str]] = []
+            matches: list[dict[str, Any]] = []
+            hashed_files = 0
+            bytes_read = 0
+            budget_reserved = 0
+            sql_batches = 0
+            for size, amount in size_groups:
+                if amount > max_candidates - processed:
+                    groups_omitted += 1
+                    omitted_candidates += amount
+                    continue
+                processed += amount
+                groups_selected += 1
+                digests: dict[str, list[str]] = defaultdict(list)
+                cursor = conn.execute(
+                    f"""SELECT relative_path, size_bytes, modified_utc FROM media
+                        WHERE {where} AND size_bytes=?
+                        ORDER BY relative_path COLLATE NOCASE, relative_path""",
+                    (*params, size),
+                )
+                while True:
+                    batch = cursor.fetchmany(PAGE_SIZE)
+                    if not batch:
+                        break
+                    sql_batches += 1
+                    for row in batch:
+                        name = row["relative_path"]
+                        if size > max_file_bytes:
+                            skipped.append({"file": name, "reason": "arquivo_acima_do_limite"})
+                        elif size > max_total_bytes - budget_reserved:
+                            skipped.append({"file": name, "reason": "limite_total_de_leitura"})
+                        else:
+                            budget_reserved += size
+                            try:
+                                path = _candidate_path(root, name)
+                                digest = _sha256_checked(path, size, row["modified_utc"])
+                            except (ValueError, OSError) as exc:
+                                reason = str(exc) if isinstance(exc, ValueError) else "erro_de_leitura"
+                                skipped.append({"file": name, "reason": reason})
+                            else:
+                                digests[digest].append(name)
+                                hashed_files += 1
+                                bytes_read += size
+                        if (hashed_files + len(skipped)) % 20 == 0:
+                            report("hash", hashed_files + len(skipped), processed)
+                for digest, files in digests.items():
+                    if len(files) >= 2:
+                        matches.append({
+                            "sha256": digest,
+                            "size_bytes": size,
+                            "files": sorted(files),
+                            "count": len(files),
+                        })
+                report("hash", processed, candidates_total)
+
+            matches.sort(key=lambda g: (g["files"][0].casefold(), g["sha256"]))
+            report("done", processed, processed)
+            return {
+                "operation": "verify_duplicates_sha256_global",
+                "analysis_mode": "global_size_candidates",
+                "mode": "read_only",
+                "executable": False,
+                "files_modified": False,
+                "scan_id": selected_scan,
+                "root": str(root),
+                "category": category,
+                "total_matches": total_matches,
+                "selected": processed,
+                "truncated": bool(omitted_candidates),
+                "candidate_files_total": candidates_total,
+                "unprocessed_candidate_files": omitted_candidates,
+                "size_groups_selected": groups_selected,
+                "size_groups_omitted": groups_omitted,
+                "pages_scanned": sql_batches,
+                "hash_candidates": processed,
+                "hashed_files": hashed_files,
+                "bytes_read": bytes_read,
+                "bytes_budget_reserved": budget_reserved,
+                "max_file_bytes": max_file_bytes,
+                "max_total_bytes": max_total_bytes,
+                "confirmed_groups_in_sample": len(matches),
+                "confirmed_files_in_sample": sum(g["count"] for g in matches),
+                "groups": matches,
+                "skipped": skipped,
+                "complete": omitted_candidates == 0 and not skipped,
+                "scope_note": (
+                    "A seleção por tamanho abrange todo o snapshot, mas apenas grupos "
+                    "completos que cabem no limite de candidatos são verificados. "
+                    "Orçamento, alterações e erros podem impedir confirmação de duplicatas."
+                ),
+            }
+    except sqlite3.Error as exc:
+        raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
