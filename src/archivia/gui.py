@@ -25,7 +25,7 @@ from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, displa
 from .inventory import inventory
 from .preview import preview_inventory_page
 from .planner import propose_date_moves
-from .duplicates import verify_duplicate_hashes
+from .duplicates import verify_duplicate_hashes, verify_snapshot_duplicate_candidates
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
 
@@ -44,7 +44,8 @@ class QueryWorker(QThread):
                  search_scope: str = "path", date_from: str = "", date_to: str = "",
                  sort_by: str = "name", destination: str = "",
                  hash_limit: int = 50, hash_file_mib: int = 16,
-                 hash_budget_mib: int = 64) -> None:
+                 hash_budget_mib: int = 64,
+                 hash_mode: str = "sample") -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -64,6 +65,7 @@ class QueryWorker(QThread):
         self.hash_limit = hash_limit
         self.hash_file_mib = hash_file_mib
         self.hash_budget_mib = hash_budget_mib
+        self.hash_mode = hash_mode
 
     def run(self) -> None:
         try:
@@ -84,14 +86,24 @@ class QueryWorker(QThread):
                     db_path=self.database, limit=50, scan_id=self.scan_id,
                 )
             elif self.mode == "duplicate_hash":
-                result = verify_duplicate_hashes(
-                    db_path=self.database, category=self.category,
-                    scan_id=self.scan_id,
-                    limit=self.hash_limit,
-                    max_file_bytes=self.hash_file_mib * 1024 * 1024,
-                    max_total_bytes=self.hash_budget_mib * 1024 * 1024,
-                    progress=self.progress_update.emit,
-                )
+                arguments = {
+                    "db_path": self.database,
+                    "category": self.category,
+                    "scan_id": self.scan_id,
+                    "max_file_bytes": self.hash_file_mib * 1024 * 1024,
+                    "max_total_bytes": self.hash_budget_mib * 1024 * 1024,
+                    "progress": self.progress_update.emit,
+                }
+                if self.hash_mode == "global":
+                    result = verify_snapshot_duplicate_candidates(
+                        **arguments, max_candidates=self.hash_limit
+                    )
+                elif self.hash_mode == "sample":
+                    result = verify_duplicate_hashes(
+                        **arguments, limit=self.hash_limit
+                    )
+                else:
+                    raise ValueError("Modo de análise SHA-256 não autorizado.")
             elif self.mode == "origins":
                 result = catalog_origins_summary(self.database)
             elif self.mode == "history":
@@ -518,6 +530,14 @@ class ArchivIAWindow(QMainWindow):
         self.duplicate_history_button.clicked.connect(self._load_history)
         duplicate_options.addWidget(self.duplicate_history_button)
         duplicate_box_layout.addLayout(duplicate_options)
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("Tipo de análise:"))
+        self.hash_mode_select = QComboBox()
+        self.hash_mode_select.addItem("Amostra por nome (até 1.000)", "sample")
+        self.hash_mode_select.addItem("Candidatos em todo o snapshot (até 5.000)", "global")
+        self.hash_mode_select.currentIndexChanged.connect(self._hash_mode_changed)
+        mode_row.addWidget(self.hash_mode_select, 1)
+        duplicate_box_layout.addLayout(mode_row)
         hash_limit_row = QHBoxLayout()
         hash_limit_row.addWidget(QLabel("Arquivos:"))
         self.hash_limit_spin = QSpinBox()
@@ -918,6 +938,21 @@ class ArchivIAWindow(QMainWindow):
             destination=destination,
         )
 
+    def _hash_mode_changed(self, *_args) -> None:
+        global_mode = self.hash_mode_select.currentData() == "global"
+        self.hash_limit_spin.setMaximum(5000 if global_mode else 1000)
+        self.hash_limit_spin.setToolTip(
+            "Global: grupos de tamanho repetido identificados em todo o snapshot; "
+            "grupos que não couberem no limite ficam pendentes."
+            if global_mode else
+            "Amostra: primeiros arquivos por caminho, limitados a 1.000."
+        )
+        self.duplicate_summary.setText(
+            "Modo global: seleção de candidatos por tamanho em todo o snapshot."
+            if global_mode else
+            "Modo amostra: verifica apenas os primeiros arquivos por nome."
+        )
+
     def _update_hash_progress(self, event: dict) -> None:
         phase = event.get("phase")
         processed = event.get("processed", 0)
@@ -956,6 +991,7 @@ class ArchivIAWindow(QMainWindow):
             hash_limit=self.hash_limit_spin.value(),
             hash_file_mib=self.hash_file_limit_spin.value(),
             hash_budget_mib=self.hash_total_limit_spin.value(),
+            hash_mode=self.hash_mode_select.currentData(),
         )
 
     def _run_agent(self) -> None:
@@ -979,7 +1015,7 @@ class ArchivIAWindow(QMainWindow):
         search_scope: str = "path", date_from: str = "", date_to: str = "",
         sort_by: str = "name", destination: str = "",
         hash_limit: int = 50, hash_file_mib: int = 16,
-        hash_budget_mib: int = 64,
+        hash_budget_mib: int = 64, hash_mode: str = "sample",
     ) -> None:
         if self._worker is not None:
             return
@@ -988,7 +1024,7 @@ class ArchivIAWindow(QMainWindow):
         worker = QueryWorker(
             mode, database, question, model, page, category, preview,
             scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
-            destination, hash_limit, hash_file_mib, hash_budget_mib,
+            destination, hash_limit, hash_file_mib, hash_budget_mib, hash_mode,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -1010,6 +1046,7 @@ class ArchivIAWindow(QMainWindow):
         self.duplicate_snapshot.setEnabled(not busy)
         self.duplicate_history_button.setEnabled(not busy)
         self.hash_limit_spin.setEnabled(not busy)
+        self.hash_mode_select.setEnabled(not busy)
         self.hash_file_limit_spin.setEnabled(not busy)
         self.hash_total_limit_spin.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
