@@ -369,6 +369,73 @@ def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
             "tools_used": results, "files_modified": False}
 
 
+
+class FolderCatalogSession:
+    """Catálogo SQLite descartável reutilizado entre perguntas da mesma origem.
+
+    O inventário representa o estado do instante de catalogação, NÃO uma
+    verificação contínua do disco. Use refresh() após alterações externas.
+    """
+
+    def __init__(self, folder: str | Path) -> None:
+        self.source = Path(folder).expanduser().absolute()
+        if not self.source.is_dir() or self.source.is_symlink():
+            raise ValueError("Selecione uma pasta de origem real e válida.")
+        self._temporary: TemporaryDirectory | None = None
+        self._db: Path | None = None
+        self._scan_id: int | None = None
+        self._scanned_utc: str | None = None
+
+    @property
+    def ready(self) -> bool:
+        return self._temporary is not None and self._db is not None
+
+    def refresh(self) -> None:
+        """Substitui o catálogo após uma nova varredura sem deixar meio estado."""
+        if not self.source.is_dir() or self.source.is_symlink():
+            raise ValueError("Pasta de origem não está mais disponível.")
+        temp = TemporaryDirectory(prefix="archivia-session-")
+        try:
+            db = Path(temp.name) / "catalogo.sqlite3"
+            report = inventory(self.source)
+            if report["errors"]:
+                raise ValueError("Inventário com erros; a consulta foi cancelada.")
+            scan = store_inventory(report, db)
+            summary = catalog_summary(db, scan_id=scan["scan_id"])
+        except BaseException:
+            temp.cleanup()
+            raise
+        old = self._temporary
+        self._temporary = temp
+        self._db = db
+        self._scan_id = scan["scan_id"]
+        self._scanned_utc = summary["scanned_utc"]
+        if old is not None:
+            old.cleanup()
+
+    def ask(self, prompt: str, model: str) -> dict[str, Any]:
+        if not self.ready:
+            self.refresh()
+        if not self.source.is_dir() or self.source.is_symlink():
+            raise ValueError("Pasta de origem não está mais disponível.")
+        result = ask_agent(prompt, model, self._db, context_scan_id=self._scan_id)
+        result["temporary_catalog"] = True
+        result["catalog_reused"] = self.ready
+        result["source_root"] = str(self.source)
+        result["catalog_scanned_utc"] = self._scanned_utc
+        result["catalog_may_be_stale"] = True
+        return result
+
+    def close(self) -> None:
+        temp = self._temporary
+        self._temporary = None
+        self._db = None
+        self._scan_id = None
+        self._scanned_utc = None
+        if temp is not None:
+            temp.cleanup()
+
+
 def ask_agent_for_folder(prompt: str, model: str, folder: str | Path) -> dict[str, Any]:
     """Consulta uma pasta diretamente com catálogo descartável, sem salvar histórico.
 
