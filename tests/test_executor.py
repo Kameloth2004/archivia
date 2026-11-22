@@ -6,7 +6,7 @@ from support import temporary_test_directory
 from archivia.catalog import store_inventory
 from archivia.inventory import inventory
 from archivia.planner import propose_moves
-from archivia.executor import execute_test_move, inspect_test_journal
+from archivia.executor import execute_test_move, inspect_test_journal, rollback_interrupted_test_move
 
 
 class ExecutorTests(unittest.TestCase):
@@ -68,6 +68,56 @@ class ExecutorTests(unittest.TestCase):
             self.assertEqual(
                 (image.read_bytes(), (dest / "foto.jpg").read_bytes()), before,
             )
+
+    def test_recover_interrupted_fixture_with_verified_hardlink(self):
+        with temporary_test_directory() as tmp:
+            source, dest, image, db, plan = self._setup(tmp)
+            with patch("archivia.executor.os.unlink", side_effect=OSError("falha simulada")):
+                with self.assertRaisesRegex(ValueError, "origem preservada"):
+                    execute_test_move(plan, db, approval="CONFIRMO TESTE ARCHIVIA")
+            self.assertTrue(image.exists())
+            self.assertTrue((dest / "foto.jpg").exists())
+            result = rollback_interrupted_test_move(
+                tmp, approval="CONFIRMO TESTE ARCHIVIA",
+            )
+            self.assertEqual(result["status"], "recuperado")
+            self.assertEqual(image.read_bytes(), b"TEST-ONLY")
+            self.assertFalse((dest / "foto.jpg").exists())
+            self.assertEqual(
+                inspect_test_journal(tmp)["status"], "recuperado_registrado",
+            )
+            with self.assertRaisesRegex(ValueError, "Estado do journal"):
+                rollback_interrupted_test_move(
+                    tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                )
+
+    def test_recovery_rejects_wrong_identity_and_missing_confirmation(self):
+        with temporary_test_directory() as tmp:
+            source, dest, image, db, plan = self._setup(tmp)
+            with patch("archivia.executor.os.unlink", side_effect=OSError("falha simulada")):
+                with self.assertRaises(ValueError):
+                    execute_test_move(plan, db, approval="CONFIRMO TESTE ARCHIVIA")
+            with self.assertRaisesRegex(ValueError, "Confirmação"):
+                rollback_interrupted_test_move(tmp, approval="")
+            target = dest / "foto.jpg"
+            target.unlink()
+            target.write_bytes(b"ARQUIVO-DIFERENTE")
+            with self.assertRaisesRegex(ValueError, "Identidade física"):
+                rollback_interrupted_test_move(
+                    tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                )
+            self.assertEqual(image.read_bytes(), b"TEST-ONLY")
+            self.assertEqual(target.read_bytes(), b"ARQUIVO-DIFERENTE")
+
+    def test_recovery_rejects_completed_operation_and_does_not_delete(self):
+        with temporary_test_directory() as tmp:
+            source, dest, image, db, plan = self._setup(tmp)
+            execute_test_move(plan, db, approval="CONFIRMO TESTE ARCHIVIA")
+            with self.assertRaisesRegex(ValueError, "Estado do journal"):
+                rollback_interrupted_test_move(
+                    tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                )
+            self.assertEqual((dest / "foto.jpg").read_bytes(), b"TEST-ONLY")
 
     def test_inspection_rejects_corrupt_journal_and_outside_runtime(self):
         with temporary_test_directory() as tmp:
