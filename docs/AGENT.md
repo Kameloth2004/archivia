@@ -13,6 +13,8 @@ Receber instruções em linguagem natural, selecionar ferramentas autorizadas e 
 2. `simular_movimentacao({categoria, destino, limite?})`: gera prévia não executável para categoria `imagem|video|audio` e destino existente.
 3. `buscar_arquivos_catalogo({nome?, extensao?, categoria?, pagina?, limite?, scan_id?, escopo?, data_inicial?, data_final?, ordenacao?})`: busca por trecho literal do caminho e extensão exata, com categoria opcional e snapshot específico. Abre SQLite somente leitura e retorna uma página de no máximo 20 registros; padrão 10. `pagina` no máximo 100 por chamada.
 
+4. `simular_organizacao_por_data({categoria, destino, scan_id?, limite?})`: **somente simula** estrutura `AAAA/MM/nome.ext` com base em `modified_utc`. Categoria `imagem|video|audio` e pasta-base já existente são obrigatórias. Snapshot opcional; limite padrão 10, máximo 50. Retorna conflitos, contagem e `executable=false`. Não cria subpastas nem move arquivos.
+
 ## Fluxo
 1. O usuário envia uma pergunta e o nome exato de um modelo instalado localmente.
 2. O cliente Python envia a pergunta e a declaração das ferramentas para `http://127.0.0.1:11434/api/chat`, com `stream=false`.
@@ -22,6 +24,7 @@ Receber instruções em linguagem natural, selecionar ferramentas autorizadas e 
 
 ## Segurança
 - O agente não recebe nenhum método de execução arbitrária de código, shell, SQL ou ações em disco.
+- A nova ferramenta `simular_organizacao_por_data` utiliza estritamente o planejador já homologado: valida categoria, caminho-base e limites; nunca executa as ações do JSON.
 - A busca valida os parâmetros independentemente do modelo, não aceita propriedades extras, não interpreta `%` nem `_` como curingas e não altera os arquivos.
 - `simular_movimentacao` reutiliza validações do planejador e nunca escreve nos arquivos de mídia.
 - Instruções do usuário ou do modelo não alteram o allowlist.
@@ -73,6 +76,18 @@ Procure no catálogo arquivos com backup no nome ou caminho. Mostre os cinco pri
 ```
 
 No resultado `tools_used`, verificar ferramenta `buscar_arquivos_catalogo`, `count` total e `files` limitada a cinco se o modelo escolher `limite=5`. A ferramenta consulta o **snapshot global mais recente**, exceto se `scan_id` for enviado explicitamente pelo modelo. A seleção de histórico feita na GUI **não** é transmitida automaticamente à ferramenta. O modelo pode escolher argumentos incorretos ou não chamar a ferramenta; confirmar sempre o JSON estruturado. Não interpretar a busca como reconhecimento visual.
+
+## Simulação cronológica por linguagem natural — validação pendente
+
+Na aba **Agente IA**, com modelo `qwen3:8b-q4_K_M`, testar somente em diretórios descartáveis já existentes:
+
+```text
+Simule a organização por ano e mês da categoria imagem, no snapshot #1,
+usando como destino-base D:/PROJETOS/archivia/tests/fixtures/manual/destino.
+Mostre o destino proposto para uma imagem. Não mova nem crie arquivos.
+```
+
+A pasta `destino` precisa **existir previamente**; não a criar automaticamente por esta função. Conferir em `tools_used`: `simular_organizacao_por_data`, `mode=simulation`, `executable=false`, `scan_id=1`, `selected`/ `blocked`; verificar que o destino permanece sem subpastas novas. O modelo pode selecionar outra ferramenta ou argumentos errados; observar o JSON real antes de homologar. **A seleção de snapshot e pasta feita na aba Organização não é transmitida ao agente**: fornecê-los explicitamente no texto.
 
 ## Próxima validação
 1. Executar testes com mocks (não precisam de Ollama).
