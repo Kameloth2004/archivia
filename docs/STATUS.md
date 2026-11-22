@@ -180,11 +180,20 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - A consulta SQL é paginada: no máximo 100 arquivos por plano, sem carregar dezenas de milhares em memória.
 - Verifica symlinks, colisões, destinos existentes, tamanho e modificação da origem; marca ações bloqueadas ou propostas. **Não cria subpastas e não move arquivos.**
 - Três testes novos em `tests/test_planner.py` com fixtures sintéticas, sem escrita em mídias pessoais.
-- **Etapa ainda não homologada no Windows.** Sem comando novo no agente ou botão novo na GUI, para manter separação de privilégios e concluir segurança do motor antes da interface.
+- **Motor aprovado na suíte de testes pelo usuário no Windows.** Interface de prévia adicionada posteriormente e ainda pendente de homologação visual.
+
+## Organização cronológica na interface — aguardando homologação
+
+- Criada aba **Organização** entre Biblioteca e Agente IA, separada da busca e do inventário.
+- Permite escolher **destino-base já existente**, categoria `imagem/video/audio` e snapshot específico após clicar **Atualizar histórico**.
+- Botão **Simular organização — sem alterações** chama `propose_date_moves()` em thread e mostra até **50** propostas `AAAA/MM/nome.ext` na tabela com situação, bloqueios e indicação de subpastas futuras.
+- O motor continua `executable=false`, não cria diretórios, não move, não renomeia, não apaga arquivos e não grava alterações no SQLite. Não há botão de aprovação ou execução.
+- O resumo informa quantidade selecionada, total da categoria e se a amostra é parcial. A consulta considera apenas um snapshot por vez.
+- **Aguardando confirmação na GUI Windows**. Testar preferencialmente com snapshot de fixtures e um destino-base descartável já existente.
 
 ## Próximo passo seguro
 
-**Próximo teste:** `git pull origin main` e suíte com 52 testes (um possivelmente ignorado). Comprovado o sucesso, integrar a simulação cronológica à GUI com prévia de destino e aprovação de execução sempre indisponível. Não catalogar nem mover arquivos.
+**Suíte de 52 testes confirmada pelo usuário como aprovada.** Próximo teste: atualizar e abrir a GUI; na aba Organização, selecionar destino-base de teste já existente, categoria imagem e snapshot de teste, gerar a simulação e confirmar que não são criadas subpastas. Não executar movimentos.
 
 ## Limitações e evolução
 
