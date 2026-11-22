@@ -235,9 +235,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Nenhuma mudança em `planner.py`, `agent.py` ou `catalog.py` nesta etapa.** Motor, permissões, snapshot e simulações permanecem inalterados.
 - **Aguardando teste visual no Windows.**
 
+## Aba Organização — novo layout validado visualmente
+
+- Usuário apresentou captura da GUI Windows com as três seções (**Parâmetros**, **Resumo**, **Arquivos e destinos propostos**) legíveis.
+- Snapshot #1 da pasta sintética; destino-base `D:/PROJETOS/archivia/tests`; categoria imagens. Simulação de `foto_teste.jpg` → `D:/PROJETOS/archivia/tests/2026/11/foto_teste.jpg`.
+- Indicadores exibidos: 1 examinado, 0 bloqueios, 0 colisões, 0 suspeitas; categoria completa.
+- A tabela de quatro colunas e o painel inferior de detalhes exibiram os campos sem truncar cabeçalhos, resolvendo o problema visual relatado.
+- Status na interface: **Simulação concluída; nenhum arquivo modificado**. Não há mecanismo de execução ou movimentação.
+- Esta aprovação é visual/funcional da prévia, não constitui validação de detecção por hash nem de operação real de arquivos.
+
 ## Próximo passo seguro
 
-**Próximo teste:** `git pull origin main`, executar a suíte e abrir Organização para conferir indicadores, colunas legíveis e detalhe da linha selecionada. Não mover arquivos.
+**Novo layout da aba Organização validado pela captura do usuário.** Próxima etapa sugerida: investigação de duplicatas confirmadas por hash, em rotina somente leitura, com amostra e limites explícitos. Nenhuma movimentação habilitada.
 
 ## Limitações e evolução
 
