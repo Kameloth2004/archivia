@@ -148,14 +148,23 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 
-def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_DB) -> dict[str, Any]:
+def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_DB,
+                  context_scan_id: int | None = None) -> dict[str, Any]:
     """Executa apenas ferramentas conhecidas, com validação independente do modelo."""
     if not isinstance(arguments, dict):
         raise ValueError("Argumentos da ferramenta devem ser um objeto JSON.")
+    if context_scan_id is not None and (
+        not isinstance(context_scan_id, int)
+        or isinstance(context_scan_id, bool) or context_scan_id < 1
+    ):
+        raise ValueError("Snapshot de contexto inválido.")
+    if context_scan_id is not None and "scan_id" in arguments:
+        if arguments["scan_id"] != context_scan_id:
+            raise ValueError("O agente não pode consultar outro snapshot fora da pasta selecionada.")
     if name == "resumo_catalogo":
         if arguments:
             raise ValueError("resumo_catalogo não aceita argumentos.")
-        return catalog_summary(db_path)
+        return catalog_summary(db_path, scan_id=context_scan_id)
     if name == "buscar_arquivos_catalogo":
         allowed = {"nome", "extensao", "categoria", "pagina", "limite", "scan_id",
                    "escopo", "data_inicial", "data_final", "ordenacao"}
@@ -186,7 +195,7 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             category=category,
             page=arguments.get("pagina", 1),
             page_size=arguments.get("limite", 10),
-            scan_id=arguments.get("scan_id"),
+            scan_id=context_scan_id if context_scan_id is not None else arguments.get("scan_id"),
             search_scope={"nome": "filename", "caminho": "path"}[scope],
             date_from=arguments.get("data_inicial"),
             date_to=arguments.get("data_final"),
@@ -215,7 +224,7 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             category=category,
             db_path=db_path,
             limit=arguments.get("limite", 10),
-            scan_id=arguments.get("scan_id"),
+            scan_id=context_scan_id if context_scan_id is not None else arguments.get("scan_id"),
         )
     if name == "simular_movimentacao":
         if set(arguments) - {"categoria", "destino", "limite"}:
@@ -227,6 +236,7 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
         return propose_moves(
             arguments["destino"], arguments["categoria"], db_path=db_path,
             limit=arguments.get("limite", 100),
+            scan_id=context_scan_id,
         )
     raise ValueError("Ferramenta não autorizada.")
 
@@ -248,12 +258,21 @@ def _ollama_chat(payload: dict[str, Any], timeout: float = 120) -> dict[str, Any
     return result["message"]
 
 
-def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB) -> dict[str, Any]:
+def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
+              context_scan_id: int | None = None) -> dict[str, Any]:
     """Uma solicitação, no máximo uma rodada de ferramentas, seguida da resposta final."""
     if not prompt.strip() or not model.strip():
         raise ValueError("Solicitação e modelo não podem estar vazios.")
+    if context_scan_id is not None and (not isinstance(context_scan_id, int)
+            or isinstance(context_scan_id, bool) or context_scan_id < 1):
+        raise ValueError("Snapshot de contexto inválido.")
+    instructions = SYSTEM_PROMPT
+    if context_scan_id is not None:
+        instructions += (" A interface selecionou a pasta do snapshot "
+                         f"#{context_scan_id}. Use exclusivamente esse contexto; "
+                         "não tente acessar outro snapshot.")
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": instructions},
         {"role": "user", "content": prompt},
     ]
     message = _ollama_chat({
@@ -279,7 +298,7 @@ def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB) -> dict[str, 
             if not isinstance(name, str):
                 raise ValueError("Nome de ferramenta inválido.")
             try:
-                value = dispatch_tool(name, args, db_path)
+                value = dispatch_tool(name, args, db_path, context_scan_id=context_scan_id)
             except (ValueError, OSError) as exc:
                 value = {"error": str(exc)}
             results.append({"tool": name, "result": value})
