@@ -262,9 +262,20 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Próximo teste: catalogar explicitamente somente a pasta sintética `tests/fixtures/sha256_demo` na aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado e categoria Imagens. Esperados **2 grupos com 5 arquivos de conteúdo idêntico na amostra**.
 - Não utilizar pastas reais nem eliminar, mover ou renomear arquivos durante a homologação.
 
+## SHA-256 — homologação visual concluída
+
+- Usuário apresentou captura da subaba **Organização → Duplicatas (SHA-256)** em execução local no Windows.
+- Snapshot **#3**, origem sintética `D:/PROJETOS/archivia/tests/fixtures/sha256_demo`, categoria Imagens.
+- Resultado confirmado: **8 de 8 arquivos**, **8 hashes calculados**, **2 grupos SHA-256**, **5 arquivos com conteúdo idêntico na amostra**, **0 ignorados** e cobertura completa da categoria nesse snapshot.
+- Grupo 1: `A/foto_igual.jpg`, `B/alias_nome_diferente.jpg`, `B/foto_igual.jpg`. Grupo 2: `A/vazio.jpg`, `B/vazio_copia.jpg`.
+- Os demais casos preparados com nome/tamanho coincidentes, mas bytes diferentes, não foram confirmados como duplicatas.
+- Status apresentado: **SHA-256 consultado em somente leitura; nada foi modificado**.
+- Teste comprova a classificação na fixture e a apresentação na GUI, **não** uma varredura completa de duplicatas nos discos reais.
+- Próxima evolução recomendada: paginação e análise ampliada de candidatos, preservando limites de I/O e sem habilitar operações de exclusão ou movimentação.
+
 ## Próximo passo seguro
 
-**Suíte de 62 testes aprovada pelo usuário.** Próximo teste: catalogar explicitamente a pasta sintética `tests/fixtures/sha256_demo` pela aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado, categoria Imagens e verificar **2 grupos / 5 arquivos com conteúdo igual** (3 arquivos de dados e 2 vazios). Os nomes iguais com bytes diferentes não devem formar grupo.
+**Suíte de 62 testes e verificação visual SHA-256 homologadas.** Próxima evolução: ampliar cobertura das amostras com limites de I/O e progresso, sem executar movimentações. Teste anterior utilizou a pasta sintética `tests/fixtures/sha256_demo` pela aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado, categoria Imagens e verificar **2 grupos / 5 arquivos com conteúdo igual** (3 arquivos de dados e 2 vazios). Os nomes iguais com bytes diferentes não devem formar grupo.
 
 ## Limitações e evolução
 
