@@ -28,6 +28,42 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 - Verifica existência da origem, tamanho e tempo de modificação catalogados, links simbólicos, colisão com arquivo existente e conflito entre destinos previstos.
 - Limite máximo de 100 itens por plano. **Agora usa `query_catalog_page`**, consultando somente a primeira página da categoria, sem carregar todo o catálogo em RAM. Aceita `scan_id` opcional para selecionar o snapshot. Uma página é apenas prévia: **colisões de destino entre páginas ainda não são verificadas**, logo o resultado parcial não é plano completo nem autorização de execução.
 
+## Contrato proposto — consolidação completa de acervos grandes (ainda não implementado)
+
+**Escopo:** estender a responsabilidade de `propose_moves()` para planejar **todos os arquivos de uma categoria de uma origem selecionada**, inclusive subpastas arbitrariamente profundas, com **um destino único existente**. Não modificar arquivos, gravar planos no disco nem expor funções de execução ao Ollama.
+
+### Requisitos de entrada e de contexto
+
+- **Origem:** o `scan_id` da pasta selecionada na GUI, não o último snapshot global por acidente. Fixar um único snapshot durante a análise. Pasta e destino devem ser explicitamente escolhidos ou confirmados pelo usuário, sem decisões implícitas do modelo.
+- **Categoria:** filtro atual por extensão (`imagem`, `video`, `audio`) como primeira etapa, expandindo para outras categorias **somente quando o produto solicitar**. Não alegar que o conteúdo visual ou semântico foi analisado.
+- **Destino:** diretório existente, validado como pasta real. Não criar pastas na etapa de planejamento. Se o destino estiver dentro da origem, a catalogação prévia pode já conter seus arquivos; casos de `mesmo_caminho` e reentrada precisam ser detectados antes de um executor futuro.
+- **Saída:** reutilizar o contrato de simulação existente (`scan_id`, `root`, `destination`, `category`, `total_matches`, `selected`, `blocked`, `actions`, `truncated`, `executable=false`). Metadados adicionais só quando necessários à revisão de cobertura.
+
+### Planejamento completo com memória controlada
+
+1. No SQLite, **fixar a identidade do snapshot e da categoria**. Contar candidatos uma vez. Na operação completa futura, percorrer todos os candidatos em ordem estável, em lotes limitados. Preferir cursor/indexação por identificador estável de `media` à paginação `OFFSET` extensa, para evitar custo crescente em bases grandes.
+2. O planejador determina o nome-base do destino e compara colisões **entre todas as páginas**, não só na página atual. Como todos convergem para uma única pasta, usar uma chave de destino normalizada de forma compatível com a semântica de nomes do Windows (insensibilidade a maiúsculas/minúsculas, sem confiar somente em `os.path.normcase` executado em outro sistema). Revalidar existência física, links/junctions e metadados quando necessário.
+3. **Política inicial de conflitos:** bloquear destinos já ocupados e ocorrências repetidas com o mesmo nome de saída; não sobrescrever, fundir, renomear automaticamente nem deduplicar por inferência. O usuário poderá rever os conflitos quando o fluxo estiver integrado.
+4. O relatório precisa distinguir **arquivos examinados, propostos, bloqueados e ainda pendentes**, garantindo que `truncated=false` só seja apresentado se a verificação da seleção estiver completa. Um plano parcial não deve ser confundido com autorização.
+5. **Escala de resultados:** o motor não deve montar milhares de ações em uma única resposta ao Ollama ou na tabela Qt. A arquitetura deverá permitir acesso paginado à prévia dos resultados, mantendo uma visão resumida de contagens. Não criar persistência ou arquivo de checkpoint de planos até existir necessidade operacional concreta. Um limite seguro pode interromper a análise, mas deve ser relatado como pendência explícita.
+6. **Isolamento:** fontes e catálogo são somente leitura durante o planejamento; nenhum comando move, apaga, renomeia ou cria mídia. O SQLite só é alterado pela catalogação confirmada, não pela prévia.
+
+### Critérios de aceite antes de integrar à GUI
+
+- Fixture com mais de 200 arquivos distribuídos entre dezenas de subpastas, incluindo nomes repetidos em páginas distintas: um mesmo destino não pode resultar em duas propostas válidas.
+- Arquivos com mesma extensão e nomes diferentes, vídeos/áudios no mesmo diretório, mudanças de tamanho/mtime após catalogação, arquivos ausentes, caminhos inválidos e destino já ocupado.
+- Seleção da origem mais antiga enquanto há outro snapshot global mais recente: plano somente daquela origem.
+- Destino dentro da árvore de origem: sem auto-inclusão silenciosa nem movimentação para o mesmo caminho.
+- Custo de memória limitado e interface não bloqueante; evidenciar incompletude quando houver qualquer corte de análise.
+- Toda fixture de teste em `tests/`. Conservar e executar a suíte anterior. Nenhuma mudança de código de produção, novas pastas de módulos, dependências ou telas como pré-requisito da **especificação**.
+
+### Divisão mínima de responsabilidades
+
+- `inventory.py`: descobrir arquivos recursivamente; `catalog.py`: fornecer páginas e contexto; `planner.py`: gerar propostas e bloqueios; `agent.py`: traduzir intenções para ferramentas já autorizadas; `gui.py`: coletar entrada e exibir uma prévia simplificada.
+- Não criar um `consolidator`, um `planner_v2` nem um gerenciador de sessões para este caso. Avaliar extração de função somente se reduzir repetição e complexidade comprovadas.
+
+**Decisão:** esta seção é **especificação**, não funcionalidade implementada. O próximo código deve ser uma alteração mínima no planejador existente, homologada inicialmente com dados sintéticos. **Não há executor disponível.**
+
 ## Planejador cronológico experimental — somente simulação
 
 `propose_date_moves(destination, category, db_path, limit=100, scan_id=None)` simula a organização de arquivos de mídia (`imagem`, `video`, `audio`) em `AAAA/MM/nome.ext` de acordo com `modified_utc` do snapshot selecionado. O diretório-base precisa existir; subpastas anuais e mensais **não** são criadas. Usa `query_catalog_page()` no SQLite em modo somente leitura, retornando no máximo 100 propostas.
