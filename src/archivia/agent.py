@@ -40,6 +40,8 @@ SYSTEM_PROMPT = (
     "de destino-base já existente. Se faltar destino ou categoria, pergunte antes de simular. "
     "A simulação seleciona no máximo 50 arquivos, pode ser parcial e NUNCA executa ações. "
     "Relate total_matches, selected, blocked, truncated e o snapshot utilizado; "
+    "Para simulação, se truncated=false, diga resultado COMPLETO para a categoria no snapshot. "
+    "Somente diga PARCIAL se truncated=true; selected=total_matches não é parcial. "
     "não declare criação de pastas, movimentação ou autorização disponível. "
     "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
