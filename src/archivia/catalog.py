@@ -85,6 +85,36 @@ def store_inventory(result: dict[str, Any], db_path: Path = DEFAULT_DB) -> dict[
     }
 
 
+
+def scan_for_folder(folder: str | Path, db_path: Path = DEFAULT_DB) -> int:
+    """Seleciona o snapshot mais recente da pasta exata, sem gravar no banco.
+
+    Nunca utiliza por engano o snapshot global de outra origem.
+    """
+    root = Path(folder).expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError("A pasta selecionada não está disponível.")
+    db = Path(db_path).expanduser().absolute()
+    if not db.is_file():
+        raise ValueError("Catálogo não encontrado. Examine e catalogue a pasta primeiro.")
+    try:
+        with closing(sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)) as conn:
+            # Caminhos de snapshots são armazenados como caminhos absolutos.
+            # Igualdade de origem, não busca por prefixo/subpasta.
+            row = conn.execute(
+                "SELECT id FROM scans WHERE root=? COLLATE NOCASE "
+                "ORDER BY id DESC LIMIT 1", (str(root),)
+            ).fetchone()
+    except sqlite3.Error as exc:
+        raise ValueError(f"Não foi possível verificar a pasta no catálogo: {exc}") from exc
+    if row is None:
+        raise ValueError(
+            "Esta pasta ainda não foi catalogada. "
+            "Use Inventário → Examinar pasta e Salvar inventário antes de perguntar ao agente."
+        )
+    return row[0]
+
+
 def query_catalog(
     db_path: Path = DEFAULT_DB, category: str | None = None
 ) -> dict[str, Any]:
