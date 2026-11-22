@@ -349,6 +349,14 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Os grupos conferem com os fixtures sintéticos (3 + 2 + 2 arquivos); nenhuma operação de escrita ou execução foi habilitada.
 - A homologação abrange o cenário sintético completo e a interface. Bibliotecas reais maiores continuam sujeitas aos limites de candidatos, orçamento de I/O, arquivos acima do tamanho permitido e possíveis mudanças nos arquivos após o inventário.
 
+## Destaque do estado de cobertura SHA-256 — aguardando homologação visual
+
+- Usuário confirmou o comportamento GLOBAL INCOMPLETA (125 candidatos pendentes), mas solicitou que o estado de cobertura não ficasse perdido na linha de resumo.
+- Ajustada apenas a GUI (`src/archivia/gui.py`): indicador separado de cobertura, com realce em **âmbar quando incompleta** e **verde discreto quando completa**, texto explicando os candidatos pendentes e itens ignorados; estado intermediário **ANÁLISE EM ANDAMENTO**.
+- A barra de progresso continua indicando fim da execução, enquanto o indicador distinto informa **cobertura**. Sem alteração nos motores `duplicates.py`, `catalog.py` ou na segurança do SHA-256.
+- **Pendente teste visual no Windows**: com snapshot #4, modo global e limite 50, destaque deve mostrar GLOBAL INCOMPLETA com 125 pendentes; com limite 200 deve mostrar VERIFICAÇÃO COMPLETA.
+- Roadmap visual: após estabilizar o processamento progressivo e a apresentação de estado, realizar fase dedicada de design com componentes reutilizáveis, tipografia, cores semânticas, indicadores, responsividade e acessibilidade, sem misturar com algoritmos.
+
 ## Próximo passo seguro
 
 **Suíte de 72 testes e modo global SHA-256 homologados no Windows com fixtures:** snapshot #4, 134 candidatos completos, 3 grupos, 7 arquivos idênticos, 0 pendentes e 5 lotes SQL. Próxima etapa recomendada: verificar o comportamento com limites restritos e grupos pendentes, ainda somente leitura; não habilitar operações de arquivos.
