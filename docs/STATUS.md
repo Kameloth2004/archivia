@@ -106,6 +106,15 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Um teste sintético novo cobre origem absoluta e rejeição de outro caminho. **Suíte esperada: 95 testes** (94 anteriores + 1), um possivelmente ignorado. Execução Windows pendente.
 - O timeout anterior foi atribuído pelo usuário a outro aplicativo utilizando VRAM; após fechá-lo o Ollama respondeu. Nenhuma alteração de timeout foi feita.
 
+## Homologação real da reutilização — 22/11/2026
+
+- Usuário confirmou nova pergunta ao Ollama sobre áudio, vídeos e imagens após uma consulta anterior de vídeos **sem atualizar a análise nem trocar de pasta**.
+- As três chamadas de `buscar_arquivos_catalogo` na nova pergunta utilizaram a mesma origem `E:\\Ashley`, `scan_id=1`, `scanned_utc=2026-11-22T21:46:18.416633+00:00` e **exatamente o mesmo SQLite temporário** `archivia-session-aao5bfsh/catalogo.sqlite3` da consulta anterior.
+- Contagens confirmadas: **652 áudios, 648 vídeos, 1.344 imagens, total de 2.644 arquivos**.
+- **Homologado em uso real:** reutilização do mesmo catálogo nas perguntas consecutivas e atualização manual criando nova sessão (ver teste anterior); nenhum arquivo modificado.
+- **Limite da evidência:** confirmação do mesmo caminho comprova reutilização do catálogo, não mede diretamente novas leituras físicas; a ausência de nova varredura decorre do fluxo do código e é coberta por teste de mock. Descarte após fechar a GUI também permanece coberto por código/testes, sem observação direta nesta execução.
+- Fluxo principal estável para consultas; priorizar simplificação de interface e futura revisão das propostas antes de qualquer executor.
+
 ## Próxima etapa
 
 Executar **95 testes** no Windows. Reabrir o ArchivIA; na aba Inventário, confirmar que `E:\\Ashley` está de fato no campo de pasta. Somente então perguntar ao agente quantas imagens há na **pasta selecionada**, sem passar caminho absoluto no campo de busca. Conferir `database` temporário, `root`, `count` e reuso em segunda consulta; em seguida validar atualização explícita com fixtures.
