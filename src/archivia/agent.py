@@ -414,13 +414,14 @@ class FolderCatalogSession:
             old.cleanup()
 
     def ask(self, prompt: str, model: str) -> dict[str, Any]:
-        if not self.ready:
+        reused = self.ready
+        if not reused:
             self.refresh()
         if not self.source.is_dir() or self.source.is_symlink():
             raise ValueError("Pasta de origem não está mais disponível.")
         result = ask_agent(prompt, model, self._db, context_scan_id=self._scan_id)
         result["temporary_catalog"] = True
-        result["catalog_reused"] = self.ready
+        result["catalog_reused"] = reused
         result["source_root"] = str(self.source)
         result["catalog_scanned_utc"] = self._scanned_utc
         result["catalog_may_be_stale"] = True
