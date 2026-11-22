@@ -62,7 +62,7 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 - `inventory.py`: descobrir arquivos recursivamente; `catalog.py`: fornecer páginas e contexto; `planner.py`: gerar propostas e bloqueios; `agent.py`: traduzir intenções para ferramentas já autorizadas; `gui.py`: coletar entrada e exibir uma prévia simplificada.
 - Não criar um `consolidator`, um `planner_v2` nem um gerenciador de sessões para este caso. Avaliar extração de função somente se reduzir repetição e complexidade comprovadas.
 
-**Estado:** o resumo global está implementado no planejador existente; **os testes novos ainda aguardam homologação local**. O código não oferece revisão paginada de ações individuais, execução, persistência de planos ou integração direta na interface e no Ollama. **Não há executor disponível.**
+**Estado:** o resumo global está implementado no planejador existente; **os testes do motor foram homologados no Windows (87 testes, 1 ignorado)**; dois testes novos de integração do agente aguardam validação (89 esperados). O código não oferece revisão paginada de ações individuais, execução ou persistência de planos. A função agora pode ser invocada pelo adaptador Ollama via `resumir_consolidacao`, com parâmetros restritos e `context_scan_id` da GUI; ainda sem botão dedicado na interface. **Não há executor disponível.**
 
 ## Planejador cronológico experimental — somente simulação
 
