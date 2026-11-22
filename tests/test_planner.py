@@ -1,10 +1,12 @@
 """TEST-ONLY: plano de movimentações sem executar nenhuma ação sobre arquivos."""
 import unittest
+import os
+from datetime import datetime, timezone
 
 from support import temporary_test_directory
 from archivia.catalog import store_inventory
 from archivia.inventory import inventory
-from archivia.planner import propose_moves
+from archivia.planner import propose_moves, propose_date_moves
 
 
 class PlannerTests(unittest.TestCase):
@@ -87,6 +89,68 @@ class PlannerTests(unittest.TestCase):
                 propose_moves(tmp / "inexistente", "imagem", db_path=db)
             with self.assertRaises(ValueError):
                 propose_moves(tmp, "imagem", db_path=db, limit=0)
+
+    def test_date_plan_proposes_year_month_without_writing(self):
+        # TEST-ONLY: destino AAAA/MM fictício, nunca criado.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            root.mkdir()
+            dest.mkdir()
+            file = root / "foto.jpg"
+            file.write_bytes(b"arquivo simulado")
+            instant = datetime(2024, 7, 19, 12, tzinfo=timezone.utc).timestamp()
+            os.utime(file, (instant, instant))
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            plan = propose_date_moves(dest, "imagem", db)
+            self.assertEqual(plan["mode"], "simulation")
+            self.assertFalse(plan["executable"])
+            self.assertEqual(plan["date_basis"], "modified_utc")
+            self.assertEqual(plan["selected"], 1)
+            self.assertEqual(plan["blocked"], 0)
+            self.assertEqual(plan["actions"][0]["destination"], str(dest / "2024" / "07" / "foto.jpg"))
+            self.assertTrue(plan["actions"][0]["directory_would_need_creation"])
+            self.assertFalse((dest / "2024").exists())
+            self.assertEqual(file.read_bytes(), b"arquivo simulado")
+
+    def test_date_plan_collision_and_changed_files_are_blocked(self):
+        # TEST-ONLY: dois arquivos idênticos no nome, mesmo destino anual.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            (root / "a").mkdir(parents=True)
+            (root / "b").mkdir()
+            dest.mkdir()
+            instant = datetime(2025, 2, 5, tzinfo=timezone.utc).timestamp()
+            for folder in ("a", "b"):
+                file = root / folder / "foto.jpg"
+                file.write_bytes(folder.encode())
+                os.utime(file, (instant, instant))
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            plan = propose_date_moves(dest, "imagem", db)
+            self.assertEqual(plan["selected"], 2)
+            self.assertEqual(plan["blocked"], 1)
+            self.assertEqual(plan["actions"][1]["reason"], "destino_duplicado_no_plano")
+            (root / "a" / "foto.jpg").write_bytes(b"alterado")
+            changed = propose_date_moves(dest, "imagem", db)
+            self.assertEqual(changed["actions"][0]["reason"], "origem_alterada_desde_inventario")
+            self.assertFalse((dest / "2025").exists())
+
+    def test_date_plan_rejects_missing_destination_and_invalid_limits(self):
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            root.mkdir()
+            (root / "foto.jpg").write_bytes(b"abc")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            for bad in (0, True, 101):
+                with self.assertRaises(ValueError):
+                    propose_date_moves(tmp, "imagem", db, limit=bad)
+            with self.assertRaises(ValueError):
+                propose_date_moves(tmp / "nao_criar", "imagem", db)
+            self.assertFalse((tmp / "nao_criar").exists())
 
     def test_plan_never_creates_destination(self):
         with temporary_test_directory() as tmp:
