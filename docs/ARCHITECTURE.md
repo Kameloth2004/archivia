@@ -28,6 +28,14 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 - Verifica existência da origem, tamanho e tempo de modificação catalogados, links simbólicos, colisão com arquivo existente e conflito entre destinos previstos.
 - Limite máximo de 100 itens por plano. Ainda usa `query_catalog`, que carrega os registros da categoria em memória antes de selecionar 100; isso **precisa ser substituído por consulta SQL paginada** antes de inventários muito grandes.
 
+## Planejador cronológico experimental — somente simulação
+
+`propose_date_moves(destination, category, db_path, limit=100, scan_id=None)` simula a organização de arquivos de mídia (`imagem`, `video`, `audio`) em `AAAA/MM/nome.ext` de acordo com `modified_utc` do snapshot selecionado. O diretório-base precisa existir; subpastas anuais e mensais **não** são criadas. Usa `query_catalog_page()` no SQLite em modo somente leitura, retornando no máximo 100 propostas.
+
+Antes de propor, verifica existência e integridade (tamanho/mtime) da origem, links simbólicos, colisão entre alvos no plano e alvos já existentes. Indica `directory_would_need_creation` como informação, nunca instrução executável. Retorna `mode=simulation`, `executable=false`, `requires_explicit_approval=true`. Não há executor, aprovação operacional, escrita de plano ou alteração de arquivos. Este recurso **ainda não está integrado ao agente nem à GUI**: primeiro homologar com testes automatizados.
+
+O agrupamento utiliza data de **modificação UTC**, não EXIF, data de criação nem as preferências regionais da interface. Diretórios já organizados podem produzir proposta de caminho idêntico e são bloqueados. Não executar manualmente as ações do JSON sem revisão e cópia de segurança.
+
 ## Garantias e limites
 - Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
