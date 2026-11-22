@@ -162,8 +162,10 @@ def query_catalog(
         raise ValueError(f"Não foi possível consultar o catálogo: {exc}") from exc
 
 
-def catalog_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
+def catalog_summary(db_path: Path = DEFAULT_DB, scan_id: int | None = None) -> dict[str, Any]:
     """Resumo agregado do último snapshot, sem carregar registros individuais."""
+    if scan_id is not None and (not isinstance(scan_id, int) or isinstance(scan_id, bool) or scan_id < 1):
+        raise ValueError("ID de snapshot inválido.")
     path = Path(db_path).expanduser().absolute()
     if not path.is_file():
         raise ValueError(f"Catálogo não encontrado: {path}")
@@ -173,8 +175,15 @@ def catalog_summary(db_path: Path = DEFAULT_DB) -> dict[str, Any]:
             scan = conn.execute(
                 """SELECT id, root, scanned_utc, media_files, other_files,
                           symlinks_skipped, bytes_media
-                   FROM scans ORDER BY id DESC LIMIT 1"""
+                   FROM scans WHERE id=?"""
+                if scan_id is not None else
+                """SELECT id, root, scanned_utc, media_files, other_files,
+                          symlinks_skipped, bytes_media
+                   FROM scans ORDER BY id DESC LIMIT 1""",
+                (scan_id,) if scan_id is not None else (),
             ).fetchone()
+            if scan is None and scan_id is not None:
+                raise ValueError("Snapshot não encontrado.")
             if scan is None:
                 return {"database": str(path), "scan_id": None, "media_files": 0,
                         "bytes_media": 0, "indexed_files": 0, "bytes_indexed": 0,
