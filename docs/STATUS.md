@@ -200,9 +200,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Evidência confirma cálculo do plano e apresentação de prévia; não comprova execução de arquivos nem existência de subpastas no destino. O motor não contém operações de escrita nesse fluxo.
 - Próxima evolução possível: ampliar parâmetros de planejamento/validação e somente depois avaliar exposição da simulação ao Ollama, sem introduzir executor.
 
+## Agente Ollama: simulação cronológica — código para homologação
+
+- Integrada `simular_organizacao_por_data` na allowlist de `src/archivia/agent.py`. Reutiliza `propose_date_moves()`; não adiciona executor, criação, exclusão nem movimentação.
+- Parâmetros: `categoria` (imagem, video, audio) e `destino` existentes obrigatórios; `scan_id` opcional, `limite` de 1 a 50 (padrão 10), rejeição de argumentos desconhecidos e tipos inválidos.
+- O prompt proíbe afirmar execução e orienta a solicitar categoria e destino explícitos se ausentes; retorno de ferramenta contém `mode=simulation`, `executable=false`, `truncated`, `blocked`.
+- 3 testes novos em `tests/test_agent.py`, incluindo modelo Ollama **MOCK-ONLY**, destino sintético, validação de argumentos e confirmação de ausência de subpastas criadas.
+- **Não homologado com Qwen3 real ainda**. Primeiro rodar suíte Windows e testar em pasta-base descartável.
+- Histórico/configuração da GUI **não** é compartilhado automaticamente com o agente.
+
 ## Próximo passo seguro
 
-**Suíte de 52 testes confirmada como aprovada e prévia da aba Organização homologada visualmente.** Próximos testes devem utilizar destino descartável; nenhuma movimentação real está autorizada.
+**Suíte anterior de 52 testes e aba Organização aprovadas pelo usuário.** Próximo teste: `git pull origin main`, rodar suíte (55 testes esperados, 1 possivelmente ignorado), testar Qwen3 com `simular_organizacao_por_data` em diretório de testes existente. Não mover nem criar arquivos.
 
 ## Limitações e evolução
 
