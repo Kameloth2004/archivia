@@ -30,7 +30,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 ## Homologação recente
 
-- **83 testes** informados pelo usuário no Windows: `Ran 83 tests in 4.065s`, `OK (skipped=1)` (82 aprovados e um ignorado).
+- **83 testes** informados pelo usuário no Windows: `Ran 83 tests in 4.065s`, `OK (skipped=1)` (82 aprovados e um ignorado), **antes** do novo teste de consolidação. Após esta atualização, esperam-se **84 testes**; execução local pendente.
 - Ollama real / GUI: pasta `E:\\Ashley`, snapshot **#6**, consulta `buscar_arquivos_catalogo` com `categoria=imagem`; resultado **1.344 imagens**, 10 exemplos, 135 páginas; resposta do agente coerente com os dados. Erro anterior `limite inválido` não reapareceu.
 - Modo SHA-256 global / fixture snapshot #4: 134 candidatos, 3 grupos de conteúdo igual e 7 arquivos associados; com limite 50, 125 candidatos pendentes e estado **GLOBAL INCOMPLETA**. Indicador visual específico de cobertura foi implementado, **mas sua aparência final ainda não foi homologada por captura**.
 - Verificação remota de `main` em 22/11/2026, antes da atualização editorial: commit `a622f47716bbad4e32aafb1dd966d2d48565d134` idêntico a `main`, zero commits divergentes; única branch encontrada: `main`. Não foram encontrados status checks associados ao commit. O repositório remoto não permite confirmar alterações locais não enviadas.
@@ -44,9 +44,16 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 5. O comando `consultar` legado ainda pode reunir muitas linhas em RAM; a interface já usa consulta paginada. Não adicionar novas rotinas que carreguem toda a biblioteca.
 6. Nenhuma aprovação do usuário, resposta da IA ou plano em simulação autoriza movimentação real. Um futuro executor exigirá proteção contra sobrescrita, revalidação de caminhos/metadados, registro e recuperação.
 
+## Atualização editorial e integração de 22/11/2026
+
+- Enxugado `docs/STATUS.md` (~52 KB → ~5,5 KB antes deste registro) para representar apenas o estado vigente, conservando o histórico de mudanças nos commits Git.
+- Revisados `README.md`, `docs/ARCHITECTURE.md`, `docs/AGENT.md`, `docs/GUI.md` e `docs/EDITIONS.md` para corrigir referências desatualizadas e registrar a homologação de consulta do Ollama real.
+- Acrescentado somente **um teste** de integração mock de `simular_movimentacao` via agente: origem com subpastas, três imagens, um áudio e dois nomes idênticos, com outra origem mais recente no banco. Esperado: snapshot correto, três imagens, um conflito, destino intacto.
+- **Nenhum código de produção, interface ou contrato da ferramenta foi modificado nesta etapa**. Sem execução de arquivos, sem novas dependências ou módulos.
+
 ## Próxima etapa
 
-**Validar o fluxo existente de simulação de consolidação em uma única pasta**, considerando origem selecionada, snapshot fixo, categoria e destino existente. Primeiro com fixtures `TEST-ONLY`, incluindo duas imagens de mesmo nome em subpastas diferentes, e demonstrando que o plano sinaliza conflito sem alterar arquivos. Não incluir novos modos, abas ou mecanismos SHA-256.
+**Validar o teste de integração da consolidação simulada em uma única pasta** (`tests/test_agent.py`, fixture sintética com fotos de mesmo nome e arquivos não-imagem). Deve fixar a origem selecionada e sinalizar um conflito sem mover nada. Teste publicado; **84 testes esperados** no Windows (um possivelmente ignorado). Não incluir novos modos, abas ou mecanismos SHA-256.
 
 Após a homologação, **especificar** o planejamento completo para milhares de arquivos antes de implementá-lo. A interface final deverá reduzir tudo a escolha da pasta, tipo, instrução e revisão de proposta, com detalhes técnicos em Avançado.
 
