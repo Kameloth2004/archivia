@@ -94,12 +94,12 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - A troca da pasta selecionada e o fechamento normal da janela descartam o catálogo; consultas em andamento impedem fechamento/troca até terminar.
 - **Atualizar análise da pasta** faz nova varredura manual e substitui o snapshot da sessão. Falha de atualização preserva o último catálogo válido, sinalizando erro. A interface informa a data da catalogação e alerta que mudanças externas **não são detectadas automaticamente**.
 - `ask_agent_for_folder()` anterior continua disponível como consulta temporária isolada por chamada; fluxo novo da GUI usa `FolderCatalogSession`.
-- Dois testes de sessão acrescentados (reutilização, atualização e erro). **94 testes esperados** (92 anteriores + 2), um possivelmente ignorado. A execução no Windows ainda está pendente.
+- Dois testes de sessão acrescentados (reutilização, atualização e erro). **94 testes homologados no Windows pelo usuário**: `Ran 94 tests in 6.206s`, `OK (skipped=1)`; 93 aprovados e um ignorado.
 - Nenhum banco permanente, nova dependência, módulo ou executor de arquivos foi criado.
 
 ## Próxima etapa
 
-Executar **94 testes** no Windows. Depois homologar duas consultas ao Ollama na mesma origem sem nova varredura e, após alterar uma fixture, usar **Atualizar análise da pasta** para confirmar a nova contagem. O catálogo da sessão é um snapshot por definição: para acervo alterado externamente a atualização é explícita, não automática.
+**94 testes aprovados no Windows.** Homologar duas consultas ao Ollama na mesma origem sem nova varredura e, após alterar uma fixture, usar **Atualizar análise da pasta** para confirmar a nova contagem. O catálogo da sessão é um snapshot por definição: para acervo alterado externamente a atualização é explícita, não automática.
 
 ## Referências
 
