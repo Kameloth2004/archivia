@@ -301,7 +301,9 @@ def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
                 value = dispatch_tool(name, args, db_path, context_scan_id=context_scan_id)
             except (ValueError, OSError) as exc:
                 value = {"error": str(exc)}
-            results.append({"tool": name, "result": value})
+            # Registra argumentos efetivamente recebidos, não o texto narrado pelo
+            # modelo. Essencial para diagnosticar tool calls malformadas.
+            results.append({"tool": name, "arguments": args, "result": value})
             messages.append({
                 "role": "tool", "tool_name": name,
                 "content": json.dumps(value, ensure_ascii=False),
