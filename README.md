@@ -91,7 +91,7 @@ O comando `planejar` oferece apenas uma prévia, **sem mover ou alterar arquivos
 python -m archivia planejar --categoria imagem --destino "D:/PROJETOS/archivia/tests/fixtures/manual/destino"
 ```
 
-A saída JSON é exibida no terminal, **não** é salva como arquivo. Operações são apenas propostas ou bloqueadas. Não existe executor. Um plano não é autorização para movimentar mídias. A operação inicial é limitada a 100 propostas; internamente ainda carrega a listagem da categoria em memória — consulte as limitações em `docs/ARCHITECTURE.md`.
+A saída JSON é exibida no terminal, **não** é salva como arquivo. Operações são apenas propostas ou bloqueadas. Não existe executor. Um plano não é autorização para movimentar mídias. A operação inicial é limitada a 100 propostas e agora consulta apenas uma página SQLite. A amostra **não verifica conflitos entre páginas diferentes** e não é autorização para executar; consulte `docs/ARCHITECTURE.md`.
 
 ## Resumo compacto do catálogo
 
