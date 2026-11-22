@@ -194,6 +194,14 @@ Dentro da aba **Organização** há agora duas subabas: **Simulação por data**
 
 **Teste manual preparado:** foi criada a pasta `tests/fixtures/sha256_demo` contendo oito arquivos sintéticos (extensão `.jpg` usada como metadado, não imagens reais). Primeiro selecione essa pasta em Inventário, faça uma prévia e confirme um novo snapshot no SQLite; depois atualize o histórico na subaba Duplicatas, escolha o novo snapshot, categoria Imagens e verifique. O cenário esperado é **2 grupos SHA-256 com 5 arquivos**: um grupo de 3 arquivos com mesmo conteúdo e nomes mistos, outro com 2 arquivos vazios. Arquivos de mesmo tamanho mas conteúdo diferente não são duplicatas. Essas fixtures só existem para os testes, nunca são arquivos de produção.
 
+## SHA-256 ampliado com barra de progresso — aguardando homologação
+
+A verificação de duplicatas permite configurar **Arquivos** (1–1000), **MiB/arquivo** (1–16) e **Leitura total (MiB)** (1–256). Padrões mantidos em 50 / 16 / 64. O motor consulta o snapshot fixado em lotes SQLite de até 100 arquivos, reunindo metadados da amostra antes de avaliar candidatos do mesmo tamanho e calcular SHA-256. Por isso, dois arquivos com conteúdo idêntico podem ser reconhecidos **mesmo aparecendo em páginas diferentes**. A GUI apresenta progresso de consulta do catálogo e cálculo dos hashes. O processamento permanece em thread e estritamente read-only, sem gravar hashes no SQLite.
+
+Limites e cautela: arquivos acima do orçamento ou modificados são ignorados com motivo; uma amostra de 1000 arquivos não equivale a uma análise completa de uma biblioteca maior. O progresso é baseado em quantidades por fase, não em tempo estimado. É possível configurar limites menores para reduzir I/O em discos lentos.
+
+**Teste sugerido:** snapshot #3 com os oito arquivos sintéticos, 100 arquivos no campo de limite: devem aparecer novamente 2 grupos, 5 arquivos idênticos e barra concluída. Os testes automatizados também criam arquivos sintéticos entre páginas 1 e 2 para validar a comparação entre páginas.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
