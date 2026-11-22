@@ -103,6 +103,9 @@ def propose_moves(
         "total_matches": snapshot["count"],
         "truncated": snapshot["count"] > limit,
         "blocked": blocked,
+        "potential_duplicate_items": potential_duplicates,
+        "name_collisions": name_collisions,
+        "duplicate_detection": "metadata_only_name_and_size_not_verified",
         "actions": actions,
     }
 
@@ -140,6 +143,15 @@ def propose_date_moves(
     actions: list[dict[str, Any]] = []
     blocked = 0
     reserved_targets: set[str] = set()
+    # Suspeitas por metadados, não duplicatas confirmadas por conteúdo.
+    # Nome-base normalizado + extensão + tamanho são apenas indícios.
+    metadata_groups: dict[tuple[str, int], int] = {}
+    for row in snapshot["files"]:
+        key = (PurePosixPath(row["relative_path"]).name.casefold(), row["size_bytes"])
+        if row["size_bytes"] > 0:
+            metadata_groups[key] = metadata_groups.get(key, 0) + 1
+    potential_duplicates = 0
+    name_collisions = 0
     for item in snapshot["files"]:
         relative = PurePosixPath(item["relative_path"])
         reason = None
@@ -184,12 +196,30 @@ def propose_date_moves(
                     except (OSError, ValueError, OverflowError):
                         reason = "metadados_indisponiveis"
 
+        key = (relative.name.casefold(), item["size_bytes"])
+        suspected = item["size_bytes"] > 0 and metadata_groups.get(key, 0) > 1
+        if suspected:
+            potential_duplicates += 1
+
+        # Alternativa apenas textual para colisões; a ação continua bloqueada.
+        alternative = None
+        if reason in ("destino_duplicado_no_plano", "destino_ja_existe") and target is not None:
+            name_collisions += 1
+            for number in range(2, 22):
+                candidate = target.with_name(f"{target.stem}__{number}{target.suffix}")
+                candidate_key = os.path.normcase(os.path.abspath(candidate))
+                if (candidate_key not in reserved_targets and not candidate.exists()
+                        and not _contains_symlink(candidate)):
+                    alternative = str(candidate)
+                    break
         action = {
             "file": item["relative_path"],
             "source": str(source) if source else None,
             "destination": str(target) if target else None,
             "status": "bloqueado" if reason else "proposto",
             "modified_utc": item["modified_utc"],
+            "possible_duplicate_by_metadata": suspected,
+            "alternative_name_suggestion": alternative,
         }
         if reason:
             action["reason"] = reason
