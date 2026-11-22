@@ -11,6 +11,10 @@
 - `.runtime/`: bancos SQLite, arquivos de teste e diretórios temporários dos testes automatizados (ignorado pelo Git, com limpeza por contexto).
 - `mocks/`: reservado a mocks identificados como `MOCK-ONLY`, caso sejam necessários no futuro; todo mock deverá documentar qual dependência substitui.
 
+## Cenário persistente para hash
+
+`tests/fixtures/sha256_demo/` contém dados pequenos de teste identificados como **TEST-ONLY**, incluindo arquivos com extensão `.jpg` cujo conteúdo é texto sintético. Casos: arquivo idêntico em pastas distintas, nome diferente com bytes iguais, nome/tamanho iguais com bytes diferentes e dois arquivos vazios. O teste copia esses arquivos para `tests/.runtime/` antes de inventariar. Não executar tratamentos visuais sobre esses falsos JPEGs. Para testar manualmente a GUI, a pasta pode ser explicitamente catalogada como **novo snapshot de teste**; nunca substituir dados reais.
+
 ## Regras de manutenção e limpeza
 
 1. Nunca colocar fixtures, mocks nem rotinas de teste em `src/archivia/`.
