@@ -117,6 +117,7 @@ def verify_duplicate_hashes(
     skipped: list[dict[str, str]] = []
     hashed_count = 0
     bytes_read = 0
+    bytes_budget_reserved = 0
     candidate_count = sum(
         len(group) for group in by_size.values() if len(group) >= 2
     )
@@ -128,9 +129,11 @@ def verify_duplicate_hashes(
             if size > max_file_bytes:
                 skipped.append({"file": name, "reason": "arquivo_acima_do_limite"})
                 continue
-            if size > max_total_bytes - bytes_read:
+            if size > max_total_bytes - bytes_budget_reserved:
                 skipped.append({"file": name, "reason": "limite_total_de_leitura"})
                 continue
+            # Reserva a quota antes da leitura, inclusive para erros posteriores.
+            bytes_budget_reserved += size
             try:
                 path = _candidate_path(root, name)
                 digest = _sha256_checked(path, size, row["modified_utc"])
@@ -163,6 +166,7 @@ def verify_duplicate_hashes(
         "hash_candidates": candidate_count,
         "hashed_files": hashed_count,
         "bytes_read": bytes_read,
+        "bytes_budget_reserved": bytes_budget_reserved,
         "max_file_bytes": max_file_bytes,
         "max_total_bytes": max_total_bytes,
         "confirmed_groups_in_sample": len(groups),
