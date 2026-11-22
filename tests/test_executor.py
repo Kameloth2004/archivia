@@ -134,6 +134,62 @@ class ExecutorTests(unittest.TestCase):
             self.assertTrue(image.exists())
             self.assertEqual(list(dest.iterdir()), [])
 
+    def test_move_refuses_concurrent_fixture_lock(self):
+        with temporary_test_directory() as tmp:
+            source, dest, image, db, plan = self._setup(tmp)
+            lock = tmp / ".archivia-operation.lock"
+            lock.mkdir()
+            try:
+                with self.assertRaisesRegex(ValueError, "lock presente"):
+                    execute_test_move(
+                        plan, db, approval="CONFIRMO TESTE ARCHIVIA",
+                    )
+                self.assertTrue(image.exists())
+                self.assertFalse((dest / "foto.jpg").exists())
+            finally:
+                lock.rmdir()
+
+    def test_recovery_refuses_concurrent_fixture_lock(self):
+        with temporary_test_directory() as tmp:
+            source, dest, image, db, plan = self._setup(tmp)
+            with patch("archivia.executor.os.unlink", side_effect=OSError("falha simulada")):
+                with self.assertRaises(ValueError):
+                    execute_test_move(plan, db, approval="CONFIRMO TESTE ARCHIVIA")
+            lock = tmp / ".archivia-operation.lock"
+            lock.mkdir()
+            try:
+                with self.assertRaisesRegex(ValueError, "lock presente"):
+                    rollback_interrupted_test_move(
+                        tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                    )
+                self.assertTrue(image.exists())
+                self.assertTrue((dest / "foto.jpg").exists())
+            finally:
+                lock.rmdir()
+
+    def test_move_rechecks_source_after_destination_logged(self):
+        with temporary_test_directory() as tmp:
+            source, dest, image, db, plan = self._setup(tmp)
+            from archivia import executor
+            real_record = executor._record
+
+            def mutate_after_record(journal, event, original, target):
+                real_record(journal, event, original, target)
+                if event == "DESTINO_CRIADO":
+                    image.write_bytes(b"MODIFICADO-DURANTE-O-JOURNAL")
+
+            with patch("archivia.executor._record", side_effect=mutate_after_record):
+                with self.assertRaisesRegex(ValueError, "revisão manual"):
+                    execute_test_move(
+                        plan, db, approval="CONFIRMO TESTE ARCHIVIA",
+                    )
+            self.assertTrue(image.exists())
+            self.assertTrue((dest / "foto.jpg").exists())
+            self.assertEqual(
+                inspect_test_journal(tmp)["last_event"],
+                "INTERROMPIDO_VERIFICACAO",
+            )
+
     def test_rejects_missing_approval_and_preserves_fixture(self):
         with temporary_test_directory() as tmp:
             source, dest, image, db, plan = self._setup(tmp)
