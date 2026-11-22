@@ -26,7 +26,7 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 - Campos: `schema_version`, `operation=move`, `mode=simulation`, `executable=false`, `requires_explicit_approval=true`, `scan_id`, `root`, `destination`, `category`, `generated_utc`, `selected`, `total_matches`, `truncated`, `blocked`, `actions`.
 - Ações são `proposto` ou `bloqueado`; proposto **não significa autorização**.
 - Verifica existência da origem, tamanho e tempo de modificação catalogados, links simbólicos, colisão com arquivo existente e conflito entre destinos previstos.
-- Limite máximo de 100 itens por plano. Ainda usa `query_catalog`, que carrega os registros da categoria em memória antes de selecionar 100; isso **precisa ser substituído por consulta SQL paginada** antes de inventários muito grandes.
+- Limite máximo de 100 itens por plano. **Agora usa `query_catalog_page`**, consultando somente a primeira página da categoria, sem carregar todo o catálogo em RAM. Aceita `scan_id` opcional para selecionar o snapshot. Uma página é apenas prévia: **colisões de destino entre páginas ainda não são verificadas**, logo o resultado parcial não é plano completo nem autorização de execução.
 
 ## Planejador cronológico experimental — somente simulação
 
