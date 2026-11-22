@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QThread, Signal, QSettings
+from PySide6.QtCore import QThread, Signal, QSettings, Qt
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
@@ -357,23 +357,24 @@ class ArchivIAWindow(QMainWindow):
         self.next_button.setEnabled(False)
         library_layout.addWidget(catalog_box, 1)
 
-        plan_box = QGroupBox("Organizar por ano e mês — SOMENTE SIMULAÇÃO")
-        plan_layout = QVBoxLayout(plan_box)
+        # Organização é uma prévia, nunca um fluxo de execução.
+        plan_controls = QGroupBox("1. Parâmetros da simulação")
+        controls_layout = QVBoxLayout(plan_controls)
         plan_intro = QLabel(
-            "Prévia AAAA/MM baseada na data de modificação UTC. "
-            "Não cria pastas, não movimenta arquivos e não permite executar planos."
+            "Destino sugerido por data de modificação UTC (AAAA/MM). "
+            "Nenhuma pasta ou arquivo será alterado."
         )
         plan_intro.setWordWrap(True)
-        plan_layout.addWidget(plan_intro)
+        controls_layout.addWidget(plan_intro)
         plan_folder_row = QHBoxLayout()
-        plan_folder_row.addWidget(QLabel("Destino-base existente:"))
+        plan_folder_row.addWidget(QLabel("Destino-base:"))
         self.plan_destination = QLineEdit()
-        self.plan_destination.setPlaceholderText("Escolha uma pasta já existente (não será alterada)")
+        self.plan_destination.setPlaceholderText("Selecione uma pasta que já exista")
         plan_folder_row.addWidget(self.plan_destination, 1)
         self.plan_browse_button = QPushButton("Escolher pasta...")
         self.plan_browse_button.clicked.connect(self._choose_plan_destination)
         plan_folder_row.addWidget(self.plan_browse_button)
-        plan_layout.addLayout(plan_folder_row)
+        controls_layout.addLayout(plan_folder_row)
         plan_options = QHBoxLayout()
         plan_options.addWidget(QLabel("Categoria:"))
         self.plan_category = QComboBox()
@@ -388,28 +389,83 @@ class ArchivIAWindow(QMainWindow):
         self.plan_history_button = QPushButton("Atualizar histórico")
         self.plan_history_button.clicked.connect(self._load_history)
         plan_options.addWidget(self.plan_history_button)
-        plan_layout.addLayout(plan_options)
+        controls_layout.addLayout(plan_options)
         self.plan_button = QPushButton("Simular organização — sem alterações")
         self.plan_button.clicked.connect(self._run_date_plan)
-        plan_layout.addWidget(self.plan_button)
-        self.plan_summary = QLabel("Nenhum plano gerado. Serão examinados no máximo 50 arquivos.")
+        controls_layout.addWidget(self.plan_button)
+        organize_layout.addWidget(plan_controls)
+
+        plan_overview = QGroupBox("2. Resumo do plano")
+        overview_grid = QHBoxLayout(plan_overview)
+        self.plan_metric_labels = {}
+        for key, label in (
+            ("selected", "Examinados"),
+            ("blocked", "Bloqueados"),
+            ("collisions", "Colisões"),
+            ("duplicates", "Suspeitas"),
+        ):
+            metric = QVBoxLayout()
+            heading = QLabel(label)
+            heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            value = QLabel("—")
+            value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            value.setStyleSheet("font-size: 17px; font-weight: 600;")
+            metric.addWidget(heading)
+            metric.addWidget(value)
+            overview_grid.addLayout(metric, 1)
+            self.plan_metric_labels[key] = value
+        organize_layout.addWidget(plan_overview)
+        self.plan_summary = QLabel(
+            "Nenhum plano gerado. A simulação examina no máximo 50 arquivos por vez."
+        )
         self.plan_summary.setWordWrap(True)
-        plan_layout.addWidget(self.plan_summary)
-        self.plan_table = QTableWidget(0, 6)
+        organize_layout.addWidget(self.plan_summary)
+
+        plan_details = QGroupBox("3. Arquivos e destinos propostos")
+        details_layout = QVBoxLayout(plan_details)
+        info_label = QLabel(
+            "Selecione uma linha para conferir os caminhos completos, "
+            "suspeitas de duplicata e eventuais nomes alternativos."
+        )
+        info_label.setWordWrap(True)
+        details_layout.addWidget(info_label)
+        self.plan_table = QTableWidget(0, 4)
         self.plan_table.setHorizontalHeaderLabels(
-            ["Origem (arquivo)", "Destino proposto", "Situação", "Observação",
-             "Possível duplicata?", "Nome alternativo sugerido"]
+            ["Arquivo", "Destino proposto", "Situação", "Observação"]
         )
         self.plan_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.plan_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.plan_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.plan_table.setWordWrap(False)
+        self.plan_table.setAlternatingRowColors(True)
+        self.plan_table.setHorizontalScrollMode(
+            QTableWidget.ScrollMode.ScrollPerPixel
+        )
         self.plan_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch
         )
         self.plan_table.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.Stretch
         )
-        plan_layout.addWidget(self.plan_table, 1)
-        organize_layout.addWidget(plan_box, 1)
+        self.plan_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Fixed
+        )
+        self.plan_table.horizontalHeader().setSectionResizeMode(
+            3, QHeaderView.ResizeMode.Fixed
+        )
+        self.plan_table.setColumnWidth(2, 90)
+        self.plan_table.setColumnWidth(3, 165)
+        self.plan_table.itemSelectionChanged.connect(self._show_plan_item_detail)
+        details_layout.addWidget(self.plan_table, 1)
+        self.plan_item_details = QPlainTextEdit()
+        self.plan_item_details.setReadOnly(True)
+        self.plan_item_details.setMaximumHeight(124)
+        self.plan_item_details.setPlaceholderText(
+            "Detalhes do arquivo selecionado serão exibidos aqui."
+        )
+        details_layout.addWidget(self.plan_item_details)
+        self._plan_actions = []
+        organize_layout.addWidget(plan_details, 1)
 
         agent_box = QGroupBox("Agente Ollama local")
         agent_layout = QVBoxLayout(agent_box)
@@ -711,6 +767,26 @@ class ArchivIAWindow(QMainWindow):
         if chosen:
             self.plan_destination.setText(chosen)
 
+    def _show_plan_item_detail(self) -> None:
+        row = self.plan_table.currentRow()
+        if row < 0 or row >= len(self._plan_actions):
+            self.plan_item_details.clear()
+            return
+        action = self._plan_actions[row]
+        duplicate = (
+            "Possível (mesmo nome e tamanho; conteúdo não verificado)"
+            if action.get("possible_duplicate_by_metadata") else "Não sinalizada"
+        )
+        self.plan_item_details.setPlainText(
+            f"Origem: {action.get('source') or '—'}\n"
+            f"Destino proposto: {action.get('destination') or '—'}\n"
+            f"Situação: {action['status']} | "
+            f"Motivo: {action.get('reason') or 'Nenhum'}\n"
+            f"Possível duplicata: {duplicate}\n"
+            f"Nome alternativo sugerido (não executável): "
+            f"{action.get('alternative_name_suggestion') or 'Nenhum'}"
+        )
+
     def _run_date_plan(self) -> None:
         destination = self.plan_destination.text().strip()
         if not destination:
@@ -721,8 +797,12 @@ class ArchivIAWindow(QMainWindow):
         except ValueError as exc:
             self._show_error(str(exc))
             return
+        self._plan_actions = []
         self.plan_table.setRowCount(0)
-        self.plan_summary.setText("Calculando apenas uma prévia, sem modificar arquivos...")
+        self.plan_item_details.clear()
+        for metric in self.plan_metric_labels.values():
+            metric.setText("—")
+        self.plan_summary.setText("Calculando somente a prévia; nenhum arquivo será modificado...")
         self._start_worker(
             "date_plan", database,
             category=self.plan_category.currentData(),
@@ -907,31 +987,43 @@ class ArchivIAWindow(QMainWindow):
                 f"Histórico consultado: {len(result)} snapshots encontrados (máximo 100)."
             )
         elif mode == "date_plan":
-            self.plan_table.setRowCount(len(result["actions"]))
-            for row_index, item in enumerate(result["actions"]):
+            self._plan_actions = result["actions"]
+            self.plan_table.setRowCount(len(self._plan_actions))
+            for row_index, item in enumerate(self._plan_actions):
+                observation = item.get("reason") or (
+                    "Subpasta futura" if item.get("directory_would_need_creation")
+                    else "Destino disponível"
+                )
+                if item.get("possible_duplicate_by_metadata"):
+                    observation += " · Suspeita"
                 values = (
                     item["file"], item.get("destination") or "—",
-                    item["status"], item.get("reason") or (
-                        "Subpasta futura" if item.get("directory_would_need_creation")
-                        else "Destino-base pronto"
-                    ),
-                    "Sim (não confirmada)" if item.get("possible_duplicate_by_metadata") else "Não",
-                    item.get("alternative_name_suggestion") or "—",
+                    item["status"], observation,
                 )
                 for col_index, value in enumerate(values):
-                    self.plan_table.setItem(
-                        row_index, col_index, QTableWidgetItem(str(value))
-                    )
-            self.plan_summary.setText(
-                f"Snapshot #{result['scan_id']} | {result['selected']} examinados "
-                f"de {result['total_matches']} arquivos da categoria | "
-                f"{result['blocked']} bloqueados | "
-                f"{result.get('name_collisions', 0)} colisões de nome | "
-                f"{result.get('potential_duplicate_items', 0)} suspeitas por metadados | "
-                f"{'Resultado parcial' if result['truncated'] else 'Categoria completa'}"
-                " — SIMULAÇÃO: nenhuma operação de escrita."
+                    cell = QTableWidgetItem(str(value))
+                    cell.setToolTip(str(value))
+                    self.plan_table.setItem(row_index, col_index, cell)
+            self.plan_metric_labels["selected"].setText(str(result["selected"]))
+            self.plan_metric_labels["blocked"].setText(str(result["blocked"]))
+            self.plan_metric_labels["collisions"].setText(
+                str(result.get("name_collisions", 0))
             )
-            self.status.setText("Simulação de organização concluída; nada foi alterado.")
+            self.plan_metric_labels["duplicates"].setText(
+                str(result.get("potential_duplicate_items", 0))
+            )
+            completeness = "Amostra parcial" if result["truncated"] else "Categoria completa"
+            self.plan_summary.setText(
+                f"Snapshot #{result['scan_id']} | "
+                f"{result['selected']} de {result['total_matches']} arquivos | "
+                f"{completeness} | Suspeitas só por nome/tamanho, não confirmadas. "
+                "SIMULAÇÃO: nada foi alterado."
+            )
+            self.plan_item_details.clear()
+            if self._plan_actions:
+                self.plan_table.selectRow(0)
+                self._show_plan_item_detail()
+            self.status.setText("Simulação concluída; nenhum arquivo modificado.")
         elif mode == "catalog_page":
             self._page = result["page"]
             self._pages = result["pages"]
