@@ -181,13 +181,25 @@ class ArchivIAWindow(QMainWindow):
         agent_page_layout = QVBoxLayout(agent_page)
         settings_page = QWidget()
         settings_layout = QVBoxLayout(settings_page)
-        self.tabs.addTab(overview_page, "Visão geral")
-        self.tabs.addTab(inventory_page, "Inventário")
+        home_page = QWidget()
+        home_layout = QVBoxLayout(home_page)
+        self.tabs.addTab(home_page, "Início")
         self.tabs.addTab(library_page, "Biblioteca")
-        self.tabs.addTab(organize_page, "Organização")
-        self.tabs.addTab(agent_page, "Agente IA")
         self.tabs.addTab(settings_page, "Configurações")
+        self.advanced_page = QWidget()
+        advanced_layout = QVBoxLayout(self.advanced_page)
+        self.advanced_tabs = QTabWidget()
+        for page, label in (
+            (overview_page, "Visão geral"), (inventory_page, "Inventário"),
+            (organize_page, "Organização"), (agent_page, "Agente IA"),
+        ):
+            self.advanced_tabs.addTab(page, label)
+        advanced_layout.addWidget(self.advanced_tabs)
         root.addWidget(self.tabs, 1)
+        self.advanced_button = QPushButton("Avançado")
+        self.advanced_button.setCheckable(True)
+        self.advanced_button.toggled.connect(self._toggle_advanced)
+        root.addWidget(self.advanced_button)
 
         database_box = QGroupBox("Catálogo SQLite")
         database_layout = QVBoxLayout(database_box)
