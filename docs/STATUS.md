@@ -299,9 +299,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Pendente validação local:** rodar `python -m unittest discover -s tests -v` (expectativa de **68 testes**, com 1 possível skip) e depois `python tests/generate_sha256_paged_demo.py`; catalogar a pasta sintética manualmente na aba Inventário; na subaba Duplicatas usar o novo snapshot, categoria Imagens e limite **200**.
 - O gerador e os testes são **TEST-ONLY**. Nenhum mecanismo de exclusão ou movimentação foi acrescentado.
 
+## Cenário SHA-256 multipágina — suíte e gerador homologados
+
+- Usuário confirmou no Windows: `Ran 68 tests in 2.970s`, `OK (skipped=1)` — 67 aprovados, 1 ignorado, zero falhas.
+- Executado `python tests/generate_sha256_paged_demo.py` com sucesso; saída confirmou criação de **134 arquivos TEST-ONLY** em `D:/PROJETOS/archivia/tests/fixtures/manual/sha256_paginado`.
+- Cenário esperado: 3 grupos SHA-256 com 3 + 2 + 2 arquivos idênticos. Para validação na GUI, usar limite de 200 arquivos, total de 134 e **2 páginas SQL**.
+- **Próxima homologação ainda pendente:** catalogar explicitamente a pasta sintética no Inventário, salvar novo snapshot e executar SHA-256 no snapshot criado. Nenhuma operação de movimentação ou exclusão permitida.
+
 ## Próximo passo seguro
 
-**Próximo teste:** obter `main`, executar suíte (68 testes esperados), gerar cenário `tests/fixtures/manual/sha256_paginado`, catalogar explicitamente e verificar 134 arquivos, 2 lotes SQL, 3 grupos SHA-256 e 7 arquivos iguais. Nenhuma movimentação ou exclusão habilitada.
+**Suíte de 68 testes e criação do cenário de 134 arquivos confirmadas pelo usuário.** Próximo passo: catalogar a pasta sintética pelo Inventário, confirmar novo snapshot; então, na subaba Duplicatas, selecionar o snapshot e limite 200 e verificar 134 arquivos, 2 lotes SQL, 3 grupos SHA-256 e 7 arquivos iguais. Nenhuma movimentação ou exclusão habilitada.
 
 ## Limitações e evolução
 
