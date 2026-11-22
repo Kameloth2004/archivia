@@ -384,6 +384,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Prioridade seguinte: **desenhar o fluxo mínimo de organização**, com escolha de arquivos, classificação, destinos, nomes e revisão de conflitos, antes de executar mudanças em mídias.
 - Esta revisão **não alterou código executável**; motor SHA-256 progressivo e demais recursos permanecem como estavam. Suíte de 77 testes aprovada pelo usuário no Windows.
 
+## Consolidação para pasta única — primeira otimização, sem executar arquivos
+
+- Exemplo de uso aprovado: selecionar uma pasta como `Adele`, com subpastas arbitrariamente profundas; filtrar `imagem` e propor reunir em `Imagens Adele`, sem tocar em vídeo/áudio.
+- Ajustado **somente o planejador genérico** `propose_moves()` para usar `query_catalog_page()` no SQLite, em lugar de `query_catalog()` que carregava toda a categoria. Uma prévia permanece limitada a 100 arquivos por chamada.
+- Novo parâmetro opcional `scan_id`, sem alterar as chamadas existentes do CLI e do agente; sem criar controles na GUI.
+- Mantidos os contratos `mode=simulation`, `executable=false`, validação dos arquivos e proteção contra sobrescrita. Uma página não identifica conflitos com candidatos de páginas seguintes; **não é planejamento completo de milhares de arquivos nem executor**.
+- Dois testes novos em `tests/test_planner.py`: cenário TEST-ONLY com **210 imagens em seis subpastas**, verificando apenas uma consulta SQL de 50 registros e nenhuma escrita; escolha explícita de snapshot histórico.
+- **Aguardando suíte de homologação Windows:** 79 testes esperados, com um possivelmente ignorado. Não foi adicionada nova dependência nem pasta de produção.
+- Próxima decisão somente após teste: definir um plano seguro completo e paginado para todos os arquivos, sem expandir a interface ou o SHA-256.
+
 ## Próximo passo seguro
 
 **Suíte de 72 testes e modo global SHA-256 homologados no Windows com fixtures:** snapshot #4, 134 candidatos completos, 3 grupos, 7 arquivos idênticos, 0 pendentes e 5 lotes SQL. Próxima etapa recomendada: verificar o comportamento com limites restritos e grupos pendentes, ainda somente leitura; não habilitar operações de arquivos.
