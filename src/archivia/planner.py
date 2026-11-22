@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 import os
 from typing import Any
 
-from .catalog import DEFAULT_DB, query_catalog, query_catalog_page
+from .catalog import DEFAULT_DB, query_catalog_page
 
 ALLOWED_CATEGORIES = frozenset(("imagem", "video", "audio"))
 MAX_PLAN_ITEMS = 100
@@ -25,8 +25,9 @@ def propose_moves(
     category: str,
     db_path: Path = DEFAULT_DB,
     limit: int = MAX_PLAN_ITEMS,
+    scan_id: int | None = None,
 ) -> dict[str, Any]:
-    """Gera prévia de arquivos do último snapshot; não move nem escreve nada."""
+    """Gera prévia de até 100 arquivos em um snapshot, sem mover ou escrever."""
     if category not in ALLOWED_CATEGORIES:
         raise ValueError("Categoria inválida: imagem, video ou audio.")
     if not isinstance(limit, int) or isinstance(limit, bool) or not (1 <= limit <= MAX_PLAN_ITEMS):
@@ -36,15 +37,20 @@ def propose_moves(
     if _contains_symlink(dest) or not dest.is_dir():
         raise ValueError("Destino deve ser diretório real já existente, sem links simbólicos.")
 
-    snapshot = query_catalog(db_path=db_path, category=category)
+    # Lista somente a primeira página, sem carregar a categoria inteira na RAM.
+    # Outras páginas e conflitos globais exigirão plano completo antes de executar.
+    snapshot = query_catalog_page(
+        db_path=db_path, category=category, scan_id=scan_id,
+        page=1, page_size=limit, sort_by="name",
+    )
     if snapshot["scan_id"] is None:
         raise ValueError("Catálogo sem inventário.")
     root = Path(snapshot["root"]).absolute()
     if _contains_symlink(root) or not root.is_dir():
         raise ValueError("Origem do catálogo não está disponível ou contém link simbólico.")
 
-    # Limitação deliberada: não enumerar milhares de ações em uma única prévia.
-    candidates = snapshot["files"][:limit]
+    # O resultado é uma amostra, não uma autorização sobre todos os arquivos.
+    candidates = snapshot["files"]
     actions: list[dict[str, Any]] = []
     blocked = 0
     reserved_targets: set[str] = set()
