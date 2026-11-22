@@ -28,9 +28,9 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 - Verifica existência da origem, tamanho e tempo de modificação catalogados, links simbólicos, colisão com arquivo existente e conflito entre destinos previstos.
 - Limite máximo de 100 itens por plano. **Agora usa `query_catalog_page`**, consultando somente a primeira página da categoria, sem carregar todo o catálogo em RAM. Aceita `scan_id` opcional para selecionar o snapshot. Uma página é apenas prévia: **colisões de destino entre páginas ainda não são verificadas**, logo o resultado parcial não é plano completo nem autorização de execução.
 
-## Contrato proposto — consolidação completa de acervos grandes (ainda não implementado)
+## Consolidação global — primeira implementação de resumo (sem execução)
 
-**Escopo:** estender a responsabilidade de `propose_moves()` para planejar **todos os arquivos de uma categoria de uma origem selecionada**, inclusive subpastas arbitrariamente profundas, com **um destino único existente**. Não modificar arquivos, gravar planos no disco nem expor funções de execução ao Ollama.
+**Escopo:** `summarize_consolidation(destination, category, db_path, scan_id=None, max_candidates=10000)` em `planner.py` percorre até 10.000 candidatos por lotes de até 100 arquivos, com origem fixa, e devolve **apenas estatísticas**. A função antiga `propose_moves()` continua intacta como prévia de até 100 ações. Não modifica mídias, não grava plano no disco e **ainda não está disponível como ferramenta do agente ou botão na GUI**.
 
 ### Requisitos de entrada e de contexto
 
@@ -41,11 +41,11 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 
 ### Planejamento completo com memória controlada
 
-1. No SQLite, **fixar a identidade do snapshot e da categoria**. Contar candidatos uma vez. Na operação completa futura, percorrer todos os candidatos em ordem estável, em lotes limitados. Preferir cursor/indexação por identificador estável de `media` à paginação `OFFSET` extensa, para evitar custo crescente em bases grandes.
-2. O planejador determina o nome-base do destino e compara colisões **entre todas as páginas**, não só na página atual. Como todos convergem para uma única pasta, usar uma chave de destino normalizada de forma compatível com a semântica de nomes do Windows (insensibilidade a maiúsculas/minúsculas, sem confiar somente em `os.path.normcase` executado em outro sistema). Revalidar existência física, links/junctions e metadados quando necessário.
+1. No SQLite, **fixar a identidade do snapshot e da categoria**. Contar candidatos uma vez. A primeira implementação usa páginas SQL `LIMIT/OFFSET` de até 100 arquivos, com `scan_id` fixo e contagem verificada. Para escala superior ou concorrência com atualizações do catálogo, avaliar cursor por `media.id` e transação de leitura única, pois a ordenação estável e a contagem igual **não garantem** um snapshot de leitura atômico entre consultas.
+2. O planejador determina o nome-base do destino e compara colisões **entre todas as páginas**, não só na página atual. Como todos convergem para uma única pasta, a função compara nomes usando `casefold()` e também pré-carrega os nomes presentes no destino (sem carregar arquivos de origem). Verifica origem, destino, symlinks detectáveis, tamanho e mtime. **Proteção Windows completa** ainda exigirá revisão de junctions/reparse points, equivalências de nomes e TOCTOU antes do executor.
 3. **Política inicial de conflitos:** bloquear destinos já ocupados e ocorrências repetidas com o mesmo nome de saída; não sobrescrever, fundir, renomear automaticamente nem deduplicar por inferência. O usuário poderá rever os conflitos quando o fluxo estiver integrado.
 4. O relatório precisa distinguir **arquivos examinados, propostos, bloqueados e ainda pendentes**, garantindo que `truncated=false` só seja apresentado se a verificação da seleção estiver completa. Um plano parcial não deve ser confundido com autorização.
-5. **Escala de resultados:** o motor não deve montar milhares de ações em uma única resposta ao Ollama ou na tabela Qt. A arquitetura deverá permitir acesso paginado à prévia dos resultados, mantendo uma visão resumida de contagens. Não criar persistência ou arquivo de checkpoint de planos até existir necessidade operacional concreta. Um limite seguro pode interromper a análise, mas deve ser relatado como pendência explícita.
+5. **Escala de resultados:** o motor não deve montar milhares de ações em uma única resposta ao Ollama ou na tabela Qt. A implementação retorna `total_matches`, `examined`, `proposed`, `blocked`, `pending`, `complete`, `truncated`, `pages_scanned` e `blocked_by_reason`; `actions=[]`. Acesso paginado a ações individuais ficará para uma etapa posterior, se necessário. Não criar persistência ou arquivo de checkpoint de planos até existir necessidade operacional concreta. O teto atual é `max_candidates=10000`: se houver mais arquivos, `complete=false` e `pending` explicita quantos ficaram fora da análise.
 6. **Isolamento:** fontes e catálogo são somente leitura durante o planejamento; nenhum comando move, apaga, renomeia ou cria mídia. O SQLite só é alterado pela catalogação confirmada, não pela prévia.
 
 ### Critérios de aceite antes de integrar à GUI
@@ -62,7 +62,7 @@ O modelo retorna **intenções estruturadas**, não Python, shell, PowerShell ou
 - `inventory.py`: descobrir arquivos recursivamente; `catalog.py`: fornecer páginas e contexto; `planner.py`: gerar propostas e bloqueios; `agent.py`: traduzir intenções para ferramentas já autorizadas; `gui.py`: coletar entrada e exibir uma prévia simplificada.
 - Não criar um `consolidator`, um `planner_v2` nem um gerenciador de sessões para este caso. Avaliar extração de função somente se reduzir repetição e complexidade comprovadas.
 
-**Decisão:** esta seção é **especificação**, não funcionalidade implementada. O próximo código deve ser uma alteração mínima no planejador existente, homologada inicialmente com dados sintéticos. **Não há executor disponível.**
+**Estado:** o resumo global está implementado no planejador existente; **os testes novos ainda aguardam homologação local**. O código não oferece revisão paginada de ações individuais, execução, persistência de planos ou integração direta na interface e no Ollama. **Não há executor disponível.**
 
 ## Planejador cronológico experimental — somente simulação
 
