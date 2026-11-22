@@ -357,6 +357,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Pendente teste visual no Windows**: com snapshot #4, modo global e limite 50, destaque deve mostrar GLOBAL INCOMPLETA com 125 pendentes; com limite 200 deve mostrar VERIFICAÇÃO COMPLETA.
 - Roadmap visual: após estabilizar o processamento progressivo e a apresentação de estado, realizar fase dedicada de design com componentes reutilizáveis, tipografia, cores semânticas, indicadores, responsividade e acessibilidade, sem misturar com algoritmos.
 
+## Sessão progressiva SHA-256 — motor experimental pendente de homologação
+
+- Criado `src/archivia/duplicate_sessions.py` com `ProgressiveDuplicateSession`, em **memória volátil**, fixando `scan_id`, pasta e categoria no início da análise.
+- Cada chamada `next_batch()` processa **1 a 200 candidatos** selecionados por tamanho repetido no snapshot inteiro e avança por cursor de ID crescente. Os hashes já calculados permanecem agrupados na mesma sessão, inclusive quando duas cópias são lidas em lotes diferentes.
+- Cada lote tem seu próprio orçamento de leitura (padrão 64 MiB; máximo 256 MiB) e limite de 16 MiB por arquivo. Erros, arquivos alterados, symlinks e itens não lidos permanecem registrados como **ignorados**. `done` indica fim dos candidatos; `complete` exige fim **e zero ignorados**.
+- A sessão mantém hashes e caminhos em RAM, limitada inicialmente a **100 mil candidatos por snapshot**; **não** grava cache, checkpoint nem altera o SQLite. Encerrar o aplicativo perde o progresso (limitação documentada); a persistência segura será projetada separadamente.
+- O motor ainda **não foi exposto na GUI ou no Ollama**. As rotinas já homologadas de amostra e seleção global seguem iguais.
+- Adicionados **5 testes TEST-ONLY** em `tests/test_duplicate_sessions.py`: 134 arquivos processados em seis lotes, hashes entre lotes, limites por lote, novo snapshot após início sem troca de contexto, arquivo modificado e entradas inválidas.
+- **Pendente homologação Windows** — suíte esperada: **77 testes**, com um possivelmente ignorado. Antes de disponibilizar a continuação na interface, validar todos.
+
 ## Próximo passo seguro
 
 **Suíte de 72 testes e modo global SHA-256 homologados no Windows com fixtures:** snapshot #4, 134 candidatos completos, 3 grupos, 7 arquivos idênticos, 0 pendentes e 5 lotes SQL. Próxima etapa recomendada: verificar o comportamento com limites restritos e grupos pendentes, ainda somente leitura; não habilitar operações de arquivos.
