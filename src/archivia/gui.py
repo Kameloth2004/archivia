@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QProgressBar,
 )
 
-from .agent import ask_agent, ask_agent_for_folder
+from .agent import ask_agent, FolderCatalogSession
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary
 from .cataloging import catalog_verified_preview
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
@@ -45,7 +45,8 @@ class QueryWorker(QThread):
                  sort_by: str = "name", destination: str = "",
                  hash_limit: int = 50, hash_file_mib: int = 16,
                  hash_budget_mib: int = 64,
-                 hash_mode: str = "sample", source_folder: str = "") -> None:
+                 hash_mode: str = "sample", source_folder: str = "",
+                 folder_session: FolderCatalogSession | None = None) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -67,15 +68,21 @@ class QueryWorker(QThread):
         self.hash_budget_mib = hash_budget_mib
         self.hash_mode = hash_mode
         self.source_folder = source_folder
+        self.folder_session = folder_session
 
     def run(self) -> None:
         try:
             if self.mode == "summary":
                 result = catalog_summary(self.database)
             elif self.mode == "agent":
-                result = (ask_agent_for_folder(self.question, self.model, self.source_folder)
-                          if self.source_folder else
+                result = (self.folder_session.ask(self.question, self.model)
+                          if self.folder_session is not None else
                           ask_agent(self.question, self.model, self.database, context_scan_id=self.scan_id))
+            elif self.mode == "refresh_folder_session":
+                if self.folder_session is None:
+                    raise ValueError("Selecione uma pasta para atualizar o catálogo.")
+                self.folder_session.refresh()
+                result = {"root": str(self.folder_session.source), "updated": True}
             elif self.mode == "catalog_page":
                 result = query_catalog_page(
                     self.database, self.category, page=self.page, scan_id=self.scan_id,
@@ -131,6 +138,7 @@ class ArchivIAWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self._worker: QueryWorker | None = None
+        self._folder_session: FolderCatalogSession | None = None
         self._settings = QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope, "ArchivIA", "Standard")
         stored_format = self._settings.value("interface/date_format", "br")
         self._date_format = stored_format if stored_format in DATE_FORMATS else "br"
@@ -617,14 +625,18 @@ class ArchivIAWindow(QMainWindow):
         self.question.returnPressed.connect(self._run_agent)
         agent_layout.addWidget(self.question)
         context_info = QLabel(
-            "Com uma pasta selecionada em Inventário, o agente a examina automaticamente "
-            "e consulta um catálogo temporário. Não é necessário salvar inventário."
+            "A primeira pergunta cria um catálogo temporário, reutilizado nas próximas perguntas. "
+            "Se alterar arquivos na pasta, use Atualizar análise para consultar dados novos. "
+            "Não é necessário salvar inventário."
         )
         context_info.setWordWrap(True)
         agent_layout.addWidget(context_info)
         self.ask_button = QPushButton("Perguntar ao agente")
         self.ask_button.clicked.connect(self._run_agent)
         agent_layout.addWidget(self.ask_button)
+        self.refresh_session_button = QPushButton("Atualizar análise da pasta")
+        self.refresh_session_button.clicked.connect(self._refresh_folder_session)
+        agent_layout.addWidget(self.refresh_session_button)
         agent_page_layout.addWidget(agent_box)
 
         result_box = QGroupBox("Resposta e ferramentas utilizadas")
@@ -730,6 +742,9 @@ class ArchivIAWindow(QMainWindow):
             self._clear_preview()
 
     def _folder_changed(self, *_args) -> None:
+        if self._folder_session is not None:
+            self._folder_session.close()
+            self._folder_session = None
         if self._preview_result is not None:
             self._clear_preview()
             self.inventory_view.setText("Pasta alterada. Examine novamente antes de catalogar.")
@@ -1012,7 +1027,32 @@ class ArchivIAWindow(QMainWindow):
             hash_mode=self.hash_mode_select.currentData(),
         )
 
+    def _session_for_folder(self) -> FolderCatalogSession:
+        selected = self.folder.text().strip()
+        if not selected:
+            raise ValueError("Selecione a pasta de origem em Inventário.")
+        source = Path(selected).expanduser().absolute()
+        if self._folder_session is None or self._folder_session.source != source:
+            if self._folder_session is not None:
+                self._folder_session.close()
+            self._folder_session = FolderCatalogSession(source)
+        return self._folder_session
+
+    def _refresh_folder_session(self) -> None:
+        if self._worker is not None:
+            return
+        try:
+            session = self._session_for_folder()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._start_worker(
+            "refresh_folder_session", DEFAULT_DB, folder_session=session,
+        )
+
     def _run_agent(self) -> None:
+        if self._worker is not None:
+            return
         question = self.question.text().strip()
         model = self.model.text().strip()
         if not question or not model:
@@ -1020,14 +1060,16 @@ class ArchivIAWindow(QMainWindow):
             return
         selected = self.folder.text().strip()
         if selected:
-            # Inventário e SQLite temporários serão criados na thread, sem
-            # salvar snapshot na base persistente nem bloquear a interface.
+            try:
+                session = self._session_for_folder()
+            except ValueError as exc:
+                self._show_error(str(exc))
+                return
             self._start_worker(
-                "agent", DEFAULT_DB, question, model, source_folder=selected,
+                "agent", DEFAULT_DB, question, model, folder_session=session,
             )
             return
-        # Compatibilidade com a bancada técnica: consulta o banco persistente
-        # quando nenhuma pasta é selecionada.
+        # Compatibilidade: sem origem selecionada, consulta a base persistente.
         try:
             database = self._database_path()
         except ValueError as exc:
@@ -1044,13 +1086,14 @@ class ArchivIAWindow(QMainWindow):
         sort_by: str = "name", destination: str = "",
         hash_limit: int = 50, hash_file_mib: int = 16,
         hash_budget_mib: int = 64, hash_mode: str = "sample",
-        source_folder: str = "",
+        source_folder: str = "", folder_session: FolderCatalogSession | None = None,
     ) -> None:
         if self._worker is not None:
             return
         self._set_busy(True)
         self.status.setText(
-            "Examinando pasta e preparando consulta temporária..." if mode == "agent" and source_folder
+            "Atualizando catálogo temporário..." if mode == "refresh_folder_session"
+            else "Preparando sessão e aguardando Ollama..." if mode == "agent" and folder_session is not None
             else "Aguardando Ollama..." if mode == "agent"
             else "Processando consulta local..."
         )
@@ -1058,7 +1101,7 @@ class ArchivIAWindow(QMainWindow):
             mode, database, question, model, page, category, preview,
             scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
             destination, hash_limit, hash_file_mib, hash_budget_mib, hash_mode,
-            source_folder,
+            source_folder, folder_session,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -1084,6 +1127,7 @@ class ArchivIAWindow(QMainWindow):
         self.hash_file_limit_spin.setEnabled(not busy)
         self.hash_total_limit_spin.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
+        self.refresh_session_button.setEnabled(not busy)
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
         self.question.setEnabled(not busy)
@@ -1114,7 +1158,9 @@ class ArchivIAWindow(QMainWindow):
         self.next_button.setEnabled(not busy and self._page < self._pages)
 
     def _show_result(self, mode: str, result: dict) -> None:
-        if mode == "summary":
+        if mode == "refresh_folder_session":
+            self.status.setText("Catálogo temporário atualizado; nenhuma mídia modificada.")
+        elif mode == "summary":
             if result.get("scan_id") is None:
                 self.summary_view.setText("Catálogo vazio: nenhuma catalogação encontrada.")
             else:
