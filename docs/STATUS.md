@@ -306,6 +306,15 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Cenário esperado: 3 grupos SHA-256 com 3 + 2 + 2 arquivos idênticos. Para validação na GUI, usar limite de 200 arquivos, total de 134 e **2 páginas SQL**.
 - **Próxima homologação ainda pendente:** catalogar explicitamente a pasta sintética no Inventário, salvar novo snapshot e executar SHA-256 no snapshot criado. Nenhuma operação de movimentação ou exclusão permitida.
 
+## SHA-256 multipágina — homologado visualmente no Windows
+
+- Usuário apresentou captura da **Organização → Duplicatas (SHA-256)** no snapshot **#4**, origem sintética `D:/PROJETOS/archivia/tests/fixtures/manual/sha256_paginado`, categoria Imagens, limite selecionado **200 arquivos**.
+- Resultado observado: **134 de 134 arquivos amostrados**, **134 hashes calculados**, **3 grupos confirmados**, **7 arquivos com conteúdo idêntico**, **0 ignorados**, **2 lotes SQL**; `Amostra inclui a categoria completa` e barra de progresso concluída.
+- Os três grupos correspondem ao cenário TEST-ONLY: trio `A/000_foto_original.jpg`, `L/050_alias_nome.jpg`, `Z/999_foto_copia.jpg`; dupla `B/010_relatorio.jpg`, `Y/990_outro_nome.jpg`; dupla de arquivos vazios `C/020_vazio.jpg`, `X/980_vazio_copia.jpg`.
+- Comparação entre limites de **100** e **200** arquivos também validada: no primeiro caso, **100/134, 98 hashes, 1 grupo e 2 arquivos repetidos (amostra parcial)**; no segundo, **134/134, 3 grupos e 7 arquivos repetidos**, demonstrando correspondências entre páginas.
+- Interface, controle de limite, processamento multipágina e apresentação de grupos aprovados. **Não significa varredura exaustiva de acervos maiores**, nem habilita qualquer operação sobre arquivos.
+- O resultado está restrito ao snapshot e aos dados sintéticos, sem mover, apagar ou renomear arquivos.
+
 ## Próximo passo seguro
 
 **Suíte de 68 testes e criação do cenário de 134 arquivos confirmadas pelo usuário.** Próximo passo: catalogar a pasta sintética pelo Inventário, confirmar novo snapshot; então, na subaba Duplicatas, selecionar o snapshot e limite 200 e verificar 134 arquivos, 2 lotes SQL, 3 grupos SHA-256 e 7 arquivos iguais. Nenhuma movimentação ou exclusão habilitada.
