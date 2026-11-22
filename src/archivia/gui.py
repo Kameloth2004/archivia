@@ -14,7 +14,7 @@ from PySide6.QtCore import QThread, Signal, QSettings, Qt
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
-    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
+    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,\n    QSpinBox, QProgressBar,
 )
 
 from .agent import ask_agent
@@ -34,13 +34,14 @@ class QueryWorker(QThread):
 
     finished_result = Signal(object)
     failed = Signal(str)
+    progress_update = Signal(object)
 
     def __init__(self, mode: str, database: Path, question: str = "", model: str = "",
                  page: int = 1, category: str | None = None,
                  preview: dict | None = None, scan_id: int | None = None,
                  name_contains: str = "", extension: str = "",
                  search_scope: str = "path", date_from: str = "", date_to: str = "",
-                 sort_by: str = "name", destination: str = "") -> None:
+                 sort_by: str = "name", destination: str = "",\n                 hash_limit: int = 50, hash_file_mib: int = 16,\n                 hash_budget_mib: int = 64) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -57,6 +58,9 @@ class QueryWorker(QThread):
         self.date_to = date_to
         self.sort_by = sort_by
         self.destination = destination
+        self.hash_limit = hash_limit
+        self.hash_file_mib = hash_file_mib
+        self.hash_budget_mib = hash_budget_mib
 
     def run(self) -> None:
         try:
@@ -79,7 +83,11 @@ class QueryWorker(QThread):
             elif self.mode == "duplicate_hash":
                 result = verify_duplicate_hashes(
                     db_path=self.database, category=self.category,
-                    scan_id=self.scan_id, limit=50,
+                    scan_id=self.scan_id,
+                    limit=self.hash_limit,
+                    max_file_bytes=self.hash_file_mib * 1024 * 1024,
+                    max_total_bytes=self.hash_budget_mib * 1024 * 1024,
+                    progress=self.progress_update.emit,
                 )
             elif self.mode == "origins":
                 result = catalog_origins_summary(self.database)
@@ -485,7 +493,7 @@ class ArchivIAWindow(QMainWindow):
         duplicate_box = QGroupBox("Comparação SHA-256 — SOMENTE LEITURA")
         duplicate_box_layout = QVBoxLayout(duplicate_box)
         duplicate_intro = QLabel(
-            "Analisa até 50 arquivos do snapshot selecionado, sem alterações. "
+            "Analisa arquivos do snapshot selecionado em lotes de até 100, sem alterações. "
             "Lê conteúdo apenas quando há pelo menos dois arquivos de mesmo tamanho "
             "na amostra. Não executa exclusões ou movimentações."
         )
@@ -507,12 +515,35 @@ class ArchivIAWindow(QMainWindow):
         self.duplicate_history_button.clicked.connect(self._load_history)
         duplicate_options.addWidget(self.duplicate_history_button)
         duplicate_box_layout.addLayout(duplicate_options)
+        hash_limit_row = QHBoxLayout()
+        hash_limit_row.addWidget(QLabel("Arquivos:"))
+        self.hash_limit_spin = QSpinBox()
+        self.hash_limit_spin.setRange(1, 1000)
+        self.hash_limit_spin.setValue(50)
+        self.hash_limit_spin.setToolTip("Máximo de arquivos do snapshot analisados por execução")
+        hash_limit_row.addWidget(self.hash_limit_spin)
+        hash_limit_row.addWidget(QLabel("MiB/arquivo:"))
+        self.hash_file_limit_spin = QSpinBox()
+        self.hash_file_limit_spin.setRange(1, 16)
+        self.hash_file_limit_spin.setValue(16)
+        hash_limit_row.addWidget(self.hash_file_limit_spin)
+        hash_limit_row.addWidget(QLabel("Leitura total (MiB):"))
+        self.hash_total_limit_spin = QSpinBox()
+        self.hash_total_limit_spin.setRange(1, 256)
+        self.hash_total_limit_spin.setValue(64)
+        hash_limit_row.addWidget(self.hash_total_limit_spin)
+        hash_limit_row.addStretch(1)
+        duplicate_box_layout.addLayout(hash_limit_row)
+        self.duplicate_progress = QProgressBar()
+        self.duplicate_progress.setRange(0, 100)
+        self.duplicate_progress.setValue(0)
+        self.duplicate_progress.setFormat("Sem verificação em andamento")
+        duplicate_box_layout.addWidget(self.duplicate_progress)
         self.duplicate_button = QPushButton("Verificar duplicatas — SHA-256 (somente leitura)")
         self.duplicate_button.clicked.connect(self._run_duplicate_hash)
         duplicate_box_layout.addWidget(self.duplicate_button)
         self.duplicate_summary = QLabel(
-            "Nenhuma verificação realizada. Limites: 50 arquivos, 16 MiB por arquivo "
-            "e 64 MiB de leitura total."
+            "Nenhuma verificação realizada. Limites configuráveis e progresso por etapa."
         )
         self.duplicate_summary.setWordWrap(True)
         duplicate_box_layout.addWidget(self.duplicate_summary)
@@ -884,6 +915,24 @@ class ArchivIAWindow(QMainWindow):
             destination=destination,
         )
 
+    def _update_hash_progress(self, event: dict) -> None:
+        phase = event.get("phase")
+        processed = event.get("processed", 0)
+        total = event.get("total", 0)
+        # A coleta de metadados ocupa 0–30%; cálculo SHA-256 ocupa 30–100%.
+        fraction = processed / max(1, total)
+        if phase == "catalog":
+            value = int(30 * fraction)
+            label = f"Catálogo: {processed}/{total} arquivos"
+        elif phase == "hash":
+            value = 30 + int(70 * fraction)
+            label = f"SHA-256: {processed}/{total} candidatos"
+        else:
+            value = 100
+            label = "Verificação concluída"
+        self.duplicate_progress.setValue(min(100, value))
+        self.duplicate_progress.setFormat(label)
+
     def _run_duplicate_hash(self) -> None:
         try:
             database = self._database_path()
@@ -895,10 +944,15 @@ class ArchivIAWindow(QMainWindow):
         self.duplicate_summary.setText(
             "Comparando hashes em somente leitura. Nenhum arquivo será alterado..."
         )
+        self.duplicate_progress.setValue(0)
+        self.duplicate_progress.setFormat("Iniciando consulta...")
         self._start_worker(
             "duplicate_hash", database,
             category=self.duplicate_category.currentData(),
             scan_id=self.duplicate_snapshot.currentData(),
+            hash_limit=self.hash_limit_spin.value(),
+            hash_file_mib=self.hash_file_limit_spin.value(),
+            hash_budget_mib=self.hash_total_limit_spin.value(),
         )
 
     def _run_agent(self) -> None:
@@ -920,7 +974,9 @@ class ArchivIAWindow(QMainWindow):
         preview: dict | None = None,
         scan_id: int | None = None, name_contains: str = "", extension: str = "",
         search_scope: str = "path", date_from: str = "", date_to: str = "",
-        sort_by: str = "name", destination: str = ""
+        sort_by: str = "name", destination: str = "",
+        hash_limit: int = 50, hash_file_mib: int = 16,
+        hash_budget_mib: int = 64,
     ) -> None:
         if self._worker is not None:
             return
@@ -929,10 +985,9 @@ class ArchivIAWindow(QMainWindow):
         worker = QueryWorker(
             mode, database, question, model, page, category, preview,
             scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
-            destination,
-        )
+            destination, hash_limit, hash_file_mib, hash_budget_mib,\n        )
         self._worker = worker
-        worker.finished_result.connect(lambda result: self._show_result(mode, result))
+        worker.finished_result.connect(lambda result: self._show_result(mode, result))\n        worker.progress_update.connect(self._update_hash_progress)
         worker.failed.connect(self._show_error)
         worker.finished.connect(self._worker_done)
         worker.start()
@@ -949,6 +1004,9 @@ class ArchivIAWindow(QMainWindow):
         self.duplicate_category.setEnabled(not busy)
         self.duplicate_snapshot.setEnabled(not busy)
         self.duplicate_history_button.setEnabled(not busy)
+        self.hash_limit_spin.setEnabled(not busy)
+        self.hash_file_limit_spin.setEnabled(not busy)
+        self.hash_total_limit_spin.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
@@ -1094,6 +1152,8 @@ class ArchivIAWindow(QMainWindow):
                 f"Histórico consultado: {len(result)} snapshots encontrados (máximo 100)."
             )
         elif mode == "duplicate_hash":
+            self.duplicate_progress.setValue(100)
+            self.duplicate_progress.setFormat("Verificação concluída")
             rows = [
                 (index, file, group["size_bytes"], group["sha256"])
                 for index, group in enumerate(result["groups"], 1)
@@ -1114,6 +1174,7 @@ class ArchivIAWindow(QMainWindow):
                 f"{result['confirmed_groups_in_sample']} grupos confirmados | "
                 f"{result['confirmed_files_in_sample']} arquivos iguais na amostra | "
                 f"{len(result['skipped'])} ignorados | "
+                f"{result['pages_scanned']} lotes SQL | "
                 f"{'AMOSTRA PARCIAL' if result['truncated'] else 'Amostra inclui a categoria completa'}"
             )
             group_lines = [
