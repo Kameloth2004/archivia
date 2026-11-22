@@ -176,6 +176,10 @@ Adicionada aba **Organização** para o planejador `propose_date_moves()`. O usu
 
 O agente Ollama agora expõe `simular_organizacao_por_data` com nome, parâmetros e limites autorizados. Na aba **Agente IA**, é possível pedir **apenas simulações** por linguagem natural, fornecendo categoria `imagem/video/audio`, caminho de destino-base **já existente** e, opcionalmente, ID de snapshot e limite até 50. Essa ferramenta não usa automaticamente os campos selecionados na aba Organização. Retorna uma prévia JSON com situações proposto/bloqueado, mas **não cria nem movimenta nada**. Testes locais com Ollama real ainda pendentes.
 
+## Colisões e possíveis duplicatas na simulação (aguardando validação)
+
+A aba **Organização** passou a mostrar **Possível duplicata?** e **Nome alternativo sugerido**. O motor compara apenas nome-base normalizado e tamanho de arquivos **dentro dos primeiros itens do plano**: coincidência é uma suspeita que **não comprova identidade binária**. Não lê dados de imagem, não calcula hash e não elimina arquivos. A identificação de colisões de nome leva a sugestões textuais como `foto__2.jpg` sem liberar o status bloqueado, reservar nomes ou executar qualquer ação. Os contadores também se limitam à amostra de até 50 arquivos da GUI, não ao acervo completo.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
