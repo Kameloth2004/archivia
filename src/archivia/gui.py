@@ -1104,6 +1104,52 @@ class ArchivIAWindow(QMainWindow):
             hash_mode=self.hash_mode_select.currentData(),
         )
 
+    def _toggle_advanced(self, checked: bool) -> None:
+        if checked:
+            self.tabs.addTab(self.advanced_page, "Avançado")
+            self.tabs.setCurrentWidget(self.advanced_page)
+        else:
+            index = self.tabs.indexOf(self.advanced_page)
+            if index >= 0:
+                self.tabs.removeTab(index)
+            self.tabs.setCurrentIndex(0)
+
+    def _home_choose_destination(self) -> None:
+        selected = QFileDialog.getExistingDirectory(
+            self, "Selecionar pasta de destino existente",
+            self.home_destination.text().strip() or str(Path.home()),
+        )
+        if selected:
+            self.home_destination.setText(selected)
+
+    def _home_count(self, category: str) -> None:
+        labels = {"imagem": "imagens", "video": "vídeos", "audio": "áudios"}
+        self.home_prompt.setText(
+            f"Quantos arquivos de {labels[category]} existem na pasta selecionada? "
+            "Consulte o catálogo e informe o total."
+        )
+        self._home_ask()
+
+    def _home_ask(self) -> None:
+        if self._worker is not None:
+            return
+        prompt = self.home_prompt.text().strip()
+        if not prompt:
+            self._show_error("Descreva a consulta ou simulação.")
+            return
+        destination = self.home_destination.text().strip()
+        if destination:
+            target = Path(destination).expanduser().absolute()
+            if not target.is_dir() or target.is_symlink():
+                self._show_error("A pasta de destino deve existir e ser um diretório real.")
+                return
+            prompt += (
+                f" Destino para eventual SIMULAÇÃO: {target}. "
+                "Não mova, crie, renomeie nem apague arquivos."
+            )
+        self.question.setText(prompt)
+        self._run_agent()
+
     def _session_for_folder(self) -> FolderCatalogSession:
         selected = self.folder.text().strip()
         if not selected:
@@ -1202,6 +1248,13 @@ class ArchivIAWindow(QMainWindow):
         self.hash_file_limit_spin.setEnabled(not busy)
         self.hash_total_limit_spin.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
+        self.home_ask_button.setEnabled(not busy)
+        self.home_refresh_button.setEnabled(not busy)
+        self.home_choose_button.setEnabled(not busy)
+        self.home_folder.setEnabled(not busy)
+        self.home_prompt.setEnabled(not busy)
+        self.home_destination.setEnabled(not busy)
+        self.home_destination_button.setEnabled(not busy)
         self.refresh_session_button.setEnabled(not busy)
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
@@ -1235,6 +1288,7 @@ class ArchivIAWindow(QMainWindow):
     def _show_result(self, mode: str, result: dict) -> None:
         if mode == "refresh_folder_session":
             self.status.setText("Catálogo temporário atualizado; nenhuma mídia modificada.")
+            self.home_result.setPlainText("Análise atualizada. Você já pode consultar novamente.")
         elif mode == "summary":
             if result.get("scan_id") is None:
                 self.summary_view.setText("Catálogo vazio: nenhuma catalogação encontrada.")
@@ -1520,8 +1574,10 @@ class ArchivIAWindow(QMainWindow):
                 "Operações de movimentação: indisponíveis nesta versão."
             )
             self.status.setText("Resposta recebida. Nenhum arquivo de mídia modificado.")
+            self.home_result.setPlainText(answer)
 
     def _show_error(self, message: str) -> None:
+        self.home_result.setPlainText(f"Erro: {message}")
         self.status.setText(f"Erro: {message}")
         self.result_view.setPlainText(f"Erro: {message}")
 
