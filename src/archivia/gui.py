@@ -1433,9 +1433,15 @@ class ArchivIAWindow(QMainWindow):
             answer = result.get("answer") or "(Resposta textual vazia)"
             tools = result.get("tools_used", [])
             details = json.dumps(tools, ensure_ascii=False, indent=2)
+            session_info = (
+                f"\n\nCATÁLOGO DE SESSÃO: {result.get('catalog_scanned_utc', 'sem horário')} UTC. "
+                "Se a pasta mudou, clique em Atualizar análise da pasta."
+                if result.get("temporary_catalog") else ""
+            )
             self.result_view.setPlainText(
                 f"RESPOSTA DO AGENTE\n{answer}\n\n"
-                f"FERRAMENTAS UTILIZADAS\n{details}\n\n"
+                f"FERRAMENTAS UTILIZADAS\n{details}"
+                f"{session_info}\n\n"
                 "Operações de movimentação: indisponíveis nesta versão."
             )
             self.status.setText("Resposta recebida. Nenhum arquivo de mídia modificado.")
@@ -1458,6 +1464,9 @@ class ArchivIAWindow(QMainWindow):
                 self, "ArchivIA", "Há uma consulta em andamento. Feche após a conclusão."
             )
         else:
+            if self._folder_session is not None:
+                self._folder_session.close()
+                self._folder_session = None
             event.accept()
 
 
