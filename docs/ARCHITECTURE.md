@@ -100,6 +100,12 @@ Cada lote tem limite independente de quantidade (1–200), tamanho por arquivo (
 
 O agrupamento por `SHA-256` baseia-se no conteúdo lido em cada momento, com revalidação de metadados; não significa garantia transacional sobre alterações futuras. O formato persistente e o mecanismo de retomada após reinício precisarão de decisões específicas de proteção de dados e integridade.
 
+## Ciclo de vida dos dados no agente (fluxo automático novo)
+
+Com uma pasta selecionada em Inventário, `gui.py` aciona `ask_agent_for_folder()` em uma thread: varredura `inventory()` → `store_inventory()` em SQLite localizado num `TemporaryDirectory` → `ask_agent()` com snapshot da sessão → exclusão automática do diretório temporário. A leitura não modifica arquivos da origem. Se a varredura encontrar erros, o banco não é criado e a pergunta não é enviada ao Ollama.
+
+**O SQLite permanente continua existindo para o fluxo manual**, com snapshots históricos; o novo fluxo não escreve nesse banco. A pasta é examinada novamente a cada solicitação, para evitar crescimento persistente e dados antigos; armazenamento de sessão reaproveitável e recuperação após encerramento abrupto são trabalhos futuros, se necessários. O agente sem pasta selecionada continua usando o catálogo permanente por compatibilidade. Até homologar os testes no Windows, esta integração deve ser considerada experimental.
+
 ## Contexto de origem e consolidação simulada
 
 O seletor da GUI define a origem: `scan_for_folder()` localiza o snapshot mais recente **daquela pasta exata**, e o adaptador Ollama restringe as ferramentas ao `scan_id` correspondente. O planejador `propose_moves()` aceita esse `scan_id`, categoria e um destino único existente; consulta **uma página** SQLite limitada (até 100 itens) e retorna `mode=simulation`, `executable=false`. Conflitos entre páginas ainda não são analisados; nenhum plano parcial pode ser executado. A classificação atualmente é por extensão, não por conteúdo.
