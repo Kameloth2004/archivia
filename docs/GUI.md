@@ -218,6 +218,12 @@ As opções de MiB/arquivo e Leitura total aplicam-se aos dois modos. No modo gl
 
 Para o teste: snapshot sintético #4, categoria Imagens, modo **Candidatos em todo o snapshot**, limite 200; esperar 134 candidatos, 3 grupos e 7 arquivos idênticos, sem pendências. Testar limite 50 para confirmar pendência de grupo maior que o limite, sem classificá-lo como verificado. **Pendente validação Windows.**
 
+## Destaque do estado da verificação SHA-256 (pendente homologação)
+
+A subaba Duplicatas possui indicador próprio de **cobertura**, distinto da barra de progresso. O término da execução sempre pode mostrar `Verificação concluída`; isso **não implica** cobertura completa. Quando há grupos de tamanho pendentes, orçamento excedido, erros ou amostra parcial, o indicador informa **GLOBAL INCOMPLETA** (ou **AMOSTRA INCOMPLETA**) em destaque âmbar e quantifica os candidatos pendentes/ignorados. Quando não há pendência, informa **VERIFICAÇÃO COMPLETA** com realce discreto. Ao iniciar nova consulta, informa **ANÁLISE EM ANDAMENTO**.
+
+Esse destaque é melhoria pontual de clareza, não o redesign final. O projeto prevê uma etapa própria de interface visual e identidade, com hierarquia tipográfica, estados semânticos, navegação, tabelas e acessibilidade. Nenhum algoritmo SHA-256 foi modificado nesta atualização.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
