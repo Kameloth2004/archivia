@@ -160,6 +160,10 @@ Os dois campos **Modificado de / até** usam máscaras Qt de entrada conforme a 
 
 A máscara facilita a digitação, **não valida sozinha se a data existe**; a rotina `parse_user_date()` continua validando dias, meses e anos antes de consultar SQLite. Os dados persistidos permanecem ISO 8601 UTC.
 
+## Planejador por data — motor pronto para testes
+
+Implementação experimental em `src/archivia/planner.py`, função `propose_date_moves()`. Calcula caminhos futuros `AAAA/MM` com base na modificação UTC e verifica conflitos; não cria subpastas nem move arquivos. Restrito a mídias e 100 propostas por consulta. **Ainda não há controle gráfico para esta função**; primeiro executar testes da suíte local Windows. A preferência de data em Configurações afeta exclusivamente a visualização, não a organização temporal simulada.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
