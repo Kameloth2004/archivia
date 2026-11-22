@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from support import temporary_test_directory
 from archivia.catalog import store_inventory, query_catalog_page
 from archivia.inventory import inventory
-from archivia.planner import propose_moves, propose_date_moves
+from archivia.planner import propose_moves, propose_date_moves, summarize_consolidation
 
 
 class PlannerTests(unittest.TestCase):
@@ -144,6 +144,87 @@ class PlannerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 propose_moves(dest, "imagem", db_path=db, scan_id=99999)
             self.assertFalse(any(dest.iterdir()))
+
+    def test_full_consolidation_detects_cross_page_collisions_without_writing(self):
+        # TEST-ONLY: nome idêntico nos extremos de páginas SQL diferentes.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            dest.mkdir()
+            for number in range(210):
+                folder = root / f"pasta_{number:03d}"
+                folder.mkdir(parents=True)
+                name = "repetida.jpg" if number in (0, 209) else f"foto_{number:03d}.jpg"
+                (folder / name).write_bytes(f"teste-{number}".encode())
+                (folder / "audio.mp3").write_bytes(b"outro-tipo")
+            db = tmp / "catalogo.sqlite3"
+            snap = store_inventory(inventory(root), db)["scan_id"]
+            summary = summarize_consolidation(dest, "imagem", db, scan_id=snap)
+            self.assertEqual(summary["scan_id"], snap)
+            self.assertEqual(summary["total_matches"], 210)
+            self.assertEqual(summary["examined"], 210)
+            self.assertEqual(summary["proposed"], 209)
+            self.assertEqual(summary["blocked"], 1)
+            self.assertEqual(summary["blocked_by_reason"]["destino_duplicado_no_plano"], 1)
+            self.assertEqual(summary["pages_scanned"], 3)
+            self.assertEqual(summary["pending"], 0)
+            self.assertTrue(summary["complete"])
+            self.assertFalse(summary["executable"])
+            self.assertEqual(summary["actions"], [])
+            self.assertEqual(list(dest.iterdir()), [])
+            self.assertEqual(len(list(root.rglob("*.jpg"))), 210)
+
+    def test_full_consolidation_cap_reports_pending_and_keeps_other_snapshot_out(self):
+        with temporary_test_directory() as tmp:
+            root = tmp / "primeira"
+            other = tmp / "segunda"
+            dest = tmp / "destino"
+            root.mkdir()
+            other.mkdir()
+            dest.mkdir()
+            for number in range(135):
+                (root / f"foto_{number:03d}.jpg").write_bytes(b"teste")
+            (other / "outra.jpg").write_bytes(b"outra")
+            db = tmp / "catalogo.sqlite3"
+            chosen = store_inventory(inventory(root), db)["scan_id"]
+            store_inventory(inventory(other), db)
+            summary = summarize_consolidation(
+                dest, "imagem", db, scan_id=chosen, max_candidates=101,
+            )
+            self.assertEqual(summary["root"], str(root))
+            self.assertEqual(summary["examined"], 101)
+            self.assertEqual(summary["proposed"], 101)
+            self.assertEqual(summary["pending"], 34)
+            self.assertEqual(summary["pages_scanned"], 2)
+            self.assertFalse(summary["complete"])
+            self.assertTrue(summary["truncated"])
+            self.assertEqual(summary["actions"], [])
+            self.assertEqual(list(dest.iterdir()), [])
+            for invalid in (0, True, 10001):
+                with self.assertRaises(ValueError):
+                    summarize_consolidation(dest, "imagem", db, max_candidates=invalid)
+
+    def test_full_consolidation_blocks_existing_casefold_and_changed_sources(self):
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            root.mkdir()
+            dest.mkdir()
+            (root / "Foto.JPG").write_bytes(b"arquivo-a")
+            modified = root / "alterada.jpg"
+            modified.write_bytes(b"original")
+            existing = dest / "foto.jpg"
+            existing.write_bytes(b"NAO SOBRESCREVER")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            modified.write_bytes(b"conteudo modificado")
+            summary = summarize_consolidation(dest, "imagem", db)
+            self.assertEqual(summary["examined"], 2)
+            self.assertEqual(summary["blocked"], 2)
+            self.assertEqual(summary["proposed"], 0)
+            self.assertEqual(summary["blocked_by_reason"]["destino_ja_existe_ou_link"], 1)
+            self.assertEqual(summary["blocked_by_reason"]["origem_alterada_desde_inventario"], 1)
+            self.assertEqual(existing.read_bytes(), b"NAO SOBRESCREVER")
 
     def test_date_plan_proposes_year_month_without_writing(self):
         # TEST-ONLY: destino AAAA/MM fictício, nunca criado.
