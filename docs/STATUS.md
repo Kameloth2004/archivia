@@ -290,9 +290,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Interface e opções de limites/progresso aprovadas na amostra sintética. Como ela possui apenas 8 arquivos, a captura **não** demonstra processamento de múltiplas páginas; essa situação é coberta por testes automatizados e permanece sem homologação visual específica no Windows.
 - Próxima evolução recomendada: teste sintético com mais de 100 arquivos em pastas de teste, comparação entre páginas, orçamento de leitura e progresso. Não habilitar movimentação nem exclusão.
 
+## Cenário manual SHA-256 com 134 arquivos — aguardando homologação
+
+- Adicionado gerador seguro **`tests/generate_sha256_paged_demo.py`**, sem alteração de código de produção, para criar **134 arquivos sintéticos** em `tests/fixtures/manual/sha256_paginado` (ignorado pelo Git). Não substitui arquivo existente, recusa pasta preenchida, destinos fora de `tests/`, symlinks e junctions Windows.
+- Cenário desenhado para SHA-256 entre duas páginas SQL de 100 registros: **3 grupos confirmados, 7 arquivos idênticos**, com 125 arquivos diferentes como controle de falsos positivos e par de mesmo nome/tamanho mas conteúdo diferente.
+- **3 testes automatizados novos** em `tests/test_sha256_paged_fixture.py`: verificação de 134 itens e duas páginas; amostra parcial de 100; proteção contra sobrescrita e execução fora de `tests/`.
+- Não é necessária atualização de motor ou interface: usam a verificação SHA-256 paginada já aprovada na GUI.
+- **Pendente validação local:** rodar `python -m unittest discover -s tests -v` (expectativa de **68 testes**, com 1 possível skip) e depois `python tests/generate_sha256_paged_demo.py`; catalogar a pasta sintética manualmente na aba Inventário; na subaba Duplicatas usar o novo snapshot, categoria Imagens e limite **200**.
+- O gerador e os testes são **TEST-ONLY**. Nenhum mecanismo de exclusão ou movimentação foi acrescentado.
+
 ## Próximo passo seguro
 
-**Interface SHA-256 paginada homologada visualmente no snapshot #3:** 8 de 8 arquivos, 2 grupos, 5 arquivos idênticos, 1 lote SQL e progresso concluído. Para validar múltiplas páginas na GUI, utilizar fixture sintética com mais de 100 arquivos. Nenhuma movimentação ou exclusão habilitada.
+**Próximo teste:** obter `main`, executar suíte (68 testes esperados), gerar cenário `tests/fixtures/manual/sha256_paginado`, catalogar explicitamente e verificar 134 arquivos, 2 lotes SQL, 3 grupos SHA-256 e 7 arquivos iguais. Nenhuma movimentação ou exclusão habilitada.
 
 ## Limitações e evolução
 
