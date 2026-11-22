@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from support import temporary_test_directory
 from archivia.agent import ask_agent, dispatch_tool
-from archivia.catalog import store_inventory
+from archivia.catalog import store_inventory, scan_for_folder
 from archivia.inventory import inventory
 
 
@@ -197,6 +197,73 @@ class AgentTests(unittest.TestCase):
             self.assertFalse(output["files_modified"])
             self.assertTrue(media.exists())
             self.assertEqual(list(dest.iterdir()), [])
+
+    def test_selected_folder_uses_its_snapshot_for_agent_tools(self):
+        # TEST-ONLY: não misturar origens mesmo com snapshot mais novo no banco.
+        with temporary_test_directory() as tmp:
+            first_root = tmp / "Adele"
+            second_root = tmp / "Outra"
+            first_root.mkdir()
+            second_root.mkdir()
+            (first_root / "foto.jpg").write_bytes(b"foto")
+            (second_root / "outra.jpg").write_bytes(b"outra")
+            db = tmp / "catalogo.sqlite3"
+            first = store_inventory(inventory(first_root), db)
+            newer = store_inventory(inventory(second_root), db)
+            selected = scan_for_folder(first_root, db)
+            self.assertEqual(selected, first["scan_id"])
+            self.assertNotEqual(selected, newer["scan_id"])
+            summary = dispatch_tool("resumo_catalogo", {}, db, context_scan_id=selected)
+            self.assertEqual(summary["root"], str(first_root))
+            found = dispatch_tool(
+                "buscar_arquivos_catalogo", {"categoria": "imagem"}, db,
+                context_scan_id=selected,
+            )
+            self.assertEqual(found["scan_id"], selected)
+            self.assertEqual(found["files"][0]["relative_path"], "foto.jpg")
+            with self.assertRaises(ValueError):
+                dispatch_tool(
+                    "buscar_arquivos_catalogo",
+                    {"scan_id": newer["scan_id"]}, db,
+                    context_scan_id=selected,
+                )
+
+    def test_selected_folder_without_catalog_must_not_fallback(self):
+        with temporary_test_directory() as tmp:
+            root = tmp / "NaoCatalogada"
+            root.mkdir()
+            db = tmp / "catalogo.sqlite3"
+            known = tmp / "Catalogada"
+            known.mkdir()
+            (known / "foto.jpg").write_bytes(b"teste")
+            store_inventory(inventory(known), db)
+            with self.assertRaises(ValueError):
+                scan_for_folder(root, db)
+
+    def test_agent_mock_enforces_selected_folder_snapshot(self):
+        with temporary_test_directory() as tmp:
+            first_root = tmp / "Adele"
+            other_root = tmp / "Outra"
+            first_root.mkdir()
+            other_root.mkdir()
+            (first_root / "foto.jpg").write_bytes(b"foto")
+            (other_root / "foto.jpg").write_bytes(b"foto")
+            db = tmp / "catalogo.sqlite3"
+            first = store_inventory(inventory(first_root), db)
+            other = store_inventory(inventory(other_root), db)
+            question = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {"name": "buscar_arquivos_catalogo", "arguments": {
+                    "scan_id": other["scan_id"], "categoria": "imagem",
+                }}}
+            ]}
+            done = {"role": "assistant", "content": "Não foi consultada outra origem."}
+            with patch("archivia.agent._ollama_chat", side_effect=[question, done]):
+                output = ask_agent(
+                    "Localize imagens da pasta escolhida", "modelo-falso", db,
+                    context_scan_id=first["scan_id"],
+                )
+            self.assertIn("error", output["tools_used"][0]["result"])
+            self.assertFalse(output["files_modified"])
 
     def test_ollama_mock_cannot_execute_unknown_tool(self):
         with temporary_test_directory() as tmp:
