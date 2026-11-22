@@ -20,7 +20,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 | Consulta paginada, busca por nome/caminho, extensão, categoria e período | Implementado |
 | GUI PySide6 de homologação (6 abas) | Implementada, **não** é o design definitivo |
 | Contexto de pasta para agente | Implementado: na GUI, pasta catalogada selecionada vincula `scan_id` ao agente |
-| Ollama com ferramentas autorizadas | Integrado para consultas e simulações, sem shell e sem executor |
+| Ollama com ferramentas autorizadas | Integrado para consultas, simulações e **resumo global de consolidação** (novo, aguardando testes), sem shell e sem executor |
 | Planejador genérico de consolidação em uma pasta | **Somente simulação**; `propose_moves()` lê até 100 ações e `summarize_consolidation()` examina até 10.000 candidatos em lotes, retornando estatísticas globais; aceita `scan_id` |
 | Planejador cronológico `AAAA/MM` | Somente simulação; até 100 propostas, com bloqueio de colisões |
 | SHA-256 em amostra e modo global | Homologado com fixtures; resultados parciais destacados |
@@ -30,7 +30,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 ## Homologação recente
 
-- **84 testes homologados no Windows pelo usuário**: `Ran 84 tests in 4.060s`, `OK (skipped=1)` (83 aprovados e um ignorado), nenhuma falha.
+- **87 testes homologados no Windows pelo usuário**: `Ran 87 tests in 4.667s`, `OK (skipped=1)` (86 aprovados e um ignorado), nenhuma falha. **Após a integração do agente, espera-se suíte de 89 testes**; execução ainda pendente.
 - Ollama real / GUI: pasta `E:\\Ashley`, snapshot **#6**, consulta `buscar_arquivos_catalogo` com `categoria=imagem`; resultado **1.344 imagens**, 10 exemplos, 135 páginas; resposta do agente coerente com os dados. Erro anterior `limite inválido` não reapareceu.
 - Modo SHA-256 global / fixture snapshot #4: 134 candidatos, 3 grupos de conteúdo igual e 7 arquivos associados; com limite 50, 125 candidatos pendentes e estado **GLOBAL INCOMPLETA**. Indicador visual específico de cobertura foi implementado, **mas sua aparência final ainda não foi homologada por captura**.
 - Verificação remota de `main` em 22/11/2026, antes da atualização editorial: commit `a622f47716bbad4e32aafb1dd966d2d48565d134` idêntico a `main`, zero commits divergentes; única branch encontrada: `main`. Não foram encontrados status checks associados ao commit. O repositório remoto não permite confirmar alterações locais não enviadas.
@@ -61,12 +61,19 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 - Publicada `summarize_consolidation()` em `src/archivia/planner.py`: análise em lotes SQL de até 100, teto explícito de 10.000, identificação de nomes em conflito entre páginas e comparação de nomes de arquivos existentes com `casefold()`.
 - Retorno limitado a estatísticas `total_matches`, `examined`, `proposed`, `blocked`, `pending`, `complete`, `truncated`, `pages_scanned`, `blocked_by_reason`. O campo `actions` é vazio; não é um plano executável.
-- Três testes sintéticos novos para colisões na página 1 vs página 3 (210 imagens), limite com 34 pendentes e destino ocupado/arquivo modificado. **Suíte esperada: 87 testes** (84 anteriores + 3), um possivelmente ignorado. Aguardando execução no Windows.
-- `propose_moves()` anterior permanece compatível. A nova função ainda **não foi conectada à GUI nem exposta à IA**; isso ficará para etapa posterior, somente após aprovação dos testes. Nenhuma dependência ou módulo novo.
+- Três testes sintéticos para colisões entre páginas, limite com pendências e destino ocupado/arquivo modificado. **Os 87 testes foram aprovados pelo usuário no Windows** (`OK (skipped=1)`).
+- `propose_moves()` anterior permanece compatível. O resumo global foi agora exposto à IA como `resumir_consolidacao`, **sem botão novo na GUI**, sem dependências ou módulos novos; aguarda testes do agente.
+
+## Integração do resumo global com o Ollama — aguardando homologação
+
+- Adicionada ferramenta autorizada `resumir_consolidacao` em `agent.py`, com parâmetros `categoria`, `destino` e `limite` opcional (1–10.000).
+- A ferramenta utiliza `context_scan_id` da pasta selecionada na GUI, rejeita parâmetros extras e só chama `summarize_consolidation()`. O retorno contém contagens e `actions=[]`, `executable=false`.
+- Adicionados **dois testes MOCK-ONLY**: catálogo de 105 imagens e colisão entre páginas usando snapshot de outra origem mais recente; validação de argumentos inválidos. **89 testes esperados** (87 anteriores + 2), um possivelmente ignorado.
+- Sem criação de pastas, renomeação, exclusão ou movimentação de arquivos; sem nova aba ou dependência.
 
 ## Próxima etapa
 
-**Validar os 87 testes localmente.** Após confirmação, integrar de forma enxuta o resumo global ao agente ou à prévia principal, sem movimentação real. Antes de qualquer executor, revisar atomicidade da leitura SQLite, junctions/reparse points do Windows e condições de corrida.
+**Executar 89 testes no Windows.** Se aprovados, homologar uma chamada real do Ollama com pasta sintética e destino existente, verificando `total_matches`, `examined`, `blocked`, `pending` e `complete`. Ainda não há plano executável. Antes de qualquer executor, revisar atomicidade SQLite, junctions/reparse points do Windows e condições de corrida.
 
 ## Referências
 
