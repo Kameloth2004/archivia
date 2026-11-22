@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QProgressBar,
 )
 
-from .agent import ask_agent
+from .agent import ask_agent, ask_agent_for_folder
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary, scan_for_folder
 from .cataloging import catalog_verified_preview
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
@@ -45,7 +45,7 @@ class QueryWorker(QThread):
                  sort_by: str = "name", destination: str = "",
                  hash_limit: int = 50, hash_file_mib: int = 16,
                  hash_budget_mib: int = 64,
-                 hash_mode: str = "sample") -> None:
+                 hash_mode: str = "sample", source_folder: str = "") -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -66,13 +66,16 @@ class QueryWorker(QThread):
         self.hash_file_mib = hash_file_mib
         self.hash_budget_mib = hash_budget_mib
         self.hash_mode = hash_mode
+        self.source_folder = source_folder
 
     def run(self) -> None:
         try:
             if self.mode == "summary":
                 result = catalog_summary(self.database)
             elif self.mode == "agent":
-                result = ask_agent(self.question, self.model, self.database, context_scan_id=self.scan_id)
+                result = (ask_agent_for_folder(self.question, self.model, self.source_folder)
+                          if self.source_folder else
+                          ask_agent(self.question, self.model, self.database, context_scan_id=self.scan_id))
             elif self.mode == "catalog_page":
                 result = query_catalog_page(
                     self.database, self.category, page=self.page, scan_id=self.scan_id,
@@ -614,9 +617,8 @@ class ArchivIAWindow(QMainWindow):
         self.question.returnPressed.connect(self._run_agent)
         agent_layout.addWidget(self.question)
         context_info = QLabel(
-            "Se uma pasta estiver selecionada em Inventário, o agente consultará "
-            "somente o snapshot mais recente dessa pasta. "
-            "Para uma pasta nova, examine e catalogue primeiro."
+            "Com uma pasta selecionada em Inventário, o agente a examina automaticamente "
+            "e consulta um catálogo temporário. Não é necessário salvar inventário."
         )
         context_info.setWordWrap(True)
         agent_layout.addWidget(context_info)
@@ -1011,25 +1013,27 @@ class ArchivIAWindow(QMainWindow):
         )
 
     def _run_agent(self) -> None:
-        try:
-            database = self._database_path()
-        except ValueError as exc:
-            self._show_error(str(exc))
-            return
         question = self.question.text().strip()
         model = self.model.text().strip()
         if not question or not model:
             self._show_error("Informe a pergunta e o modelo Ollama.")
             return
-        # Se houver pasta selecionada, vincular todas as ferramentas à origem
-        # catalogada. Não usar silenciosamente o último snapshot de outra pasta.
         selected = self.folder.text().strip()
+        if selected:
+            # Inventário e SQLite temporários serão criados na thread, sem
+            # salvar snapshot na base persistente nem bloquear a interface.
+            self._start_worker(
+                "agent", DEFAULT_DB, question, model, source_folder=selected,
+            )
+            return
+        # Compatibilidade com a bancada técnica: consulta o banco persistente
+        # quando nenhuma pasta é selecionada.
         try:
-            selected_scan = scan_for_folder(selected, database) if selected else None
+            database = self._database_path()
         except ValueError as exc:
             self._show_error(str(exc))
             return
-        self._start_worker("agent", database, question, model, scan_id=selected_scan)
+        self._start_worker("agent", database, question, model)
 
     def _start_worker(
         self, mode: str, database: Path, question: str = "", model: str = "",
@@ -1040,15 +1044,21 @@ class ArchivIAWindow(QMainWindow):
         sort_by: str = "name", destination: str = "",
         hash_limit: int = 50, hash_file_mib: int = 16,
         hash_budget_mib: int = 64, hash_mode: str = "sample",
+        source_folder: str = "",
     ) -> None:
         if self._worker is not None:
             return
         self._set_busy(True)
-        self.status.setText("Aguardando Ollama..." if mode == "agent" else "Processando consulta local...")
+        self.status.setText(
+            "Examinando pasta e preparando consulta temporária..." if mode == "agent" and source_folder
+            else "Aguardando Ollama..." if mode == "agent"
+            else "Processando consulta local..."
+        )
         worker = QueryWorker(
             mode, database, question, model, page, category, preview,
             scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
             destination, hash_limit, hash_file_mib, hash_budget_mib, hash_mode,
+            source_folder,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
