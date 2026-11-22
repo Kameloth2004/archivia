@@ -6,7 +6,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from support import temporary_test_directory
-from archivia.agent import ask_agent, ask_agent_for_folder, dispatch_tool
+from archivia.agent import ask_agent, ask_agent_for_folder, FolderCatalogSession, dispatch_tool
 from archivia.catalog import store_inventory, scan_for_folder
 from archivia.inventory import inventory
 
@@ -375,6 +375,67 @@ class AgentTests(unittest.TestCase):
                 with self.subTest(arguments=arguments):
                     with self.assertRaises(ValueError):
                         dispatch_tool("resumir_consolidacao", arguments, tmp / "nada.sqlite3")
+
+    def test_folder_session_reuses_catalog_and_refreshes_when_requested(self):
+        # TEST-ONLY/MOCK-ONLY: duas perguntas, uma catalogação e refresh explícito.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            root.mkdir()
+            (root / "a.jpg").write_bytes(b"a")
+            first = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {"name": "buscar_arquivos_catalogo",
+                              "arguments": {"categoria": "imagem"}}}
+            ]}
+            last = {"role": "assistant", "content": "Consulta concluída."}
+            session = FolderCatalogSession(root)
+            try:
+                from archivia.inventory import inventory as real_inventory
+                with patch("archivia.agent.inventory", wraps=real_inventory) as scan:
+                    with patch("archivia.agent._ollama_chat", side_effect=[
+                        first, last, first, last, first, last,
+                    ]):
+                        one = session.ask("Conte imagens", "modelo-falso")
+                        self.assertFalse(one["catalog_reused"])
+                        self.assertEqual(one["tools_used"][0]["result"]["count"], 1)
+                        (root / "b.png").write_bytes(b"b")
+                        two = session.ask("Conte novamente", "modelo-falso")
+                        self.assertTrue(two["catalog_reused"])
+                        self.assertEqual(two["tools_used"][0]["result"]["count"], 1)
+                        self.assertTrue(two["catalog_may_be_stale"])
+                        self.assertEqual(scan.call_count, 1)
+                        old_db = session._db
+                        session.refresh()
+                        self.assertFalse(old_db.exists())
+                        three = session.ask("Conte após atualização", "modelo-falso")
+                        self.assertEqual(three["tools_used"][0]["result"]["count"], 2)
+                        self.assertEqual(scan.call_count, 2)
+            finally:
+                session.close()
+            self.assertFalse(session.ready)
+            self.assertFalse((root / "b.png").is_symlink())
+
+    def test_folder_session_refresh_failure_keeps_previous_snapshot(self):
+        # TEST-ONLY: erro não troca a sessão válida nem deixa catálogo parcial.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            root.mkdir()
+            (root / "a.jpg").write_bytes(b"a")
+            session = FolderCatalogSession(root)
+            try:
+                session.refresh()
+                previous = session._db
+                with patch("archivia.agent.inventory", return_value={
+                    "root": str(root), "files": [], "summary": {},
+                    "errors": [{"path": str(root), "error": "falha simulada"}],
+                }):
+                    with self.assertRaisesRegex(ValueError, "Inventário com erros"):
+                        session.refresh()
+                self.assertTrue(session.ready)
+                self.assertEqual(session._db, previous)
+                self.assertTrue(previous.exists())
+            finally:
+                session.close()
+            self.assertFalse(previous.exists())
 
     def test_auto_folder_session_is_temporary_and_preserves_persistent_catalog(self):
         # TEST-ONLY: consulta a pasta escolhida sem aumentar histórico permanente.
