@@ -20,7 +20,10 @@ CHUNK_BYTES = 256 * 1024
 
 
 def _is_symlink_component(path: Path) -> bool:
-    return any(\n        part.is_symlink() or (hasattr(part, "is_junction") and part.is_junction())\n        for part in (path, *path.parents)\n    )
+    return any(
+        part.is_symlink() or (hasattr(part, "is_junction") and part.is_junction())
+        for part in (path, *path.parents)
+    )
 
 
 def _candidate_path(root: Path, relative_path: str) -> Path:
