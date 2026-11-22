@@ -14,7 +14,8 @@ from PySide6.QtCore import QThread, Signal, QSettings, Qt
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
-    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,\n    QSpinBox, QProgressBar,
+    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
+    QSpinBox, QProgressBar,
 )
 
 from .agent import ask_agent
@@ -41,7 +42,9 @@ class QueryWorker(QThread):
                  preview: dict | None = None, scan_id: int | None = None,
                  name_contains: str = "", extension: str = "",
                  search_scope: str = "path", date_from: str = "", date_to: str = "",
-                 sort_by: str = "name", destination: str = "",\n                 hash_limit: int = 50, hash_file_mib: int = 16,\n                 hash_budget_mib: int = 64) -> None:
+                 sort_by: str = "name", destination: str = "",
+                 hash_limit: int = 50, hash_file_mib: int = 16,
+                 hash_budget_mib: int = 64) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -985,9 +988,11 @@ class ArchivIAWindow(QMainWindow):
         worker = QueryWorker(
             mode, database, question, model, page, category, preview,
             scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
-            destination, hash_limit, hash_file_mib, hash_budget_mib,\n        )
+            destination, hash_limit, hash_file_mib, hash_budget_mib,
+        )
         self._worker = worker
-        worker.finished_result.connect(lambda result: self._show_result(mode, result))\n        worker.progress_update.connect(self._update_hash_progress)
+        worker.finished_result.connect(lambda result: self._show_result(mode, result))
+        worker.progress_update.connect(self._update_hash_progress)
         worker.failed.connect(self._show_error)
         worker.finished.connect(self._worker_done)
         worker.start()
