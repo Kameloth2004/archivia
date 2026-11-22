@@ -23,6 +23,7 @@ from .cataloging import catalog_verified_preview
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .inventory import inventory
 from .preview import preview_inventory_page
+from .planner import propose_date_moves
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
 
@@ -38,7 +39,7 @@ class QueryWorker(QThread):
                  preview: dict | None = None, scan_id: int | None = None,
                  name_contains: str = "", extension: str = "",
                  search_scope: str = "path", date_from: str = "", date_to: str = "",
-                 sort_by: str = "name") -> None:
+                 sort_by: str = "name", destination: str = "") -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -54,6 +55,7 @@ class QueryWorker(QThread):
         self.date_from = date_from
         self.date_to = date_to
         self.sort_by = sort_by
+        self.destination = destination
 
     def run(self) -> None:
         try:
@@ -67,6 +69,11 @@ class QueryWorker(QThread):
                     name_contains=self.name_contains, extension=self.extension,
                     search_scope=self.search_scope, date_from=self.date_from,
                     date_to=self.date_to, sort_by=self.sort_by,
+                )
+            elif self.mode == "date_plan":
+                result = propose_date_moves(
+                    destination=self.destination, category=self.category,
+                    db_path=self.database, limit=50, scan_id=self.scan_id,
                 )
             elif self.mode == "origins":
                 result = catalog_origins_summary(self.database)
@@ -128,6 +135,8 @@ class ArchivIAWindow(QMainWindow):
         inventory_layout = QVBoxLayout(inventory_page)
         library_page = QWidget()
         library_layout = QVBoxLayout(library_page)
+        organize_page = QWidget()
+        organize_layout = QVBoxLayout(organize_page)
         agent_page = QWidget()
         agent_page_layout = QVBoxLayout(agent_page)
         settings_page = QWidget()
@@ -135,6 +144,7 @@ class ArchivIAWindow(QMainWindow):
         self.tabs.addTab(overview_page, "Visão geral")
         self.tabs.addTab(inventory_page, "Inventário")
         self.tabs.addTab(library_page, "Biblioteca")
+        self.tabs.addTab(organize_page, "Organização")
         self.tabs.addTab(agent_page, "Agente IA")
         self.tabs.addTab(settings_page, "Configurações")
         root.addWidget(self.tabs, 1)
@@ -346,6 +356,59 @@ class ArchivIAWindow(QMainWindow):
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
         library_layout.addWidget(catalog_box, 1)
+
+        plan_box = QGroupBox("Organizar por ano e mês — SOMENTE SIMULAÇÃO")
+        plan_layout = QVBoxLayout(plan_box)
+        plan_intro = QLabel(
+            "Prévia AAAA/MM baseada na data de modificação UTC. "
+            "Não cria pastas, não movimenta arquivos e não permite executar planos."
+        )
+        plan_intro.setWordWrap(True)
+        plan_layout.addWidget(plan_intro)
+        plan_folder_row = QHBoxLayout()
+        plan_folder_row.addWidget(QLabel("Destino-base existente:"))
+        self.plan_destination = QLineEdit()
+        self.plan_destination.setPlaceholderText("Escolha uma pasta já existente (não será alterada)")
+        plan_folder_row.addWidget(self.plan_destination, 1)
+        self.plan_browse_button = QPushButton("Escolher pasta...")
+        self.plan_browse_button.clicked.connect(self._choose_plan_destination)
+        plan_folder_row.addWidget(self.plan_browse_button)
+        plan_layout.addLayout(plan_folder_row)
+        plan_options = QHBoxLayout()
+        plan_options.addWidget(QLabel("Categoria:"))
+        self.plan_category = QComboBox()
+        self.plan_category.addItem("Imagens", "imagem")
+        self.plan_category.addItem("Vídeos", "video")
+        self.plan_category.addItem("Áudios", "audio")
+        plan_options.addWidget(self.plan_category)
+        plan_options.addWidget(QLabel("Snapshot:"))
+        self.plan_snapshot = QComboBox()
+        self.plan_snapshot.addItem("Mais recente (automático)", None)
+        plan_options.addWidget(self.plan_snapshot, 1)
+        self.plan_history_button = QPushButton("Atualizar histórico")
+        self.plan_history_button.clicked.connect(self._load_history)
+        plan_options.addWidget(self.plan_history_button)
+        plan_layout.addLayout(plan_options)
+        self.plan_button = QPushButton("Simular organização — sem alterações")
+        self.plan_button.clicked.connect(self._run_date_plan)
+        plan_layout.addWidget(self.plan_button)
+        self.plan_summary = QLabel("Nenhum plano gerado. Serão examinados no máximo 50 arquivos.")
+        self.plan_summary.setWordWrap(True)
+        plan_layout.addWidget(self.plan_summary)
+        self.plan_table = QTableWidget(0, 4)
+        self.plan_table.setHorizontalHeaderLabels(
+            ["Origem (arquivo)", "Destino proposto", "Situação", "Observação"]
+        )
+        self.plan_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.plan_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.plan_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self.plan_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        plan_layout.addWidget(self.plan_table, 1)
+        organize_layout.addWidget(plan_box, 1)
 
         agent_box = QGroupBox("Agente Ollama local")
         agent_layout = QVBoxLayout(agent_box)
@@ -639,6 +702,33 @@ class ArchivIAWindow(QMainWindow):
             return
         self._start_worker("summary", database)
 
+    def _choose_plan_destination(self) -> None:
+        chosen = QFileDialog.getExistingDirectory(
+            self, "Escolher destino-base para simulação",
+            self.plan_destination.text().strip() or str(Path.home()),
+        )
+        if chosen:
+            self.plan_destination.setText(chosen)
+
+    def _run_date_plan(self) -> None:
+        destination = self.plan_destination.text().strip()
+        if not destination:
+            self._show_error("Escolha um destino-base existente para simular.")
+            return
+        try:
+            database = self._database_path()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self.plan_table.setRowCount(0)
+        self.plan_summary.setText("Calculando apenas uma prévia, sem modificar arquivos...")
+        self._start_worker(
+            "date_plan", database,
+            category=self.plan_category.currentData(),
+            scan_id=self.plan_snapshot.currentData(),
+            destination=destination,
+        )
+
     def _run_agent(self) -> None:
         try:
             database = self._database_path()
@@ -658,7 +748,7 @@ class ArchivIAWindow(QMainWindow):
         preview: dict | None = None,
         scan_id: int | None = None, name_contains: str = "", extension: str = "",
         search_scope: str = "path", date_from: str = "", date_to: str = "",
-        sort_by: str = "name"
+        sort_by: str = "name", destination: str = ""
     ) -> None:
         if self._worker is not None:
             return
@@ -667,6 +757,7 @@ class ArchivIAWindow(QMainWindow):
         worker = QueryWorker(
             mode, database, question, model, page, category, preview,
             scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
+            destination,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -676,6 +767,12 @@ class ArchivIAWindow(QMainWindow):
 
     def _set_busy(self, busy: bool) -> None:
         self.summary_button.setEnabled(not busy)
+        self.plan_destination.setEnabled(not busy)
+        self.plan_browse_button.setEnabled(not busy)
+        self.plan_category.setEnabled(not busy)
+        self.plan_snapshot.setEnabled(not busy)
+        self.plan_history_button.setEnabled(not busy)
+        self.plan_button.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
@@ -793,9 +890,43 @@ class ArchivIAWindow(QMainWindow):
             index = self.history_select.findData(current)
             self.history_select.setCurrentIndex(max(0, index))
             self.history_select.blockSignals(False)
+            selected_plan = self.plan_snapshot.currentData()
+            self.plan_snapshot.blockSignals(True)
+            self.plan_snapshot.clear()
+            self.plan_snapshot.addItem("Mais recente (automático)", None)
+            for scan in result:
+                self.plan_snapshot.addItem(
+                    f"#{scan['id']} | {scan['root']}", scan["id"]
+                )
+            self.plan_snapshot.setCurrentIndex(
+                max(0, self.plan_snapshot.findData(selected_plan))
+            )
+            self.plan_snapshot.blockSignals(False)
             self.status.setText(
                 f"Histórico consultado: {len(result)} snapshots encontrados (máximo 100)."
             )
+        elif mode == "date_plan":
+            self.plan_table.setRowCount(len(result["actions"]))
+            for row_index, item in enumerate(result["actions"]):
+                values = (
+                    item["file"], item.get("destination") or "—",
+                    item["status"], item.get("reason") or (
+                        "Subpasta futura" if item.get("directory_would_need_creation")
+                        else "Destino-base pronto"
+                    ),
+                )
+                for col_index, value in enumerate(values):
+                    self.plan_table.setItem(
+                        row_index, col_index, QTableWidgetItem(str(value))
+                    )
+            self.plan_summary.setText(
+                f"Snapshot #{result['scan_id']} | {result['selected']} examinados "
+                f"de {result['total_matches']} arquivos da categoria | "
+                f"{result['blocked']} bloqueados | "
+                f"{'Resultado parcial' if result['truncated'] else 'Categoria completa'}"
+                " — SIMULAÇÃO: nenhuma operação de escrita."
+            )
+            self.status.setText("Simulação de organização concluída; nada foi alterado.")
         elif mode == "catalog_page":
             self._page = result["page"]
             self._pages = result["pages"]
