@@ -1209,15 +1209,29 @@ class ArchivIAWindow(QMainWindow):
                         f"{name}\nSHA-256: {digest}\nGrupo: {group_num}"
                     )
                     self.duplicate_table.setItem(row_index, column, cell)
+            global_mode = result.get("analysis_mode") == "global_size_candidates"
+            amount_label = (
+                f"{result['selected']} de {result['candidate_files_total']} candidatos "
+                f"({result['total_matches']} arquivos no snapshot)"
+                if global_mode else
+                f"{result['selected']} de {result['total_matches']} arquivos amostrados"
+            )
+            completeness = (
+                "GLOBAL INCOMPLETA" if not result.get("complete")
+                else "Todos os candidatos verificados"
+            ) if global_mode else (
+                "AMOSTRA PARCIAL" if result["truncated"]
+                else "Amostra inclui a categoria completa"
+            )
             self.duplicate_summary.setText(
-                f"Snapshot #{result['scan_id']} | "
-                f"{result['selected']} de {result['total_matches']} arquivos amostrados | "
+                f"Snapshot #{result['scan_id']} | {amount_label} | "
                 f"{result['hashed_files']} hashes lidos | "
                 f"{result['confirmed_groups_in_sample']} grupos confirmados | "
                 f"{result['confirmed_files_in_sample']} arquivos iguais na amostra | "
                 f"{len(result['skipped'])} ignorados | "
                 f"{result['pages_scanned']} lotes SQL | "
-                f"{'AMOSTRA PARCIAL' if result['truncated'] else 'Amostra inclui a categoria completa'}"
+                f"{result.get('unprocessed_candidate_files', 0)} candidatos pendentes | "
+                f"{completeness}"
             )
             group_lines = [
                 f"Grupo {number}: {group['count']} arquivos, "
@@ -1229,6 +1243,12 @@ class ArchivIAWindow(QMainWindow):
                 for item in result["skipped"]
             ]
             details = group_lines + skip_lines
+            if global_mode and result["unprocessed_candidate_files"]:
+                details.append(
+                    f"Grupos pendentes: {result['size_groups_omitted']} grupos; "
+                    f"{result['unprocessed_candidate_files']} candidatos "
+                    "não verificados por limite de seleção."
+                )
             if not details:
                 details = ["Nenhum grupo repetido confirmado nesta amostra."]
             details.append(
