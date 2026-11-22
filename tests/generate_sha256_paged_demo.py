@@ -45,7 +45,10 @@ def generate_fixture(root: Path = DEFAULT_ROOT) -> dict[str, object]:
     tests_root = TESTS.resolve()
     if path == tests_root or tests_root not in path.parents:
         raise ValueError("TEST-ONLY: destino deve estar estritamente dentro de tests/.")
-    if path.is_symlink() or any(parent.is_symlink() for parent in path.parents):
+    if any(
+        part.is_symlink() or (hasattr(part, "is_junction") and part.is_junction())
+        for part in (path, *path.parents)
+    ):
         raise ValueError("TEST-ONLY: destino com link simbólico não permitido.")
     if path.exists() and (not path.is_dir() or any(path.iterdir())):
         raise FileExistsError(
