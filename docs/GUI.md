@@ -180,6 +180,12 @@ O agente Ollama agora expõe `simular_organizacao_por_data` com nome, parâmetro
 
 A aba **Organização** passou a mostrar **Possível duplicata?** e **Nome alternativo sugerido**. O motor compara apenas nome-base normalizado e tamanho de arquivos **dentro dos primeiros itens do plano**: coincidência é uma suspeita que **não comprova identidade binária**. Não lê dados de imagem, não calcula hash e não elimina arquivos. A identificação de colisões de nome leva a sugestões textuais como `foto__2.jpg` sem liberar o status bloqueado, reservar nomes ou executar qualquer ação. Os contadores também se limitam à amostra de até 50 arquivos da GUI, não ao acervo completo.
 
+## Redesign funcional da aba Organização — aguardando homologação
+
+Por solicitação do usuário, a tabela de seis colunas ficou visualmente truncada. A aba foi reorganizada em **três áreas**: (1) Parâmetros da simulação, (2) Resumo com indicadores separados de Examinados, Bloqueados, Colisões e Suspeitas e (3) Arquivos e destinos propostos.
+
+A tabela agora utiliza apenas quatro colunas principais (**Arquivo, Destino proposto, Situação, Observação**), com larguras ajustadas, linhas alternadas, rolagem horizontal quando necessária e tooltip contendo o texto completo. Ao selecionar uma linha, um painel inferior mostra **origem completa, destino completo, motivo do bloqueio, suspeita de duplicata e sugestão de nome alternativo**. A informação secundária não ocupa mais seis colunas estreitas. Continuam as mesmas ferramentas, critérios e limites de 50 arquivos; **nenhuma funcionalidade de gravação ou execução foi acrescentada**. A revisão ainda precisa de homologação visual no Windows.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
