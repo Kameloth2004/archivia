@@ -180,7 +180,7 @@ def summarize_consolidation(
             reason = None
             if (relative.is_absolute() or not relative.parts
                     or any(part in (".", "..") for part in relative.parts)
-                    or "\\\\" in path_text or ":" in path_text):
+                    or chr(92) in path_text or ":" in path_text):
                 reason = "caminho_invalido"
             else:
                 source = root.joinpath(*relative.parts)
