@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page
 from .inventory import CATEGORIES
-from .planner import propose_moves, propose_date_moves
+from .planner import propose_moves, propose_date_moves, summarize_consolidation
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 SYSTEM_PROMPT = (
@@ -43,6 +43,12 @@ SYSTEM_PROMPT = (
     "Para simulação, se truncated=false, diga resultado COMPLETO para a categoria no snapshot. "
     "Somente diga PARCIAL se truncated=true; selected=total_matches não é parcial. "
     "não declare criação de pastas, movimentação ou autorização disponível. "
+    "Na GUI, a pasta selecionada em Inventário fixa o snapshot da consulta. "
+    "Para consolidar muitos arquivos em uma pasta única, use resumir_consolidacao "
+    "se houver categoria de mídia e um destino existente informado pelo usuário. "
+    "Esta ferramenta retorna apenas totais, nunca ações executáveis. "
+    "Informe examined, proposed, blocked, pending, complete e total_matches. "
+    "Nunca chame um resultado PARCIAL de completo. "
     "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
 )
@@ -67,6 +73,34 @@ TOOLS: list[dict[str, Any]] = [
                     "categoria": {"type": "string", "enum": ["imagem", "video", "audio"]},
                     "destino": {"type": "string", "description": "Pasta de destino existente"},
                     "limite": {"type": "integer", "minimum": 1, "maximum": 100},
+                },
+                "required": ["categoria", "destino"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "resumir_consolidacao",
+            "description": (
+                "SIMULA consolidação da categoria imagem/video/audio numa única pasta "
+                "existente informada pelo usuário. Examina até 10000 arquivos em lotes, "
+                "identifica conflitos de nomes entre páginas e retorna somente totais. "
+                "NÃO move, renomeia, cria nem apaga. Exige categoria e destino real."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "categoria": {"type": "string", "enum": ["imagem", "video", "audio"]},
+                    "destino": {
+                        "type": "string",
+                        "description": "Pasta de destino já existente, explicitamente informada pelo usuário"
+                    },
+                    "limite": {
+                        "type": "integer", "minimum": 1, "maximum": 10000,
+                        "description": "Máximo de arquivos a examinar; padrão 10000"
+                    },
                 },
                 "required": ["categoria", "destino"],
                 "additionalProperties": False,
@@ -225,6 +259,26 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             db_path=db_path,
             limit=arguments.get("limite", 10),
             scan_id=context_scan_id if context_scan_id is not None else arguments.get("scan_id"),
+        )
+    if name == "resumir_consolidacao":
+        if set(arguments) - {"categoria", "destino", "limite"}:
+            raise ValueError("Argumento não permitido no resumo de consolidação.")
+        if not {"categoria", "destino"} <= set(arguments):
+            raise ValueError("Categoria e destino são obrigatórios.")
+        if arguments["categoria"] not in ("imagem", "video", "audio"):
+            raise ValueError("Categoria inválida para consolidação.")
+        if not isinstance(arguments["destino"], str) or not arguments["destino"].strip():
+            raise ValueError("Destino deve ser um caminho informado e não vazio.")
+        if "limite" in arguments:
+            value = arguments["limite"]
+            if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 10000:
+                raise ValueError("limite inválido.")
+        return summarize_consolidation(
+            destination=arguments["destino"],
+            category=arguments["categoria"],
+            db_path=db_path,
+            scan_id=context_scan_id,
+            max_candidates=arguments.get("limite", 10000),
         )
     if name == "simular_movimentacao":
         if set(arguments) - {"categoria", "destino", "limite"}:
