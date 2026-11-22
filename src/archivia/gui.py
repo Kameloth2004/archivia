@@ -570,6 +570,13 @@ class ArchivIAWindow(QMainWindow):
         )
         self.duplicate_summary.setWordWrap(True)
         duplicate_box_layout.addWidget(self.duplicate_summary)
+        self.duplicate_coverage = QLabel(
+            "COBERTURA NÃO AVALIADA — execute a verificação SHA-256."
+        )
+        self.duplicate_coverage.setWordWrap(True)
+        self.duplicate_coverage.setMinimumHeight(42)
+        self.duplicate_coverage.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        duplicate_box_layout.addWidget(self.duplicate_coverage)
         self.duplicate_table = QTableWidget(0, 3)
         self.duplicate_table.setHorizontalHeaderLabels(
             ["Grupo", "Arquivo com conteúdo idêntico", "Tamanho (bytes)"]
@@ -982,6 +989,8 @@ class ArchivIAWindow(QMainWindow):
         self.duplicate_summary.setText(
             "Comparando hashes em somente leitura. Nenhum arquivo será alterado..."
         )
+        self.duplicate_coverage.setText("ANÁLISE EM ANDAMENTO — cobertura ainda não determinada.")
+        self.duplicate_coverage.setStyleSheet("")
         self.duplicate_progress.setValue(0)
         self.duplicate_progress.setFormat("Iniciando consulta...")
         self._start_worker(
@@ -1223,6 +1232,44 @@ class ArchivIAWindow(QMainWindow):
                 "AMOSTRA PARCIAL" if result["truncated"]
                 else "Amostra inclui a categoria completa"
             )
+            pending = result.get("unprocessed_candidate_files", 0)
+            ignored = len(result["skipped"])
+            incomplete = (
+                not result.get("complete", False)
+                if global_mode else result["truncated"] or ignored > 0
+            )
+            if incomplete:
+                if global_mode:
+                    explanation = (
+                        f"{pending} candidatos pendentes e {ignored} arquivos ignorados. "
+                        "A execução terminou, mas nem todos os candidatos foram verificados."
+                    )
+                    heading = "GLOBAL INCOMPLETA"
+                else:
+                    explanation = (
+                        f"{result['selected']} de {result['total_matches']} arquivos "
+                        f"na amostra; {ignored} ignorados. "
+                        "A execução terminou, mas a cobertura é parcial."
+                    )
+                    heading = "AMOSTRA INCOMPLETA"
+                self.duplicate_coverage.setStyleSheet(
+                    "QLabel { background: #FFF1D6; color: #713B00; "
+                    "border: 2px solid #D97706; padding: 8px; "
+                    "font-weight: bold; font-size: 13px; }"
+                )
+            else:
+                heading = "VERIFICAÇÃO COMPLETA"
+                explanation = (
+                    "Todos os candidatos de tamanho repetido foram verificados."
+                    if global_mode else
+                    "Todos os arquivos da categoria no snapshot foram examinados."
+                )
+                self.duplicate_coverage.setStyleSheet(
+                    "QLabel { background: #EAF6ED; color: #1D5C32; "
+                    "border: 1px solid #87B89A; padding: 8px; "
+                    "font-weight: bold; font-size: 13px; }"
+                )
+            self.duplicate_coverage.setText(f"{heading} — {explanation}")
             self.duplicate_summary.setText(
                 f"Snapshot #{result['scan_id']} | {amount_label} | "
                 f"{result['hashed_files']} hashes lidos | "
