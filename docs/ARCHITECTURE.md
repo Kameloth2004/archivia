@@ -40,6 +40,12 @@ O agrupamento utiliza data de **modificação UTC**, não EXIF, data de criaçã
 
 O simulador cronológico adiciona `name_collisions` e `potential_duplicate_items` como métricas somente da **amostra paginada**. `possible_duplicate_by_metadata` verifica nome-base normalizado + tamanho maior que zero dentro da amostra, sem hash; isso não comprova cópias idênticas. Para colisões com destinos existentes ou reservados no plano, fornece `alternative_name_suggestion` (sufixo `__2`, etc.) para análise, mantendo `status=bloqueado`. Nenhum nome alternativo é reservado ou usado para execução. Política definitiva de colisões, hashes e duplicatas confirmadas ficam para uma etapa separada.
 
+## Diagnóstico por hash SHA-256 — somente leitura
+
+O módulo `src/archivia/duplicates.py` implementa `verify_duplicate_hashes()` como **análise da amostra**, não detecção completa do catálogo. Usa `query_catalog_page()` read-only, valida origem/paths sem symlinks ou junctions quando detectáveis, confere tamanho e mtime do snapshot no handle antes/depois da leitura, calcula hash em blocos de 256 KiB e agrupa somente `(size, SHA-256)` iguais. Há limites de arquivos e bytes; motivos de ignorados são reportados. Nenhum hash é gravado no catálogo, nenhuma mídia é modificada, nenhuma exclusão é sugerida.
+
+A verificação de tamanho/mtime e hash não cria garantia atômica contra alterações posteriores ou reparse points em todas as plataformas; um futuro executor precisará de projeto separado e revalidação. Os fixtures `tests/fixtures/sha256_demo/` cobrem nomes iguais/diferentes, mesmo tamanho com conteúdos diferentes e arquivos vazios. O resultado não é ferramenta disponível ao agente Ollama nesta etapa.
+
 ## Garantias e limites
 - Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
