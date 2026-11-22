@@ -255,9 +255,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Correção preventiva: em `planner.py` (planejador legado `propose_moves`), removidos campos que referenciavam variáveis não inicializadas; sem mudança nas ações planejadas.
 - **Aguardando homologação da suíte Windows e teste visual**. Nenhum botão de apagar, mover ou executar está disponível; não foi adicionada ferramenta nova ao Ollama.
 
+## SHA-256 — suíte automatizada homologada
+
+- Usuário confirmou a aprovação dos **62 testes** após a implementação dos cenários `tests/fixtures/sha256_demo` e do verificador SHA-256.
+- A aprovação cobre os testes automatizados; **a subaba Duplicatas (SHA-256) ainda requer homologação visual no Windows**.
+- Próximo teste: catalogar explicitamente somente a pasta sintética `tests/fixtures/sha256_demo` na aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado e categoria Imagens. Esperados **2 grupos com 5 arquivos de conteúdo idêntico na amostra**.
+- Não utilizar pastas reais nem eliminar, mover ou renomear arquivos durante a homologação.
+
 ## Próximo passo seguro
 
-**Próximo teste:** `git pull origin main`, executar a suíte e catalogar explicitamente a pasta sintética `tests/fixtures/sha256_demo` pela aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado, categoria Imagens e verificar **2 grupos / 5 arquivos com conteúdo igual** (3 arquivos de dados e 2 vazios). Os nomes iguais com bytes diferentes não devem formar grupo.
+**Suíte de 62 testes aprovada pelo usuário.** Próximo teste: catalogar explicitamente a pasta sintética `tests/fixtures/sha256_demo` pela aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado, categoria Imagens e verificar **2 grupos / 5 arquivos com conteúdo igual** (3 arquivos de dados e 2 vazios). Os nomes iguais com bytes diferentes não devem formar grupo.
 
 ## Limitações e evolução
 
