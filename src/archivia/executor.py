@@ -6,6 +6,7 @@ Este estágio suporta apenas hardlink + remoção no mesmo volume, com journal.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -55,7 +56,62 @@ def _record(journal: Path, event: str, source: Path, target: Path) -> None:
         os.fsync(output.fileno())
 
 
+@contextmanager
+def _exclusive_fixture_lock(test_root: Path):
+    """Bloqueio cooperativo entre processos ArchivIA no mesmo caso de teste.
+
+    Se houver lock remanescente após crash, NÃO removê-lo automaticamente.
+    Outros aplicativos não respeitam este lock; não elimina TOCTOU externo.
+    """
+    runtime = _safe_path(_RUNTIME)
+    folder = _safe_path(test_root)
+    if folder.parent != runtime or not folder.is_dir():
+        raise ValueError("Lock limitado a caso isolado em tests/.runtime.")
+    lock = _safe_path(folder / ".archivia-operation.lock")
+    try:
+        handle = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as exc:
+        raise ValueError(
+            "Outro processo ArchivIA pode estar operando neste caso; "
+            "lock presente. Inspeção manual necessária."
+        ) from exc
+    try:
+        try:
+            os.write(handle, str(os.getpid()).encode("ascii"))
+            os.fsync(handle)
+        finally:
+            os.close(handle)
+        yield
+    finally:
+        # Não remover lock se outro processo o substituiu.
+        # Falha em liberar mantém o teste bloqueado de maneira conservadora.
+        try:
+            if lock.is_file() and not lock.is_symlink():
+                lock.unlink()
+        except OSError:
+            pass
+
+
 def execute_test_move(
+    plan: dict[str, Any],
+    db_path: Path = DEFAULT_DB,
+    *,
+    approval: str,
+) -> dict[str, Any]:
+    """Entrada com exclusão cooperativa; ainda TEST-ONLY."""
+    if approval != _CONFIRM:
+        raise ValueError("Confirmação explícita de teste ausente.")
+    if not isinstance(plan, dict) or not isinstance(plan.get("actions"), list) or len(plan["actions"]) != 1:
+        raise ValueError("Plano deve conter uma única ação.")
+    action = plan["actions"][0]
+    if not isinstance(action, dict) or not isinstance(action.get("source"), str):
+        raise ValueError("Origem inválida no plano.")
+    _, folder = _inside_runtime(Path(action["source"]))
+    with _exclusive_fixture_lock(folder):
+        return _execute_test_move_unlocked(plan, db_path, approval=approval)
+
+
+def _execute_test_move_unlocked(
     plan: dict[str, Any],
     db_path: Path = DEFAULT_DB,
     *,
@@ -138,6 +194,23 @@ def execute_test_move(
         raise ValueError("Origem mudou; dois caminhos podem existir. Consulte o journal.")
 
     _record(journal, "DESTINO_CRIADO", source, target)
+    # Checagem adicional após persistir o evento: se outro programa substituiu
+    # algum caminho durante a escrita do journal, preservar ambos.
+    try:
+        last_source = source.stat(follow_symlinks=False)
+        last_target = target.stat(follow_symlinks=False)
+        unchanged = (
+            (last_source.st_dev, last_source.st_ino, last_source.st_size,
+             last_source.st_mtime_ns) ==
+            (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+            and (last_target.st_dev, last_target.st_ino) ==
+            (before.st_dev, before.st_ino)
+        )
+    except OSError:
+        unchanged = False
+    if not unchanged:
+        _record(journal, "INTERROMPIDO_VERIFICACAO", source, target)
+        raise ValueError("Origem/destino mudaram antes da remoção; revisão manual obrigatória.")
     try:
         os.unlink(source)
     except OSError as exc:
@@ -227,6 +300,19 @@ def inspect_test_journal(test_directory: str | Path) -> dict[str, Any]:
 
 
 def rollback_interrupted_test_move(
+    test_directory: str | Path, *, approval: str,
+) -> dict[str, Any]:
+    """Exclusão cooperativa compartilhada entre execução e recuperação."""
+    if approval != _CONFIRM:
+        raise ValueError("Confirmação explícita de recuperação ausente.")
+    folder = _safe_path(Path(test_directory))
+    with _exclusive_fixture_lock(folder):
+        return _rollback_interrupted_test_move_unlocked(
+            folder, approval=approval,
+        )
+
+
+def _rollback_interrupted_test_move_unlocked(
     test_directory: str | Path, *, approval: str,
 ) -> dict[str, Any]:
     """Reverte APENAS o hardlink extra de uma falha TEST-ONLY conhecida.
