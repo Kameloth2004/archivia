@@ -376,6 +376,14 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Decisão de contenção:** não acrescentar agora botões de sessão progressiva, checkpoints, banco de hashes nem outras funções novas. Antes de codificar mais, revisar o escopo mínimo e consolidar o que já existe.
 - O destaque visual de cobertura SHA-256 foi implementado anteriormente, mas ainda aguarda homologação visual. Não confundir aprovação dos testes de backend com validação do design.
 
+## Revisão de escopo — consolidação antes de novos recursos
+
+- Revisados `README.md`, `docs/ARCHITECTURE.md`, `docs/EDITIONS.md`, `docs/AGENT.md`, `docs/GUI.md`, módulos de planejamento e agente, e a estrutura de `gui.py` (aproximadamente 1.400 linhas, seis abas).
+- Criado `docs/SCOPE.md`, fonte de referência para o **núcleo do bibliotecário digital**, áreas auxiliares, lacunas para organização efetiva, pontos de manutenção, limites e critérios de aprovação de novas funcionalidades.
+- **Decisão explícita:** congelar expansão do SHA-256, não integrar por ora controles de sessão progressiva na GUI e não adicionar dependências, abas ou agentes sem necessidade validada.
+- Prioridade seguinte: **desenhar o fluxo mínimo de organização**, com escolha de arquivos, classificação, destinos, nomes e revisão de conflitos, antes de executar mudanças em mídias.
+- Esta revisão **não alterou código executável**; motor SHA-256 progressivo e demais recursos permanecem como estavam. Suíte de 77 testes aprovada pelo usuário no Windows.
+
 ## Próximo passo seguro
 
 **Suíte de 72 testes e modo global SHA-256 homologados no Windows com fixtures:** snapshot #4, 134 candidatos completos, 3 grupos, 7 arquivos idênticos, 0 pendentes e 5 lotes SQL. Próxima etapa recomendada: verificar o comportamento com limites restritos e grupos pendentes, ainda somente leitura; não habilitar operações de arquivos.
