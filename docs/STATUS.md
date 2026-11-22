@@ -367,6 +367,15 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Adicionados **5 testes TEST-ONLY** em `tests/test_duplicate_sessions.py`: 134 arquivos processados em seis lotes, hashes entre lotes, limites por lote, novo snapshot após início sem troca de contexto, arquivo modificado e entradas inválidas.
 - **Pendente homologação Windows** — suíte esperada: **77 testes**, com um possivelmente ignorado. Antes de disponibilizar a continuação na interface, validar todos.
 
+## Diretriz de escopo e homologação do motor progressivo
+
+- Usuário confirmou no Windows: `Ran 77 tests in 4.154s`, `OK (skipped=1)`. Motor de sessão progressiva passou na suíte automatizada; integração à GUI **não** foi homologada nem solicitada nesta etapa.
+- **Diretriz explícita do projeto:** impedir crescimento desnecessário. ArchivIA é um **bibliotecário digital local**, não um pacote genérico de utilitários. Priorizar o fluxo central: inventariar → encontrar/classificar → propor organização → revisar/aprovar → executar com segurança (etapa futura).
+- Ferramentas auxiliares (hash, histórico, diagnósticos) devem servir ao fluxo principal, sem proliferar abas, comandos, configurações ou dependências. Novas capacidades só devem entrar quando resolverem uma necessidade comprovada e tiverem custo de manutenção justificável.
+- Preservar módulos simples, testes isolados em `tests/`, interface enxuta, Python local e Ollama opcional. Evitar recursos especulativos e redundâncias.
+- **Decisão de contenção:** não acrescentar agora botões de sessão progressiva, checkpoints, banco de hashes nem outras funções novas. Antes de codificar mais, revisar o escopo mínimo e consolidar o que já existe.
+- O destaque visual de cobertura SHA-256 foi implementado anteriormente, mas ainda aguarda homologação visual. Não confundir aprovação dos testes de backend com validação do design.
+
 ## Próximo passo seguro
 
 **Suíte de 72 testes e modo global SHA-256 homologados no Windows com fixtures:** snapshot #4, 134 candidatos completos, 3 grupos, 7 arquivos idênticos, 0 pendentes e 5 lotes SQL. Próxima etapa recomendada: verificar o comportamento com limites restritos e grupos pendentes, ainda somente leitura; não habilitar operações de arquivos.
