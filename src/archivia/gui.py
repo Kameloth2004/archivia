@@ -684,6 +684,71 @@ class ArchivIAWindow(QMainWindow):
         settings_layout.addWidget(date_settings)
         settings_layout.addStretch(1)
 
+        # A mesma configuração de modelo é utilizada pela tela principal.
+        agent_layout.removeItem(model_row)
+        settings_layout.insertLayout(0, model_row)
+
+        home_source_box = QGroupBox("Pasta de origem")
+        home_source_row = QHBoxLayout(home_source_box)
+        self.home_folder = QLineEdit()
+        self.home_folder.setPlaceholderText("Escolha a pasta com os arquivos")
+        home_source_row.addWidget(self.home_folder, 1)
+        self.home_choose_button = QPushButton("Escolher pasta...")
+        self.home_choose_button.clicked.connect(self._choose_folder)
+        home_source_row.addWidget(self.home_choose_button)
+        home_layout.addWidget(home_source_box)
+        self.home_folder.textChanged.connect(self.folder.setText)
+        self.folder.textChanged.connect(self.home_folder.setText)
+
+        quick_box = QGroupBox("O que deseja fazer?")
+        quick_row = QHBoxLayout(quick_box)
+        for label, category in (
+            ("Contar imagens", "imagem"),
+            ("Contar vídeos", "video"),
+            ("Contar áudios", "audio"),
+        ):
+            quick_button = QPushButton(label)
+            quick_button.clicked.connect(
+                lambda _checked=False, cat=category: self._home_count(cat)
+            )
+            quick_row.addWidget(quick_button)
+        home_layout.addWidget(quick_box)
+
+        home_destination_box = QGroupBox("Pasta de destino para simulação (opcional)")
+        home_destination_row = QHBoxLayout(home_destination_box)
+        self.home_destination = QLineEdit()
+        self.home_destination.setPlaceholderText("Selecione uma pasta de destino já existente")
+        home_destination_row.addWidget(self.home_destination, 1)
+        self.home_destination_button = QPushButton("Escolher destino...")
+        self.home_destination_button.clicked.connect(self._home_choose_destination)
+        home_destination_row.addWidget(self.home_destination_button)
+        home_layout.addWidget(home_destination_box)
+
+        self.home_prompt = QLineEdit()
+        self.home_prompt.setPlaceholderText("Descreva o que deseja encontrar ou simular")
+        self.home_prompt.returnPressed.connect(self._home_ask)
+        home_layout.addWidget(self.home_prompt)
+        home_actions = QHBoxLayout()
+        self.home_ask_button = QPushButton("Analisar com IA")
+        self.home_ask_button.clicked.connect(self._home_ask)
+        home_actions.addWidget(self.home_ask_button)
+        self.home_refresh_button = QPushButton("Atualizar análise da pasta")
+        self.home_refresh_button.clicked.connect(self._refresh_folder_session)
+        home_actions.addWidget(self.home_refresh_button)
+        home_layout.addLayout(home_actions)
+
+        self.home_result = QPlainTextEdit()
+        self.home_result.setReadOnly(True)
+        self.home_result.setPlaceholderText(
+            "A resposta aparecerá aqui. Nenhum arquivo será movido."
+        )
+        home_layout.addWidget(self.home_result, 1)
+        home_safety = QLabel(
+            "Somente consultas e simulações. Nenhum arquivo será alterado."
+        )
+        home_safety.setWordWrap(True)
+        home_layout.addWidget(home_safety)
+
         self._refresh_date_placeholders()
 
         self.status = QLabel("Pronto. Nenhuma operação de escrita em mídias está disponível.")
