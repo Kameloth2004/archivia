@@ -244,3 +244,7 @@ Na aba **Inventário**, a pasta selecionada define o contexto da aba **Agente IA
 ## Reutilização do catálogo durante a sessão (aguardando homologação)
 
 Na mesma pasta, várias perguntas ao Ollama compartilham o SQLite temporário gerenciado por `FolderCatalogSession` e não reexecutam a varredura. Ao trocar de pasta ou fechar normalmente a janela, a sessão é descartada. O botão **Atualizar análise da pasta** refaz a varredura somente por solicitação explícita, substituindo o catálogo; alterações externas não são monitoradas automaticamente. O resultado do agente apresenta o horário do snapshot para o usuário avaliar atualidade. O fluxo manual de inventário e SQLite histórico continua acessível na bancada de homologação.
+
+## Transição visual — Início simplificado (aguardando validação Windows)
+
+A tela padrão Início agora concentra pasta selecionada, atalhos de contagem, pergunta ao Ollama, destino opcional para simulações, atualização de análise e resposta textual. Os controles de modelo estão em Configurações. As quatro telas técnicas originais permanecem acessíveis pelo botão Avançado (não foram reescritas). A Biblioteca ainda é baseada no catálogo histórico e será integrada ao catálogo temporário em etapa posterior; nesta primeira entrega o fluxo de Início depende do Ollama. Nenhum recurso de movimentação real foi criado.
