@@ -126,3 +126,14 @@ Um único motor Python compartilhado por Standard, Lite sem IA e Lite + IA. No m
 2. SQLite local em `data/`; dados privados não entram no Git.
 3. Escritas em mídias só em um executor separado, com revisão e aprovação explícita.
 4. Documentar mudanças técnicas em Markdown versionado.
+
+## Executor experimental de arquivo único — TEST-ONLY (aguardando homologação)
+
+- `src/archivia/executor.py`: **única operação real de arquivo introduzida**, deliberadamente **inacessível pela GUI, Ollama ou CLI**. Aceita somente uma ação da prévia `propose_moves()`, sem truncamento, conflitos ou itens adicionais, e exige a confirmação literal `CONFIRMO TESTE ARCHIVIA`.
+- **Escopo físico obrigatório:** origem e destino dentro do **mesmo caso isolado** em `tests/.runtime/`, com diretório de destino previamente existente. Não suporta caminhos pessoais, `E:\\Ashley`, movimentação entre discos ou operações em lote. Não introduzir opção que contorne essa contenção nesta etapa.
+- Valida a proposta contra o catálogo e o estado físico antes da operação. Rejeita links simbólicos e junctions detectáveis; bloqueia destinos já ocupados (inclusive diferença de maiúsculas/minúsculas); testa mesmo volume e identidade do arquivo.
+- Usa `os.link` sem substituição do destino, seguido de `os.unlink` da origem, e grava eventos em `archivia-executor-journal.jsonl` dentro da fixture, com `fsync`. **Não é transação atômica**: falha após criar o hardlink pode deixar os dois caminhos. Nessa condição, **não repetir automaticamente** nem alegar rollback; revisão manual do journal é obrigatória.
+- Cinco testes `TEST-ONLY` novos cobrem movimentação de fixture, ausência de consentimento, destino ocupado/arquivo alterado, plano adulterado ou parcial e tentativa de saída de `tests/.runtime`. Execução Windows ainda pendente.
+- **Não implementado:** recuperação automática, rollback confiável, movimentação entre unidades, segurança completa contra condições de corrida, autorização de lote, interface de revisão e executor generalizado.
+- **Suíte esperada:** 100 testes, assumindo 95 anteriores (o teste 95 ainda não teve homologação reportada). Nenhuma mídia do usuário deve ser usada nesta fase.
+
