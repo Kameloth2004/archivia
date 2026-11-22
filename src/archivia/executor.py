@@ -154,3 +154,71 @@ def execute_test_move(
         "files_moved": 1,
         "test_only": True,
     }
+
+
+def inspect_test_journal(test_directory: str | Path) -> dict[str, Any]:
+    """Diagnóstico estritamente de leitura; nunca executa rollback.
+
+    Lê eventos do journal de um caso em tests/.runtime e verifica a presença
+    atual de origem e destino. Não interpreta presença como identidade de bytes
+    nem declara uma operação interrompida como recuperada.
+    """
+    folder = _safe_path(Path(test_directory))
+    runtime = _safe_path(_RUNTIME)
+    if folder.parent != runtime or not folder.is_dir():
+        raise ValueError("Inspeção limitada a um caso direto de tests/.runtime.")
+    journal = _safe_path(folder / "archivia-executor-journal.jsonl")
+    if not journal.is_file():
+        raise ValueError("Journal do caso de teste não encontrado.")
+    if journal.stat().st_size > 1024 * 1024:
+        raise ValueError("Journal excessivamente grande para inspeção.")
+    events: list[str] = []
+    source: Path | None = None
+    destination: Path | None = None
+    with journal.open("r", encoding="utf-8") as handle:
+        for raw in handle:
+            if not raw.endswith("\n"):
+                raise ValueError("Journal contém registro incompleto.")
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError("Journal contém JSON inválido.") from exc
+            if (not isinstance(event, dict) or
+                    event.get("event") not in (
+                        "PREPARADO", "FALHA_CRIACAO", "DESTINO_CRIADO",
+                        "INTERROMPIDO_VERIFICACAO", "INTERROMPIDO_REMOCAO",
+                        "CONCLUIDO",
+                    ) or not isinstance(event.get("source"), str) or
+                    not isinstance(event.get("destination"), str)):
+                raise ValueError("Registro do journal inválido.")
+            current_source = _safe_path(Path(event["source"]))
+            current_destination = _safe_path(Path(event["destination"]))
+            _, group_source = _inside_runtime(current_source)
+            _, group_dest = _inside_runtime(current_destination)
+            if group_source != folder or group_dest != folder:
+                raise ValueError("Journal aponta para outro caso de teste.")
+            if source is None:
+                source = current_source
+                destination = current_destination
+            elif source != current_source or destination != current_destination:
+                raise ValueError("Journal reúne operações diferentes; revisão manual necessária.")
+            events.append(event["event"])
+    if not events or events[0] != "PREPARADO":
+        raise ValueError("Journal não começa com preparação válida.")
+    if events[-1] == "CONCLUIDO":
+        status = "concluido_registrado"
+    elif events[-1] == "FALHA_CRIACAO":
+        status = "falha_registrada"
+    else:
+        status = "revisao_manual_obrigatoria"
+    return {
+        "status": status,
+        "last_event": events[-1],
+        "events": events,
+        "source_exists": source.exists(),
+        "destination_exists": destination.exists(),
+        "source": str(source),
+        "destination": str(destination),
+        "test_only": True,
+        "automatic_recovery": False,
+    }
