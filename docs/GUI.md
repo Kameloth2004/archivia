@@ -230,13 +230,13 @@ Existe uma primeira implementação de sessões progressivas em `src/archivia/du
 
 O indicador separado de cobertura (**GLOBAL INCOMPLETA**, **VERIFICAÇÃO COMPLETA**) já foi implementado, mas sua homologação visual permanece pendente.
 
-## Contexto automático para consultas do agente (pendente de validação)
+## Contexto automático para consultas do agente (homologado para consulta)
 
 Na aba **Inventário**, a pasta selecionada define o contexto da aba **Agente IA**: ao enviar uma pergunta, a GUI procura o snapshot mais recente da origem exata e restringe as ferramentas do Ollama a ele, sem exigir que o usuário informe `scan_id`. Se a pasta não estiver catalogada, o usuário recebe aviso para usar **Examinar pasta** e **Salvar inventário**; não há catalogação automática, alteração de mídias ou consulta silenciosa a outra origem. Se não houver pasta selecionada, o comportamento anterior continua usando o último snapshot geral, por compatibilidade. Essa vinculação é uma primeira integração, **não** o fluxo completo de clique único nem o redesign prometido.
 
 ## Planejamento posterior
 
-- Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
-- Listagem de arquivos por páginas, com filtros e sem JSON enorme na tela.
-- Aprimorar visual, gestão de modelos, histórico de conversa e depois reconhecimento visual.
-- Implementar executor de arquivos em componente separado somente após aprovação/auditoria e testes abrangentes.
+- Priorizar o fluxo principal: origem → tipo de arquivo → instrução ao agente → prévia de plano → revisão.
+- Reservar os detalhes técnicos ao futuro painel avançado sem acrescentar controles redundantes.
+- Fazer redesign modularizado do protótipo quando o fluxo essencial estiver estabilizado.
+- Projetar executor somente após aprovação/auditoria, proteção contra conflitos e estratégia de recuperação.
