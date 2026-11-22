@@ -217,9 +217,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Integração com ferramenta real **homologada**; o plano não possui executor e não há autorização de movimentação.
 - Ajuste de precisão: a resposta textual do Qwen3 afirmou incorretamente que o resultado era parcial apesar de `truncated=false`. Reforçado no prompt que `truncated=false` significa que a categoria selecionada foi completamente representada no plano, não resultado parcial. **A nova instrução ainda não foi revalidada com Qwen3 real.**
 
+## Diagnóstico de conflitos e duplicatas potenciais — aguardando homologação
+
+- Acrescentado à **simulação cronológica** um diagnóstico por amostra: `possible_duplicate_by_metadata` assinala arquivos do mesmo nome-base (casefold) e mesmo tamanho **dentro da página selecionada**, sem abrir ou hashear conteúdos. **É suspeita, não duplicata confirmada**.
+- `name_collisions` contabiliza ações bloqueadas por destino já existente ou conflito de nome dentro do plano. `potential_duplicate_items` conta itens suspeitos; ambos abrangem apenas a página do plano, não o catálogo completo.
+- Quando um nome de destino colide, o planejador oferece `alternative_name_suggestion` (exemplo `foto__2.jpg`) **somente para visualização**. O status original continua `bloqueado` e a sugestão não é reservada nem executada.
+- A aba Organização apresenta novas colunas **Possível duplicata?** e **Nome alternativo sugerido**, além dos contadores.
+- Dois novos testes sintéticos verificam suspeitas com conteúdos deliberadamente diferentes, conflitos, alternativas e ausência de gravação.
+- **Ainda não homologado no Windows**. Ainda não existe detecção real por hash nem escolha de política de conflitos para execução.
+
 ## Próximo passo seguro
 
-**Integração do Qwen3 com a simulação cronológica homologada pelo usuário:** 1 proposta, 0 bloqueios, `truncated=false`. Próximo passo: validar a precisão da nova instrução de resposta e planejar o avanço seguro do sistema sem conceder execução de movimentos.
+**Próximo teste:** atualizar a main e executar a suíte (57 testes esperados, 1 possivelmente ignorado); depois verificar as novas colunas na aba Organização. Nenhuma movimentação será habilitada.
 
 ## Limitações e evolução
 
