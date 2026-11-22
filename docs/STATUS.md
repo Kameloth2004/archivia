@@ -30,7 +30,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 ## Homologação recente
 
-- **87 testes homologados no Windows pelo usuário**: `Ran 87 tests in 4.667s`, `OK (skipped=1)` (86 aprovados e um ignorado), nenhuma falha. **Após a integração do agente, espera-se suíte de 89 testes**; execução ainda pendente.
+- **89 testes homologados no Windows pelo usuário**: `Ran 89 tests in 4.731s`, `OK (skipped=1)` (88 aprovados e um ignorado), nenhuma falha.
 - Ollama real / GUI: pasta `E:\\Ashley`, snapshot **#6**, consulta `buscar_arquivos_catalogo` com `categoria=imagem`; resultado **1.344 imagens**, 10 exemplos, 135 páginas; resposta do agente coerente com os dados. Erro anterior `limite inválido` não reapareceu.
 - Modo SHA-256 global / fixture snapshot #4: 134 candidatos, 3 grupos de conteúdo igual e 7 arquivos associados; com limite 50, 125 candidatos pendentes e estado **GLOBAL INCOMPLETA**. Indicador visual específico de cobertura foi implementado, **mas sua aparência final ainda não foi homologada por captura**.
 - Verificação remota de `main` em 22/11/2026, antes da atualização editorial: commit `a622f47716bbad4e32aafb1dd966d2d48565d134` idêntico a `main`, zero commits divergentes; única branch encontrada: `main`. Não foram encontrados status checks associados ao commit. O repositório remoto não permite confirmar alterações locais não enviadas.
@@ -68,12 +68,12 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 - Adicionada ferramenta autorizada `resumir_consolidacao` em `agent.py`, com parâmetros `categoria`, `destino` e `limite` opcional (1–10.000).
 - A ferramenta utiliza `context_scan_id` da pasta selecionada na GUI, rejeita parâmetros extras e só chama `summarize_consolidation()`. O retorno contém contagens e `actions=[]`, `executable=false`.
-- Adicionados **dois testes MOCK-ONLY**: catálogo de 105 imagens e colisão entre páginas usando snapshot de outra origem mais recente; validação de argumentos inválidos. **89 testes esperados** (87 anteriores + 2), um possivelmente ignorado.
+- Adicionados **dois testes MOCK-ONLY**: catálogo de 105 imagens e colisão entre páginas usando snapshot de outra origem mais recente; validação de argumentos inválidos. **89 testes homologados** (87 anteriores + 2), um ignorado.
 - Sem criação de pastas, renomeação, exclusão ou movimentação de arquivos; sem nova aba ou dependência.
 
 ## Próxima etapa
 
-**Executar 89 testes no Windows.** Se aprovados, homologar uma chamada real do Ollama com pasta sintética e destino existente, verificando `total_matches`, `examined`, `blocked`, `pending` e `complete`. Ainda não há plano executável. Antes de qualquer executor, revisar atomicidade SQLite, junctions/reparse points do Windows e condições de corrida.
+**89 testes aprovados no Windows.** Próximo passo: homologar uma chamada real do Ollama com pasta sintética e destino existente, verificando `total_matches`, `examined`, `blocked`, `pending` e `complete`. Ainda não há plano executável. Antes de qualquer executor, revisar atomicidade SQLite, junctions/reparse points do Windows e condições de corrida.
 
 ## Referências
 
