@@ -88,9 +88,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Limite da evidência:** o resultado mostra o banco temporário em uso, mas não comprova por si só a remoção após o retorno; a limpeza foi testada anteriormente com mocks (suíte de 92 testes), incluindo erro simulado.
 - Próximas prioridades: evitar nova varredura a cada pergunta na mesma sessão, revisar tratamento de falhas abruptas e desenhar o fluxo principal simplificado; sem persistência involuntária e sem executor de arquivos.
 
+## Sessão temporária reutilizável — atualização pendente de homologação
+
+- `FolderCatalogSession` reutiliza um único catálogo SQLite temporário para várias perguntas na **mesma pasta**, sem revarrer a origem a cada chamada.
+- A troca da pasta selecionada e o fechamento normal da janela descartam o catálogo; consultas em andamento impedem fechamento/troca até terminar.
+- **Atualizar análise da pasta** faz nova varredura manual e substitui o snapshot da sessão. Falha de atualização preserva o último catálogo válido, sinalizando erro. A interface informa a data da catalogação e alerta que mudanças externas **não são detectadas automaticamente**.
+- `ask_agent_for_folder()` anterior continua disponível como consulta temporária isolada por chamada; fluxo novo da GUI usa `FolderCatalogSession`.
+- Dois testes de sessão acrescentados (reutilização, atualização e erro). **94 testes esperados** (92 anteriores + 2), um possivelmente ignorado. A execução no Windows ainda está pendente.
+- Nenhum banco permanente, nova dependência, módulo ou executor de arquivos foi criado.
+
 ## Próxima etapa
 
-**92 testes aprovados no Windows e fluxo temporário homologado com Ollama real.** Próximo incremento: reduzir revarreduras desnecessárias ao perguntar novamente sobre a mesma origem durante a sessão, sem tornar o banco permanente. Antes de implementar, revisar ciclo de vida, limpeza e falhas abruptas.
+Executar **94 testes** no Windows. Depois homologar duas consultas ao Ollama na mesma origem sem nova varredura e, após alterar uma fixture, usar **Atualizar análise da pasta** para confirmar a nova contagem. O catálogo da sessão é um snapshot por definição: para acervo alterado externamente a atualização é explícita, não automática.
 
 ## Referências
 
