@@ -240,3 +240,7 @@ Na aba **Inventário**, a pasta selecionada define o contexto da aba **Agente IA
 - Reservar os detalhes técnicos ao futuro painel avançado sem acrescentar controles redundantes.
 - Fazer redesign modularizado do protótipo quando o fluxo essencial estiver estabilizado.
 - Projetar executor somente após aprovação/auditoria, proteção contra conflitos e estratégia de recuperação.
+
+## Reutilização do catálogo durante a sessão (aguardando homologação)
+
+Na mesma pasta, várias perguntas ao Ollama compartilham o SQLite temporário gerenciado por `FolderCatalogSession` e não reexecutam a varredura. Ao trocar de pasta ou fechar normalmente a janela, a sessão é descartada. O botão **Atualizar análise da pasta** refaz a varredura somente por solicitação explícita, substituindo o catálogo; alterações externas não são monitoradas automaticamente. O resultado do agente apresenta o horário do snapshot para o usuário avaliar atualidade. O fluxo manual de inventário e SQLite histórico continua acessível na bancada de homologação.
