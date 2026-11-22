@@ -315,9 +315,20 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Interface, controle de limite, processamento multipágina e apresentação de grupos aprovados. **Não significa varredura exaustiva de acervos maiores**, nem habilita qualquer operação sobre arquivos.
 - O resultado está restrito ao snapshot e aos dados sintéticos, sem mover, apagar ou renomear arquivos.
 
+## SHA-256: candidatos globais do snapshot — implementação pendente de homologação
+
+- Introduzida `verify_snapshot_duplicate_candidates()` em `src/archivia/duplicates.py` como **segundo modo**, preservando `verify_duplicate_hashes()` (amostra por nome) e seu contrato.
+- O SQLite é aberto `mode=ro`; a consulta de `GROUP BY size_bytes HAVING COUNT(*) > 1` identifica **tamanhos repetidos ao longo de todo o snapshot selecionado**, sem primeiro limitar os nomes a 1.000 arquivos. Grupos são processados inteiros por tamanho; grupos que excedem o limite de candidatos não são cortados nem declarados verificados.
+- Leitura SHA-256 continua em blocos e com orçamento por arquivo (máx. 16 MiB) e por execução (máx. 256 MiB; padrão 64 MiB), validando tamanho/mtime e bloqueando caminhos com symlinks/junctions. Limite de candidatos global: **5.000 por execução**, por grupos de mesmo tamanho.
+- Retorna contadores `candidate_files_total`, `unprocessed_candidate_files`, `size_groups_omitted`, `hashed_files`, `skipped`, `complete`, `truncated`, `confirmed_groups_in_sample` e dados de progresso `catalog/hash/done`.
+- GUI: seletor **Tipo de análise** na subaba Duplicatas: **Amostra por nome** (até 1.000) / **Candidatos em todo o snapshot** (até 5.000); quantidade máxima ajustada automaticamente, com contagem explícita de candidatos pendentes e marcação `GLOBAL INCOMPLETA` quando houver omissões/erros.
+- 4 novos testes em `tests/test_duplicates_global.py`: oito fixtures conhecidos; grupo grande não cortado; par idêntico no início e no fim de snapshot com **1.012 arquivos**; validação de argumentos/originais preservados.
+- **Limitação deliberada:** mesmo no modo global, `complete` só é verdadeiro quando nenhum grupo candidato ficou de fora e nenhuma leitura foi ignorada. Não é busca entre snapshots ou discos diferentes. A verificação está sujeita a orçamento e race conditions da origem; não há executor ou escrita.
+- **Ainda não homologado no Windows**. A suíte deve passar de 68 para **72 testes**, com um possivelmente ignorado.
+
 ## Próximo passo seguro
 
-**Suíte de 68 testes e criação do cenário de 134 arquivos confirmadas pelo usuário.** Próximo passo: catalogar a pasta sintética pelo Inventário, confirmar novo snapshot; então, na subaba Duplicatas, selecionar o snapshot e limite 200 e verificar 134 arquivos, 2 lotes SQL, 3 grupos SHA-256 e 7 arquivos iguais. Nenhuma movimentação ou exclusão habilitada.
+**Modo SHA-256 global implementado, aguardando homologação local:** atualizar main, executar 72 testes esperados e usar snapshot #4 com modo Candidatos em todo o snapshot e limite 200. Verificar 3 grupos, 7 arquivos e zero candidatos pendentes; depois testar limite menor para mostrar `GLOBAL INCOMPLETA`. Nenhum arquivo será movido ou excluído.
 
 ## Limitações e evolução
 
