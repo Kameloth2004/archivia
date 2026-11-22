@@ -103,9 +103,6 @@ def propose_moves(
         "total_matches": snapshot["count"],
         "truncated": snapshot["count"] > limit,
         "blocked": blocked,
-        "potential_duplicate_items": potential_duplicates,
-        "name_collisions": name_collisions,
-        "duplicate_detection": "metadata_only_name_and_size_not_verified",
         "actions": actions,
     }
 
