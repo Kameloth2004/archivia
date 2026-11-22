@@ -224,6 +224,12 @@ A subaba Duplicatas possui indicador próprio de **cobertura**, distinto da barr
 
 Esse destaque é melhoria pontual de clareza, não o redesign final. O projeto prevê uma etapa própria de interface visual e identidade, com hierarquia tipográfica, estados semânticos, navegação, tabelas e acessibilidade. Nenhum algoritmo SHA-256 foi modificado nesta atualização.
 
+## Processamento progressivo — preparação do motor
+
+Existe uma primeira implementação de sessões progressivas em `src/archivia/duplicate_sessions.py`, mas **ela ainda não está conectada à interface**. Após aprovação dos testes locais, a próxima evolução da subaba Duplicatas poderá oferecer **Iniciar sessão**, **Próximo lote** e **Encerrar sessão**, mantendo resultados acumulados na memória enquanto o aplicativo estiver aberto. O cursor fixa snapshot e categoria; alterar essas opções deverá iniciar outra sessão. Encerrar/reabrir o aplicativo perde o progresso, pois esta primeira etapa não salva checkpoints nem hashes no disco.
+
+O indicador separado de cobertura (**GLOBAL INCOMPLETA**, **VERIFICAÇÃO COMPLETA**) já foi implementado, mas sua homologação visual permanece pendente.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
