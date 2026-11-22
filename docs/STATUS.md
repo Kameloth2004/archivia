@@ -283,9 +283,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Os hashes só são calculados para arquivos de mesmo tamanho na **amostra**. A operação continua read-only, sem escrita de mídias, alteração SQLite ou exclusão. Não é varredura exaustiva dos 44 mil arquivos.
 - **Ainda não validado no Windows** nesta revisão. Suíte esperada: 65 testes, com um possivelmente ignorado.
 
+## SHA-256 paginado — homologação visual da GUI
+
+- Usuário enviou captura da aba **Organização → Duplicatas (SHA-256)** no Windows com snapshot #3 (`tests/fixtures/sha256_demo`), categoria Imagens e limite ajustado para **100 arquivos**.
+- Barra de progresso concluída, resultados **8 de 8 arquivos**, **8 hashes calculados**, **2 grupos confirmados**, **5 arquivos com conteúdo idêntico**, **0 ignorados**, **1 lote SQL**; status **somente leitura**, sem alteração de arquivos.
+- Interface e opções de limites/progresso aprovadas na amostra sintética. Como ela possui apenas 8 arquivos, a captura **não** demonstra processamento de múltiplas páginas; essa situação é coberta por testes automatizados e permanece sem homologação visual específica no Windows.
+- Próxima evolução recomendada: teste sintético com mais de 100 arquivos em pastas de teste, comparação entre páginas, orçamento de leitura e progresso. Não habilitar movimentação nem exclusão.
+
 ## Próximo passo seguro
 
-**Próximo teste:** atualizar main e executar a suíte (65 testes esperados); na subaba Duplicatas, escolher snapshot #3, aumentar a amostra para 100 e conferir os **2 grupos / 5 arquivos** e progresso. Não mover nem alterar arquivos.
+**Interface SHA-256 paginada homologada visualmente no snapshot #3:** 8 de 8 arquivos, 2 grupos, 5 arquivos idênticos, 1 lote SQL e progresso concluído. Para validar múltiplas páginas na GUI, utilizar fixture sintética com mais de 100 arquivos. Nenhuma movimentação ou exclusão habilitada.
 
 ## Limitações e evolução
 
