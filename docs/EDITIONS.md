@@ -19,7 +19,7 @@ RAM/hardware acima são **metas preliminares**, não requisitos certificados nem
 ## Dependências e distribuição planejadas
 
 - Motor: Python e SQLite (SQLite já disponível via módulo padrão `sqlite3`), sem serviços em nuvem obrigatórios.
-- Interface proposta: PySide6/Qt, ainda não implementada; avaliar custo em RAM e tamanho de instalação.
+- Interface de homologação: PySide6/Qt **já implementada** como dependência opcional; avaliar custo em RAM e tamanho do instalador futuro.
 - Instalação final pretendida: empacotar runtime Python e dependências, para o usuário não precisar instalar Python manualmente.
 - Ollama: opcional no Lite, necessário apenas ao habilitar agente no Lite + IA e Standard.
 - Modelos: baixar/selecionar separadamente; nunca presumir que modelo esteja presente.
@@ -56,7 +56,7 @@ Essa ordem é diretriz flexível; não significa que as etapas já estejam imple
 ## Estado validado até esta decisão
 
 - Inventário e SQLite funcionais.
-- 19 testes executados com `OK (skipped=1)`.
+- O registro inicial de 19 testes foi superado: **83 testes informados como aprovados no Windows em 22/11/2026** (`OK (skipped=1)`).
 - Qwen3 executou `resumo_catalogo` com resposta correta.
 - Qwen3 executou `simular_movimentacao` e retornou plano com uma proposta e zero bloqueios.
 - **Nenhum arquivo de mídia foi movimentado**; não existe executor.
