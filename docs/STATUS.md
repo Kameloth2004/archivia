@@ -151,9 +151,17 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Limitação de segurança:** o caminho pode ser substituído por outro processo entre a última verificação e `os.unlink` (TOCTOU); não há garantia de integridade sob concorrência adversarial, nem suporte a volumes diferentes. Portanto, ainda não liberar arquivos reais nem integrar a GUI/Ollama.
 - A inspeção anterior permanece somente leitura; o rollback exige autorização explícita e continua restrito à fixture. A recuperação automática geral **não existe**.
 
+## Exclusão cooperativa e revalidação final — aguardando homologação Windows
+
+- O executor passou a proteger **execução e recuperação** com o mesmo lock exclusivo por caso de fixture: diretório atômico `.archivia-operation.lock` criado com `os.mkdir`; tentativa concorrente é recusada. Um lock remanescente após falha/crash exige revisão, não é removido automaticamente em nova execução.
+- Após persistir `DESTINO_CRIADO`, o executor revalida `st_dev`, `st_ino`, tamanho e `mtime_ns` da origem e identidade do hardlink destino antes de tentar remover a origem. Se algo mudar, registra `INTERROMPIDO_VERIFICACAO` e preserva ambos os caminhos para revisão.
+- Três testes novos: concorrência na execução, concorrência na recuperação e modificação durante o registro do destino. **Suíte esperada: 109 testes**, com um possivelmente ignorado. A atualização ainda não foi executada no Windows pelo usuário.
+- **Limitação expressa:** lock é cooperativo apenas entre chamadas do ArchivIA que o respeitam; processos externos podem modificar caminhos. A revalidação ainda sofre TOCTOU entre `stat` e `unlink`. Nenhuma garantia de segurança geral nem permissão para utilizar arquivos reais.
+- Permanece **TEST-ONLY** dentro de `tests/.runtime`, sem integração com GUI, CLI ou Ollama.
+
 ## Próxima etapa
 
-Após a homologação de **106 testes**, fazer revisão focada em identidade de arquivos e condições de corrida (TOCTOU) antes de ampliar o executor. Os testes de recuperação são restritos a fixtures em `tests/.runtime` e não provam segurança contra modificações simultâneas externas. Em seguida estudar estratégia de movimentação entre unidades, com cópia para destino temporário, validação integral, publicação sem sobrescrita e registro durável. **Não integrar a operações com mídias pessoais, CLI, GUI ou Ollama ainda.**
+No Windows, atualizar `main` e executar `python -m unittest discover -s tests -v`; **109 testes esperados** (106 homologados + 3 novos). Se aprovados, revisar os limites TOCTOU restantes e preparar testes isolados de cópia segura entre volumes. Não utilizar mídias pessoais nem habilitar a GUI ou o agente para executar movimentações.
 
 ## Referências
 
