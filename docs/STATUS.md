@@ -97,9 +97,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Dois testes de sessão acrescentados (reutilização, atualização e erro). **94 testes homologados no Windows pelo usuário**: `Ran 94 tests in 6.206s`, `OK (skipped=1)`; 93 aprovados e um ignorado.
 - Nenhum banco permanente, nova dependência, módulo ou executor de arquivos foi criado.
 
+## Correção de seleção de origem e filtros — aguardando homologação
+
+- Relatório real mostrou `database=D:\\PROJETOS\\archivia\\data\\catalogo.sqlite3` (histórico persistente), `scan_id=7`, `nome=E:/Ashley` e `count=0`. O parâmetro `nome` filtra **caminhos relativos**, não seleciona a origem. O zero foi produto do filtro incorreto; não indica ausência de imagens.
+- A GUI agora **exige pasta selecionada em Inventário** para o agente e não faz fallback silencioso ao histórico. Informar uma pasta apenas no texto da pergunta não a seleciona na interface.
+- A busca do agente ignora o filtro `nome` apenas quando ele é exatamente o caminho absoluto da origem do snapshot. Outros caminhos absolutos são rejeitados; filtros relativos normais mantidos.
+- Instruções do agente e descrição da ferramenta esclarecem que `nome` nunca deve conter o diretório absoluto da origem.
+- Um teste sintético novo cobre origem absoluta e rejeição de outro caminho. **Suíte esperada: 95 testes** (94 anteriores + 1), um possivelmente ignorado. Execução Windows pendente.
+- O timeout anterior foi atribuído pelo usuário a outro aplicativo utilizando VRAM; após fechá-lo o Ollama respondeu. Nenhuma alteração de timeout foi feita.
+
 ## Próxima etapa
 
-**94 testes aprovados no Windows.** Homologar duas consultas ao Ollama na mesma origem sem nova varredura e, após alterar uma fixture, usar **Atualizar análise da pasta** para confirmar a nova contagem. O catálogo da sessão é um snapshot por definição: para acervo alterado externamente a atualização é explícita, não automática.
+Executar **95 testes** no Windows. Reabrir o ArchivIA; na aba Inventário, confirmar que `E:\\Ashley` está de fato no campo de pasta. Somente então perguntar ao agente quantas imagens há na **pasta selecionada**, sem passar caminho absoluto no campo de busca. Conferir `database` temporário, `root`, `count` e reuso em segunda consulta; em seguida validar atualização explícita com fixtures.
 
 ## Referências
 
