@@ -24,6 +24,7 @@ from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, displa
 from .inventory import inventory
 from .preview import preview_inventory_page
 from .planner import propose_date_moves
+from .duplicates import verify_duplicate_hashes
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
 
@@ -74,6 +75,11 @@ class QueryWorker(QThread):
                 result = propose_date_moves(
                     destination=self.destination, category=self.category,
                     db_path=self.database, limit=50, scan_id=self.scan_id,
+                )
+            elif self.mode == "duplicate_hash":
+                result = verify_duplicate_hashes(
+                    db_path=self.database, category=self.category,
+                    scan_id=self.scan_id, limit=50,
                 )
             elif self.mode == "origins":
                 result = catalog_origins_summary(self.database)
@@ -357,6 +363,15 @@ class ArchivIAWindow(QMainWindow):
         self.next_button.setEnabled(False)
         library_layout.addWidget(catalog_box, 1)
 
+        organization_modes = QTabWidget()
+        plan_page = QWidget()
+        plan_layout = QVBoxLayout(plan_page)
+        duplicate_page = QWidget()
+        duplicate_layout = QVBoxLayout(duplicate_page)
+        organization_modes.addTab(plan_page, "Simulação por data")
+        organization_modes.addTab(duplicate_page, "Duplicatas (SHA-256)")
+        organize_layout.addWidget(organization_modes, 1)
+
         # Organização é uma prévia, nunca um fluxo de execução.
         plan_controls = QGroupBox("1. Parâmetros da simulação")
         controls_layout = QVBoxLayout(plan_controls)
@@ -393,7 +408,7 @@ class ArchivIAWindow(QMainWindow):
         self.plan_button = QPushButton("Simular organização — sem alterações")
         self.plan_button.clicked.connect(self._run_date_plan)
         controls_layout.addWidget(self.plan_button)
-        organize_layout.addWidget(plan_controls)
+        plan_layout.addWidget(plan_controls)
 
         plan_overview = QGroupBox("2. Resumo do plano")
         overview_grid = QHBoxLayout(plan_overview)
@@ -414,12 +429,12 @@ class ArchivIAWindow(QMainWindow):
             metric.addWidget(value)
             overview_grid.addLayout(metric, 1)
             self.plan_metric_labels[key] = value
-        organize_layout.addWidget(plan_overview)
+        plan_layout.addWidget(plan_overview)
         self.plan_summary = QLabel(
             "Nenhum plano gerado. A simulação examina no máximo 50 arquivos por vez."
         )
         self.plan_summary.setWordWrap(True)
-        organize_layout.addWidget(self.plan_summary)
+        plan_layout.addWidget(self.plan_summary)
 
         plan_details = QGroupBox("3. Arquivos e destinos propostos")
         details_layout = QVBoxLayout(plan_details)
@@ -465,7 +480,66 @@ class ArchivIAWindow(QMainWindow):
         )
         details_layout.addWidget(self.plan_item_details)
         self._plan_actions = []
-        organize_layout.addWidget(plan_details, 1)
+        plan_layout.addWidget(plan_details, 1)
+
+        duplicate_box = QGroupBox("Comparação SHA-256 — SOMENTE LEITURA")
+        duplicate_box_layout = QVBoxLayout(duplicate_box)
+        duplicate_intro = QLabel(
+            "Analisa até 50 arquivos do snapshot selecionado, sem alterações. "
+            "Lê conteúdo apenas quando há pelo menos dois arquivos de mesmo tamanho "
+            "na amostra. Não executa exclusões ou movimentações."
+        )
+        duplicate_intro.setWordWrap(True)
+        duplicate_box_layout.addWidget(duplicate_intro)
+        duplicate_options = QHBoxLayout()
+        duplicate_options.addWidget(QLabel("Categoria:"))
+        self.duplicate_category = QComboBox()
+        self.duplicate_category.addItem("Imagens", "imagem")
+        self.duplicate_category.addItem("Vídeos", "video")
+        self.duplicate_category.addItem("Áudios", "audio")
+        self.duplicate_category.addItem("Todos os tipos", None)
+        duplicate_options.addWidget(self.duplicate_category)
+        duplicate_options.addWidget(QLabel("Snapshot:"))
+        self.duplicate_snapshot = QComboBox()
+        self.duplicate_snapshot.addItem("Mais recente (automático)", None)
+        duplicate_options.addWidget(self.duplicate_snapshot, 1)
+        self.duplicate_history_button = QPushButton("Atualizar histórico")
+        self.duplicate_history_button.clicked.connect(self._load_history)
+        duplicate_options.addWidget(self.duplicate_history_button)
+        duplicate_box_layout.addLayout(duplicate_options)
+        self.duplicate_button = QPushButton("Verificar duplicatas — SHA-256 (somente leitura)")
+        self.duplicate_button.clicked.connect(self._run_duplicate_hash)
+        duplicate_box_layout.addWidget(self.duplicate_button)
+        self.duplicate_summary = QLabel(
+            "Nenhuma verificação realizada. Limites: 50 arquivos, 16 MiB por arquivo "
+            "e 64 MiB de leitura total."
+        )
+        self.duplicate_summary.setWordWrap(True)
+        duplicate_box_layout.addWidget(self.duplicate_summary)
+        self.duplicate_table = QTableWidget(0, 3)
+        self.duplicate_table.setHorizontalHeaderLabels(
+            ["Grupo", "Arquivo com conteúdo idêntico", "Tamanho (bytes)"]
+        )
+        self.duplicate_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.duplicate_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.duplicate_table.setAlternatingRowColors(True)
+        self.duplicate_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Fixed
+        )
+        self.duplicate_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        self.duplicate_table.setColumnWidth(0, 65)
+        self.duplicate_table.setColumnWidth(2, 120)
+        duplicate_box_layout.addWidget(self.duplicate_table, 1)
+        self.duplicate_notes = QPlainTextEdit()
+        self.duplicate_notes.setReadOnly(True)
+        self.duplicate_notes.setMaximumHeight(114)
+        self.duplicate_notes.setPlaceholderText(
+            "Grupos, hashes completos, arquivos ignorados e limites aparecerão aqui."
+        )
+        duplicate_box_layout.addWidget(self.duplicate_notes)
+        duplicate_layout.addWidget(duplicate_box, 1)
 
         agent_box = QGroupBox("Agente Ollama local")
         agent_layout = QVBoxLayout(agent_box)
@@ -810,6 +884,23 @@ class ArchivIAWindow(QMainWindow):
             destination=destination,
         )
 
+    def _run_duplicate_hash(self) -> None:
+        try:
+            database = self._database_path()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self.duplicate_table.setRowCount(0)
+        self.duplicate_notes.clear()
+        self.duplicate_summary.setText(
+            "Comparando hashes em somente leitura. Nenhum arquivo será alterado..."
+        )
+        self._start_worker(
+            "duplicate_hash", database,
+            category=self.duplicate_category.currentData(),
+            scan_id=self.duplicate_snapshot.currentData(),
+        )
+
     def _run_agent(self) -> None:
         try:
             database = self._database_path()
@@ -854,6 +945,10 @@ class ArchivIAWindow(QMainWindow):
         self.plan_snapshot.setEnabled(not busy)
         self.plan_history_button.setEnabled(not busy)
         self.plan_button.setEnabled(not busy)
+        self.duplicate_button.setEnabled(not busy)
+        self.duplicate_category.setEnabled(not busy)
+        self.duplicate_snapshot.setEnabled(not busy)
+        self.duplicate_history_button.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
@@ -983,9 +1078,62 @@ class ArchivIAWindow(QMainWindow):
                 max(0, self.plan_snapshot.findData(selected_plan))
             )
             self.plan_snapshot.blockSignals(False)
+            selected_duplicate = self.duplicate_snapshot.currentData()
+            self.duplicate_snapshot.blockSignals(True)
+            self.duplicate_snapshot.clear()
+            self.duplicate_snapshot.addItem("Mais recente (automático)", None)
+            for scan in result:
+                self.duplicate_snapshot.addItem(
+                    f"#{scan['id']} | {scan['root']}", scan["id"]
+                )
+            self.duplicate_snapshot.setCurrentIndex(
+                max(0, self.duplicate_snapshot.findData(selected_duplicate))
+            )
+            self.duplicate_snapshot.blockSignals(False)
             self.status.setText(
                 f"Histórico consultado: {len(result)} snapshots encontrados (máximo 100)."
             )
+        elif mode == "duplicate_hash":
+            rows = [
+                (index, file, group["size_bytes"], group["sha256"])
+                for index, group in enumerate(result["groups"], 1)
+                for file in group["files"]
+            ]
+            self.duplicate_table.setRowCount(len(rows))
+            for row_index, (group_num, name, size, digest) in enumerate(rows):
+                for column, value in enumerate((str(group_num), name, str(size))):
+                    cell = QTableWidgetItem(value)
+                    cell.setToolTip(
+                        f"{name}\nSHA-256: {digest}\nGrupo: {group_num}"
+                    )
+                    self.duplicate_table.setItem(row_index, column, cell)
+            self.duplicate_summary.setText(
+                f"Snapshot #{result['scan_id']} | "
+                f"{result['selected']} de {result['total_matches']} arquivos amostrados | "
+                f"{result['hashed_files']} hashes lidos | "
+                f"{result['confirmed_groups_in_sample']} grupos confirmados | "
+                f"{result['confirmed_files_in_sample']} arquivos iguais na amostra | "
+                f"{len(result['skipped'])} ignorados | "
+                f"{'AMOSTRA PARCIAL' if result['truncated'] else 'Amostra inclui a categoria completa'}"
+            )
+            group_lines = [
+                f"Grupo {number}: {group['count']} arquivos, "
+                f"SHA-256 {group['sha256']}"
+                for number, group in enumerate(result["groups"], 1)
+            ]
+            skip_lines = [
+                f"Ignorado: {item['file']} ({item['reason']})"
+                for item in result["skipped"]
+            ]
+            details = group_lines + skip_lines
+            if not details:
+                details = ["Nenhum grupo repetido confirmado nesta amostra."]
+            details.append(
+                "Sem alteração de arquivos. A ausência de grupos nesta amostra "
+                "não comprova ausência de duplicatas no disco."
+            )
+            self.duplicate_notes.setPlainText("\n".join(details))
+            self.status.setText("SHA-256 consultado em somente leitura; nada foi modificado.")
         elif mode == "date_plan":
             self._plan_actions = result["actions"]
             self.plan_table.setRowCount(len(self._plan_actions))
