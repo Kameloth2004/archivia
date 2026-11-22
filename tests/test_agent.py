@@ -5,7 +5,7 @@ import os
 from unittest.mock import patch
 
 from support import temporary_test_directory
-from archivia.agent import ask_agent, dispatch_tool
+from archivia.agent import ask_agent, ask_agent_for_folder, dispatch_tool
 from archivia.catalog import store_inventory, scan_for_folder
 from archivia.inventory import inventory
 
@@ -374,6 +374,61 @@ class AgentTests(unittest.TestCase):
                 with self.subTest(arguments=arguments):
                     with self.assertRaises(ValueError):
                         dispatch_tool("resumir_consolidacao", arguments, tmp / "nada.sqlite3")
+
+    def test_auto_folder_session_is_temporary_and_preserves_persistent_catalog(self):
+        # TEST-ONLY: consulta a pasta escolhida sem aumentar histórico permanente.
+        with temporary_test_directory() as tmp:
+            folder = tmp / "origem"
+            folder.mkdir()
+            (folder / "foto.jpg").write_bytes(b"teste")
+            db = tmp / "permanente.sqlite3"
+            saved = store_inventory(inventory(folder), db)
+            original_bytes = db.read_bytes()
+            first = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {"name": "buscar_arquivos_catalogo",
+                              "arguments": {"categoria": "imagem"}}}
+            ]}
+            last = {"role": "assistant", "content": "Uma imagem."}
+            with patch("archivia.agent._ollama_chat", side_effect=[first, last]):
+                response = ask_agent_for_folder("Conte as imagens", "modelo-falso", folder)
+            self.assertTrue(response["temporary_catalog"])
+            self.assertEqual(response["source_root"], str(folder))
+            result = response["tools_used"][0]["result"]
+            self.assertEqual(result["count"], 1)
+            self.assertEqual(result["root"], str(folder))
+            self.assertEqual(result["scan_id"], 1)
+            self.assertEqual(db.read_bytes(), original_bytes)
+            self.assertEqual(saved["scan_id"], 1)
+            self.assertTrue((folder / "foto.jpg").exists())
+            self.assertFalse(response["files_modified"])
+
+    def test_auto_folder_session_cleans_up_after_agent_failure(self):
+        # MOCK-ONLY: verifica remoção da pasta temporária mesmo com erro Ollama.
+        with temporary_test_directory() as tmp:
+            folder = tmp / "origem"
+            folder.mkdir()
+            (folder / "foto.jpg").write_bytes(b"teste")
+            def fail_chat(_payload):
+                raise ValueError("Falha simulada no Ollama")
+            with patch("archivia.agent._ollama_chat", side_effect=fail_chat):
+                with self.assertRaisesRegex(ValueError, "Falha simulada"):
+                    ask_agent_for_folder("Conte", "modelo-falso", folder)
+            self.assertTrue((folder / "foto.jpg").exists())
+
+    def test_auto_folder_session_rejects_unreadable_inventory_without_agent_call(self):
+        with temporary_test_directory() as tmp:
+            folder = tmp / "origem"
+            folder.mkdir()
+            with patch("archivia.agent.inventory", return_value={
+                "root": str(folder), "files": [],
+                "summary": {"media_files": 0, "other_files": 0,
+                            "symlinks_skipped": 0, "bytes_media": 0},
+                "errors": [{"path": str(folder), "error": "falha simulada"}],
+            }):
+                with patch("archivia.agent._ollama_chat") as chat:
+                    with self.assertRaisesRegex(ValueError, "Inventário com erros"):
+                        ask_agent_for_folder("Conte", "modelo-falso", folder)
+                    chat.assert_not_called()
 
     def test_agent_logs_real_tool_arguments_and_missing_limit_uses_default(self):
         # MOCK-ONLY: texto narrado pelo modelo pode diferir do tool_call real.
