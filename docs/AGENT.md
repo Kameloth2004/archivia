@@ -103,6 +103,12 @@ Por compatibilidade, sem pasta selecionada na GUI o comportamento anterior usa o
 
 O usuário selecionou `E:\\Ashley`, catalogou a origem e consultou o Qwen3: ferramenta `buscar_arquivos_catalogo`, argumentos reais `categoria=imagem`, `escopo=caminho`, `scan_id=6`; resultado `root=E:\\Ashley`, `count=1344`, 10 itens na página 1 de 135. Resposta textual correspondente ao resultado estruturado. **Nenhuma mídia foi movida**. A simulação de consolidação ainda precisa de homologação específica.
 
+## Resumo global de consolidação — ferramenta `resumir_consolidacao`
+
+Disponível no contrato do agente (aguardando homologação local): solicita **apenas um resumo da simulação** de reunir arquivos de uma categoria `imagem`, `video` ou `audio` numa pasta de destino existente **informada pelo usuário**. Parâmetros obrigatórios: `categoria` e `destino`; opcional `limite` de 1 a 10.000 (padrão 10.000). O `context_scan_id` é fixado pela GUI quando a pasta de origem foi selecionada em Inventário; o modelo não recebe parâmetro para escolher outro snapshot nessa ferramenta.
+
+Resultado: `total_matches`, `examined`, `proposed`, `blocked`, `pending`, `complete`, `truncated`, `blocked_by_reason`, `actions=[]`, `mode=simulation`, `executable=false`. Não envia milhares de caminhos ao modelo. Um resultado com `pending>0` não é completo. **Nenhum arquivo é alterado**, e a ferramenta não cria destinos. O fluxo de aprovação/execução ainda não existe.
+
 ## Próxima validação
 1. Executar testes com mocks (não precisam de Ollama).
 2. Verificar `ollama list` e escolher um modelo instalado com tool calling.
