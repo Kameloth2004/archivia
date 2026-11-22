@@ -172,6 +172,10 @@ Adicionada aba **Organização** para o planejador `propose_date_moves()`. O usu
 
 **Teste manual recomendado:** selecionar snapshot #1 de `tests/fixtures/manual` (contém `foto_teste.jpg`), definir como destino uma pasta de testes já existente, clicar em **Simular organização** e verificar uma proposta de destino conforme ano/mês da foto. Confirmar que `AAAA/MM` não foi criado. Evitar testar primeiro em pastas de produção.
 
+## Agente IA e simulação cronológica — integração experimental
+
+O agente Ollama agora expõe `simular_organizacao_por_data` com nome, parâmetros e limites autorizados. Na aba **Agente IA**, é possível pedir **apenas simulações** por linguagem natural, fornecendo categoria `imagem/video/audio`, caminho de destino-base **já existente** e, opcionalmente, ID de snapshot e limite até 50. Essa ferramenta não usa automaticamente os campos selecionados na aba Organização. Retorna uma prévia JSON com situações proposto/bloqueado, mas **não cria nem movimenta nada**. Testes locais com Ollama real ainda pendentes.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
