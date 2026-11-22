@@ -9,13 +9,14 @@ from datetime import datetime
 import hashlib
 import os
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Callable
 
 from .catalog import DEFAULT_DB, query_catalog_page
 
-MAX_FILES = 100
+MAX_FILES = 1000
+PAGE_SIZE = 100
 MAX_FILE_BYTES = 16 * 1024 * 1024
-MAX_TOTAL_HASH_BYTES = 64 * 1024 * 1024
+MAX_TOTAL_HASH_BYTES = 256 * 1024 * 1024
 CHUNK_BYTES = 256 * 1024
 
 
@@ -81,12 +82,14 @@ def verify_duplicate_hashes(
     scan_id: int | None = None,
     limit: int = 50,
     max_file_bytes: int = MAX_FILE_BYTES,
-    max_total_bytes: int = MAX_TOTAL_HASH_BYTES,
+    max_total_bytes: int = 64 * 1024 * 1024,
+    progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
-    """Identifica grupos de hashes iguais dentro da amostra de até 100 arquivos.
+    """SHA-256 por lotes, em amostra limitada de um único snapshot.
 
-    Só lê conteúdos para tamanhos que aparecem duas ou mais vezes na amostra.
-    Arquivos não processados (limite/segurança/erro) não são declarados únicos.
+    Lê páginas de até 100 linhas do SQLite. Reúne no máximo 1000 metadados
+    para comparar candidatos com o mesmo tamanho, inclusive entre páginas.
+    Nunca conclui unicidade de arquivos que não foram processados.
     """
     if (not isinstance(limit, int) or isinstance(limit, bool)
             or not 1 <= limit <= MAX_FILES):
@@ -97,22 +100,51 @@ def verify_duplicate_hashes(
     if (not isinstance(max_total_bytes, int) or isinstance(max_total_bytes, bool)
             or not 1 <= max_total_bytes <= MAX_TOTAL_HASH_BYTES):
         raise ValueError("Limite total de bytes inválido.")
+    if progress is not None and not callable(progress):
+        raise ValueError("Callback de progresso inválido.")
 
-    snapshot = query_catalog_page(
-        db_path=db_path, category=category, scan_id=scan_id,
-        page=1, page_size=limit, sort_by="name",
-    )
-    if snapshot["scan_id"] is None:
-        raise ValueError("Catálogo sem inventário.")
-    root = Path(snapshot["root"]).expanduser().absolute()
+    def report(phase: str, processed: int, total: int) -> None:
+        if progress is not None:
+            progress({
+                "phase": phase, "processed": processed, "total": total,
+            })
+
+    rows: list[dict[str, Any]] = []
+    total_matches = 0
+    selected_snapshot = scan_id
+    root: Path | None = None
+    pages_scanned = 0
+    for page in range(1, (limit + PAGE_SIZE - 1) // PAGE_SIZE + 1):
+        length = min(PAGE_SIZE, limit - len(rows))
+        batch = query_catalog_page(
+            db_path=db_path, category=category, scan_id=selected_snapshot,
+            page=page, page_size=length if length == PAGE_SIZE else PAGE_SIZE,
+            sort_by="name",
+        )
+        if batch["scan_id"] is None:
+            raise ValueError("Catálogo sem inventário.")
+        if selected_snapshot is None:
+            selected_snapshot = batch["scan_id"]
+            root = Path(batch["root"]).expanduser().absolute()
+            total_matches = batch["count"]
+        if root is None:
+            root = Path(batch["root"]).expanduser().absolute()
+            total_matches = batch["count"]
+        if batch["scan_id"] != selected_snapshot:
+            raise ValueError("Snapshot alterado durante a consulta.")
+        # Com OFFSET estável, páginas intermediárias sempre têm PAGE_SIZE.
+        rows.extend(batch["files"][:length])
+        pages_scanned += 1
+        report("catalog", len(rows), min(limit, total_matches))
+        if len(rows) >= limit or len(batch["files"]) < PAGE_SIZE:
+            break
+    assert root is not None
     if _is_symlink_component(root) or not root.is_dir():
         raise ValueError("Origem indisponível ou com link simbólico.")
 
-    rows = snapshot["files"]
     by_size: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         by_size[row["size_bytes"]].append(row)
-
     hashes: dict[tuple[int, str], list[str]] = defaultdict(list)
     skipped: list[dict[str, str]] = []
     hashed_count = 0
@@ -121,6 +153,8 @@ def verify_duplicate_hashes(
     candidate_count = sum(
         len(group) for group in by_size.values() if len(group) >= 2
     )
+    handled = 0
+    report("hash", 0, candidate_count)
     for size, group in sorted(by_size.items()):
         if len(group) < 2:
             continue
@@ -128,22 +162,24 @@ def verify_duplicate_hashes(
             name = row["relative_path"]
             if size > max_file_bytes:
                 skipped.append({"file": name, "reason": "arquivo_acima_do_limite"})
-                continue
-            if size > max_total_bytes - bytes_budget_reserved:
+            elif size > max_total_bytes - bytes_budget_reserved:
                 skipped.append({"file": name, "reason": "limite_total_de_leitura"})
-                continue
-            # Reserva a quota antes da leitura, inclusive para erros posteriores.
-            bytes_budget_reserved += size
-            try:
-                path = _candidate_path(root, name)
-                digest = _sha256_checked(path, size, row["modified_utc"])
-            except (ValueError, OSError) as exc:
-                reason = str(exc) if isinstance(exc, ValueError) else "erro_de_leitura"
-                skipped.append({"file": name, "reason": reason})
-                continue
-            bytes_read += size
-            hashed_count += 1
-            hashes[(size, digest)].append(name)
+            else:
+                # Reserva quota antes da leitura, inclusive quando ela falha.
+                bytes_budget_reserved += size
+                try:
+                    path = _candidate_path(root, name)
+                    digest = _sha256_checked(path, size, row["modified_utc"])
+                except (ValueError, OSError) as exc:
+                    reason = str(exc) if isinstance(exc, ValueError) else "erro_de_leitura"
+                    skipped.append({"file": name, "reason": reason})
+                else:
+                    bytes_read += size
+                    hashed_count += 1
+                    hashes[(size, digest)].append(name)
+            handled += 1
+            if handled % 10 == 0 or handled == candidate_count:
+                report("hash", handled, candidate_count)
 
     groups = [
         {"sha256": digest, "size_bytes": size, "files": sorted(files),
@@ -152,17 +188,20 @@ def verify_duplicate_hashes(
         if len(files) >= 2
     ]
     groups.sort(key=lambda group: (group["files"][0].casefold(), group["sha256"]))
+    report("done", len(rows), len(rows))
     return {
         "operation": "verify_duplicates_sha256",
         "mode": "read_only",
         "executable": False,
         "files_modified": False,
-        "scan_id": snapshot["scan_id"],
+        "scan_id": selected_snapshot,
         "root": str(root),
         "category": category,
-        "total_matches": snapshot["count"],
+        "total_matches": total_matches,
         "selected": len(rows),
-        "truncated": snapshot["count"] > len(rows),
+        "truncated": total_matches > len(rows),
+        "page_size": PAGE_SIZE,
+        "pages_scanned": pages_scanned,
         "hash_candidates": candidate_count,
         "hashed_files": hashed_count,
         "bytes_read": bytes_read,
