@@ -22,7 +22,7 @@ A operação real não deve ser antecipada para resolver lacunas de UX.
 | Busca por nome/caminho/extensão/data e ordenação | Funcional | **Núcleo — manter** |
 | Agente Ollama local com allowlist e chamadas limitadas | Funcional para consultas e simulações, sem execução | **Núcleo Standard — manter enxuto** |
 | Planejamento de organização cronológica com validação | Simulação validada | **Núcleo — consolidar**, não ampliar regras sem casos de uso |
-| Planejador genérico `propose_moves` | Simulação de consolidação para pasta única; agora usa **uma página SQLite** limitada a 100 arquivos e aceita snapshot opcional | **Núcleo — manter enxuto**; uma página não equivale ao plano completo |
+| Planejador genérico `propose_moves` | Simulação para pasta única: `propose_moves()` mantém prévia até 100 ações; `summarize_consolidation()` adiciona resumo global de até 10.000 candidatos e colisões entre páginas, aguardando homologação Windows | **Núcleo — manter enxuto**; uma página não equivale ao plano completo |
 | SHA-256 por amostra e global | Ambos homologados com dados sintéticos | **Auxiliar — congelar expansão** |
 | Sessão SHA-256 progressiva em RAM | Suíte atual de 84 testes homologada; sem GUI | **Motor experimental — manter desacoplado**, sem novos botões agora |
 | Preferência de datas | Implementada | **Configuração mínima — manter** |
@@ -42,7 +42,7 @@ A operação real não deve ser antecipada para resolver lacunas de UX.
 ## Problemas de manutenção identificados nesta revisão
 
 1. `src/archivia/gui.py` contém aproximadamente **1.400 linhas** e administra seis abas e várias consultas; separar por responsabilidades quando houver redesign, **sem** recriar regras de negócio nem reescrever tudo de uma vez.
-2. `src/archivia/planner.py` mantém `propose_moves()` para destino único e `propose_date_moves()` para AAAA/MM. O primeiro já não carrega o catálogo inteiro: consulta apenas uma página SQLite de até 100 propostas. Há validações semelhantes, mas não abstrair prematuramente; preservar testes e formatos de retorno. Uma prévia parcial **não valida colisões entre todas as páginas**.
+2. `src/archivia/planner.py` mantém `propose_moves()` para destino único e `propose_date_moves()` para AAAA/MM. O primeiro já não carrega o catálogo inteiro: consulta apenas uma página SQLite de até 100 propostas. Há validações semelhantes, mas não abstrair prematuramente; preservar testes e formatos de retorno. A prévia `propose_moves()` permanece parcial e **não valida colisões entre todas as páginas**; o novo resumo `summarize_consolidation()` verifica nomes entre as páginas examinadas mas não retorna ações individuais.
 3. `src/archivia/duplicates.py` contém estratégias de amostra e de candidatos globais; `duplicate_sessions.py` adiciona outra estratégia experimental. Não gerar um quarto modo; documentar quando usar cada um e priorizar simplicidade da interface.
 4. O `README.md`, `docs/GUI.md`, `docs/ARCHITECTURE.md` e `docs/EDITIONS.md` contêm **passagens historicamente válidas, mas hoje desatualizadas** (por exemplo, recursos já implementados ainda descritos como futuros). Uma revisão editorial posterior deve separar histórico de estado atual, sem apagar decisões úteis.
 5. As regras atuais de organização são concentradas em mídias e por modificação UTC; o objetivo original inclui categorias variadas, renomeação e destinos escolhidos pelo usuário. **Não presumir** que AAAA/MM resolverá todos os casos.
