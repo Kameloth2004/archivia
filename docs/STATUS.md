@@ -226,9 +226,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Dois novos testes sintéticos verificam suspeitas com conteúdos deliberadamente diferentes, conflitos, alternativas e ausência de gravação.
 - **Ainda não homologado no Windows**. Ainda não existe detecção real por hash nem escolha de política de conflitos para execução.
 
+## Legibilidade da aba Organização — revisão para homologação
+
+- Captura do usuário confirmou truncamento dos títulos e excesso de colunas da tabela de simulação.
+- `src/archivia/gui.py` reorganizado em **1. Parâmetros da simulação**, **2. Resumo do plano** e **3. Arquivos e destinos propostos**.
+- Resumo apresenta Examinados, Bloqueados, Colisões e Suspeitas em indicadores separados. A tabela usa 4 colunas principais; dados secundários são apresentados no painel de detalhe ao selecionar uma linha, incluindo possíveis duplicatas, nome alternativo, caminho completo e motivos.
+- Ajustados tooltip, seleção por linha, larguras e linhas alternadas para melhorar leitura em janelas comuns. Interface ainda em homologação; não é redesign final.
+- **Nenhuma mudança em `planner.py`, `agent.py` ou `catalog.py` nesta etapa.** Motor, permissões, snapshot e simulações permanecem inalterados.
+- **Aguardando teste visual no Windows.**
+
 ## Próximo passo seguro
 
-**Próximo teste:** atualizar a main e executar a suíte (57 testes esperados, 1 possivelmente ignorado); depois verificar as novas colunas na aba Organização. Nenhuma movimentação será habilitada.
+**Próximo teste:** `git pull origin main`, executar a suíte e abrir Organização para conferir indicadores, colunas legíveis e detalhe da linha selecionada. Não mover arquivos.
 
 ## Limitações e evolução
 
