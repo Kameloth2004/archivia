@@ -314,6 +314,67 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(list(destination.iterdir()), [])
             self.assertFalse(reply["files_modified"])
 
+    def test_ollama_mock_global_consolidation_uses_selected_snapshot_and_only_summary(self):
+        # TEST-ONLY/MOCK-ONLY: leitura global por IA, sem alterações nos arquivos.
+        with temporary_test_directory() as tmp:
+            origin = tmp / "Adele"
+            other = tmp / "Outra"
+            dest = tmp / "destino"
+            origin.mkdir()
+            other.mkdir()
+            dest.mkdir()
+            for number in range(105):
+                folder = origin / f"sub_{number:03d}"
+                folder.mkdir()
+                name = "repetida.jpg" if number in (0, 104) else f"foto_{number:03d}.jpg"
+                (folder / name).write_bytes(f"item-{number}".encode())
+            (other / "outra.jpg").write_bytes(b"outra")
+            db = tmp / "catalogo.sqlite3"
+            selected = store_inventory(inventory(origin), db)["scan_id"]
+            other_scan = store_inventory(inventory(other), db)["scan_id"]
+            arguments = {"categoria": "imagem", "destino": str(dest)}
+            first = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {"name": "resumir_consolidacao", "arguments": arguments}}
+            ]}
+            last = {"role": "assistant", "content": "Análise global simulada."}
+            with patch("archivia.agent._ollama_chat", side_effect=[first, last]):
+                reply = ask_agent(
+                    "Simule reunir imagens no destino indicado", "modelo-falso",
+                    db, context_scan_id=selected,
+                )
+            tool = reply["tools_used"][0]
+            self.assertEqual(tool["tool"], "resumir_consolidacao")
+            self.assertEqual(tool["arguments"], arguments)
+            summary = tool["result"]
+            self.assertEqual(summary["scan_id"], selected)
+            self.assertNotEqual(summary["scan_id"], other_scan)
+            self.assertEqual(summary["total_matches"], 105)
+            self.assertEqual(summary["examined"], 105)
+            self.assertEqual(summary["proposed"], 104)
+            self.assertEqual(summary["blocked"], 1)
+            self.assertEqual(summary["pending"], 0)
+            self.assertTrue(summary["complete"])
+            self.assertFalse(summary["executable"])
+            self.assertEqual(summary["actions"], [])
+            self.assertEqual(list(dest.iterdir()), [])
+            self.assertEqual(len(list(origin.rglob("*.jpg"))), 105)
+            self.assertFalse(reply["files_modified"])
+
+    def test_global_consolidation_agent_rejects_bad_arguments(self):
+        with temporary_test_directory() as tmp:
+            for arguments in (
+                {}, {"categoria": "imagem"},
+                {"categoria": "imagem", "destino": str(tmp), "execute": True},
+                {"categoria": "documento", "destino": str(tmp)},
+                {"categoria": "imagem", "destino": ""},
+                {"categoria": "imagem", "destino": str(tmp), "limite": True},
+                {"categoria": "imagem", "destino": str(tmp), "limite": 10001},
+                {"categoria": "imagem", "destino": str(tmp), "limite": "500"},
+            ):
+                with self.subTest(arguments=arguments):
+                    with self.assertRaises(ValueError):
+                        dispatch_tool("resumir_consolidacao", arguments, tmp / "nada.sqlite3")
+
     def test_agent_logs_real_tool_arguments_and_missing_limit_uses_default(self):
         # MOCK-ONLY: texto narrado pelo modelo pode diferir do tool_call real.
         with temporary_test_directory() as tmp:
