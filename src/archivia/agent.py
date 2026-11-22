@@ -33,6 +33,8 @@ SYSTEM_PROMPT = (
     "Deixe explícito que uma página de exemplos não esgota a pesquisa. "
     "Não afirme um total geral de todas as categorias se houver filtro de categoria. "
     "Não confunda resultados parciais com a biblioteca inteira. "
+    "A pasta de origem já é fixada pela interface; nunca use o caminho absoluto da origem "
+    "como filtro nome. O filtro nome é apenas trecho de nomes/caminhos RELATIVOS. "
     "Para busca somente no nome do arquivo, use escopo=nome; para incluir pastas, use escopo=caminho. "
     "Para datas, utilize modificação de arquivo, não data de criação; filtros estão em UTC, AAAA-MM-DD. "
     "Ordene pela data quando solicitado; não confunda ordenar resultados com movimentar arquivos. "
@@ -117,6 +119,8 @@ TOOLS: list[dict[str, Any]] = [
                 "SQLite, sem acessar os arquivos físicos. Consulta somente um snapshot, "
                 "o mais recente por padrão. Retorna no máximo 20 arquivos por página. "
                 "NÃO aplique categoria ou extensão se o usuário não solicitar. "
+                "NÃO use o caminho absoluto da pasta de origem no parâmetro nome: "
+                "nome filtra apenas caminhos relativos dos arquivos. "
                 "escopo=nome busca somente nome-base, escopo=caminho inclui diretórios. "
                 "Permite período de modificação e ordenação cronológica."
             ),
@@ -220,12 +224,32 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
         order = arguments.get("ordenacao", "nome")
         if order not in ("nome", "recentes", "antigos"):
             raise ValueError("Ordenação inválida.")
+        name_filter = arguments.get("nome")
+        if name_filter:
+            normalized = name_filter.strip().replace(chr(92), "/").rstrip("/")
+            # Um diretório absoluto é contexto de origem, não um nome relativo.
+            # Se a IA reenviar a própria origem, ignore apenas esse filtro.
+            # Outros caminhos absolutos são ambíguos e precisam ser recusados.
+            if (normalized.startswith("/") or
+                    (len(normalized) >= 2 and normalized[1] == ":")):
+                current = catalog_summary(
+                    db_path, scan_id=context_scan_id if context_scan_id is not None
+                    else arguments.get("scan_id"),
+                )
+                root = str(current.get("root") or "").replace(chr(92), "/").rstrip("/")
+                if normalized.casefold() == root.casefold():
+                    name_filter = None
+                else:
+                    raise ValueError(
+                        "Filtro nome não aceita caminho absoluto de outra pasta. "
+                        "Selecione a origem em Inventário."
+                    )
         category = arguments.get("categoria")
         if category is not None and category not in CATEGORIES:
             raise ValueError("Categoria desconhecida.")
         return query_catalog_page(
             db_path=db_path,
-            name_contains=arguments.get("nome"),
+            name_contains=name_filter,
             extension=arguments.get("extensao"),
             category=category,
             page=arguments.get("pagina", 1),
