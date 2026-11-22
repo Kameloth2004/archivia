@@ -300,12 +300,13 @@ def verify_snapshot_duplicate_candidates(
                     WHERE {where} GROUP BY size_bytes HAVING COUNT(*) > 1
                     ORDER BY size_bytes""", params
             )
-            # Guardar somente grupos de tamanho/ccontagem; não guardar caminhos.
+            # Guardar apenas pares tamanho/contagem, sem listas de caminhos.
             size_groups = [(row["size_bytes"], row["amount"]) for row in sizes]
             candidates_total = sum(amount for _, amount in size_groups)
             report("catalog", total_matches, total_matches)
 
             processed = 0
+            completed = 0
             groups_selected = 0
             groups_omitted = 0
             omitted_candidates = 0
@@ -352,8 +353,9 @@ def verify_snapshot_duplicate_candidates(
                                 digests[digest].append(name)
                                 hashed_files += 1
                                 bytes_read += size
-                        if (hashed_files + len(skipped)) % 20 == 0:
-                            report("hash", hashed_files + len(skipped), processed)
+                        completed += 1
+                        if completed % 20 == 0:
+                            report("hash", completed, candidates_total)
                 for digest, files in digests.items():
                     if len(files) >= 2:
                         matches.append({
@@ -362,7 +364,7 @@ def verify_snapshot_duplicate_candidates(
                             "files": sorted(files),
                             "count": len(files),
                         })
-                report("hash", processed, candidates_total)
+                report("hash", completed, candidates_total)
 
             matches.sort(key=lambda g: (g["files"][0].casefold(), g["sha256"]))
             report("done", processed, processed)
