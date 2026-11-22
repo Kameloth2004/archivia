@@ -248,7 +248,7 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 
 - Criados **8 arquivos sintéticos** em `tests/fixtures/sha256_demo/` (além do README), com cenários criativos: nome igual/conteúdo igual; mesmo conteúdo/nomes diferentes; nome e tamanho iguais mas bytes diferentes; e dois arquivos vazios.
 - Novo `src/archivia/duplicates.py`: `verify_duplicate_hashes()` consulta **um snapshot por vez** via `query_catalog_page()` e agrupa por tamanho antes de calcular SHA-256 em blocos. Só lê conteúdo quando há pelo menos dois candidatos do mesmo tamanho na amostra.
-- Limites rígidos: **até 100 itens** (GUI usa 50), **16 MiB por arquivo** e **64 MiB de leitura total**. Links simbólicos/junctions, arquivos ausentes/alterados e arquivos acima do limite não são declarados iguais; motivo de cada exclusão é exibido.
+- Limites rígidos: **até 100 itens** (GUI usa 50), **16 MiB por arquivo** e **64 MiB de orçamento total de leitura** (reservado antes de cada tentativa, mesmo que a leitura falhe). Links simbólicos/junctions, arquivos ausentes/alterados e arquivos acima do limite não são declarados iguais; motivo de cada exclusão é exibido.
 - A igualdade de SHA-256 confirma conteúdo idêntico entre os itens **efetivamente processados**; nenhuma conclusão de unicidade pode ser tirada sobre arquivos omitidos, não verificados ou sobre o catálogo inteiro.
 - Nova subaba **Organização → Duplicatas (SHA-256)**: categoria e snapshot próprios, botão de verificação somente leitura, tabela agrupada, hashes completos em dicas e painel inferior, totais de processados/ignorados.
 - Foram adicionados **5 testes** em `tests/test_duplicates.py`: grupos iguais reais, falsos positivos, arquivos vazios, limites, alterações/remoções e nenhuma escrita nas mídias.
