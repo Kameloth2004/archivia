@@ -404,9 +404,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Adicionados três testes TEST-ONLY em `tests/test_agent.py`: seleção de origem antiga diante de snapshot global mais recente; recusa de pasta sem catálogo; recusa de tentativa de troca de snapshot pelo modelo.
 - **Aguardando homologação local:** suíte esperada **82 testes** (79 anteriores + 3 novos), com um possivelmente ignorado. O código foi publicado, mas não foi executado neste ambiente.
 
+## Contexto de pasta do agente — suíte de 82 testes homologada no Windows
+
+- Usuário confirmou a execução local: `Ran 82 tests in 5.668s`, `OK (skipped=1)` — 81 testes aprovados, um ignorado, nenhuma falha.
+- A associação da pasta selecionada ao snapshot no agente, as restrições de origem e as verificações de fallback passaram pela suíte automatizada.
+- **Homologação visual/funcional no Ollama real continua pendente**. Próximo teste controlado: selecionar pasta de fixtures já catalogada e perguntar quantas imagens ela contém; conferir no resultado `tools_used` se `scan_id` e `root` apontam para a origem escolhida. Não utilizar mídia real na primeira validação.
+- Nenhuma movimentação, exclusão ou renomeação real habilitada. Não adicionar interfaces ou recursos antes de validar esta etapa.
+
 ## Próximo passo seguro
 
-**Validar a associação segura entre pasta e agente** com `git pull origin main` e `python -m unittest discover -s tests -v`. Esperados 82 testes, um possivelmente ignorado. Depois, fazer teste na GUI com uma pasta de fixture já catalogada, sem alterações de mídia.
+**82 testes homologados no Windows, com um ignorado.** Validar na interface com Ollama real a associação da pasta selecionada ao snapshot, utilizando fixtures; conferir o snapshot e a origem informados em `tools_used`. Não ampliar funcionalidades até esse teste.
 
 ## Limitações e evolução
 
