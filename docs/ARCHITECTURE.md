@@ -60,12 +60,16 @@ O modo global não identifica duplicatas em snapshots diferentes nem permite exe
 
 O módulo `src/archivia/duplicate_sessions.py` implementa `ProgressiveDuplicateSession(db_path, category, scan_id)`, com `next_batch(batch_size=100, max_file_bytes, max_total_bytes)`. Seleciona candidatos pelo SQLite em leitura (`mode=ro`) com agrupamento de tamanhos repetidos; utiliza cursor `media.id` crescente para não recalcular hashes de arquivos já processados em **uma mesma sessão**. O contexto de snapshot/categoria é fixo. Resultados SHA-256 são acumulados em RAM, permitindo descobrir pares cujos arquivos estejam em lotes distintos.
 
-Cada lote tem limite independente de quantidade (1–200), tamanho por arquivo (1–16 MiB) e orçamento total de leitura (1–256 MiB, padrão 64 MiB). Eventos de progresso são opcionais. Estado `done=true` significa que o cursor chegou ao fim; `complete=true` exige também zero itens ignorados. Um teto de **100 mil candidatos** impede sessão ilimitada em memória. Nenhum checkpoint é gravado; ao reiniciar o processo, reinicia-se a sessão. Este é o **motor inicial**, ainda sem comandos de GUI ou agente e sem validação Windows.
+Cada lote tem limite independente de quantidade (1–200), tamanho por arquivo (1–16 MiB) e orçamento total de leitura (1–256 MiB, padrão 64 MiB). Eventos de progresso são opcionais. Estado `done=true` significa que o cursor chegou ao fim; `complete=true` exige também zero itens ignorados. Um teto de **100 mil candidatos** impede sessão ilimitada em memória. Nenhum checkpoint é gravado; ao reiniciar o processo, reinicia-se a sessão. Este é o **motor inicial**, ainda sem comandos de GUI ou agente; a suíte automatizada de 83 testes foi aprovada no Windows.
 
 O agrupamento por `SHA-256` baseia-se no conteúdo lido em cada momento, com revalidação de metadados; não significa garantia transacional sobre alterações futuras. O formato persistente e o mecanismo de retomada após reinício precisarão de decisões específicas de proteção de dados e integridade.
 
+## Contexto de origem e consolidação simulada
+
+O seletor da GUI define a origem: `scan_for_folder()` localiza o snapshot mais recente **daquela pasta exata**, e o adaptador Ollama restringe as ferramentas ao `scan_id` correspondente. O planejador `propose_moves()` aceita esse `scan_id`, categoria e um destino único existente; consulta **uma página** SQLite limitada (até 100 itens) e retorna `mode=simulation`, `executable=false`. Conflitos entre páginas ainda não são analisados; nenhum plano parcial pode ser executado. A classificação atualmente é por extensão, não por conteúdo.
+
 ## Garantias e limites
-- Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
+- Ainda não há executor, renomeação ou exclusão de mídias, nem análise visual por IA. A **GUI PySide6 de homologação já existe** e a integração Ollama com consultas foi validada com pasta selecionada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
 - Não há validação atômica entre planejamento e uma execução futura (TOCTOU), nem confirmação de identidade por hash.
 - Múltiplas origens, permissões granulares, política para colisões Windows com casefold, segurança de junction/reparse points e destinos em outros volumes exigem revisão posterior.
