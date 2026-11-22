@@ -244,9 +244,20 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - Status na interface: **Simulação concluída; nenhum arquivo modificado**. Não há mecanismo de execução ou movimentação.
 - Esta aprovação é visual/funcional da prévia, não constitui validação de detecção por hash nem de operação real de arquivos.
 
+## Verificação SHA-256 de duplicatas — implementação em homologação
+
+- Criados **8 arquivos sintéticos** em `tests/fixtures/sha256_demo/` (além do README), com cenários criativos: nome igual/conteúdo igual; mesmo conteúdo/nomes diferentes; nome e tamanho iguais mas bytes diferentes; e dois arquivos vazios.
+- Novo `src/archivia/duplicates.py`: `verify_duplicate_hashes()` consulta **um snapshot por vez** via `query_catalog_page()` e agrupa por tamanho antes de calcular SHA-256 em blocos. Só lê conteúdo quando há pelo menos dois candidatos do mesmo tamanho na amostra.
+- Limites rígidos: **até 100 itens** (GUI usa 50), **16 MiB por arquivo** e **64 MiB de leitura total**. Links simbólicos/junctions, arquivos ausentes/alterados e arquivos acima do limite não são declarados iguais; motivo de cada exclusão é exibido.
+- A igualdade de SHA-256 confirma conteúdo idêntico entre os itens **efetivamente processados**; nenhuma conclusão de unicidade pode ser tirada sobre arquivos omitidos, não verificados ou sobre o catálogo inteiro.
+- Nova subaba **Organização → Duplicatas (SHA-256)**: categoria e snapshot próprios, botão de verificação somente leitura, tabela agrupada, hashes completos em dicas e painel inferior, totais de processados/ignorados.
+- Foram adicionados **5 testes** em `tests/test_duplicates.py`: grupos iguais reais, falsos positivos, arquivos vazios, limites, alterações/remoções e nenhuma escrita nas mídias.
+- Correção preventiva: em `planner.py` (planejador legado `propose_moves`), removidos campos que referenciavam variáveis não inicializadas; sem mudança nas ações planejadas.
+- **Aguardando homologação da suíte Windows e teste visual**. Nenhum botão de apagar, mover ou executar está disponível; não foi adicionada ferramenta nova ao Ollama.
+
 ## Próximo passo seguro
 
-**Novo layout da aba Organização validado pela captura do usuário.** Próxima etapa sugerida: investigação de duplicatas confirmadas por hash, em rotina somente leitura, com amostra e limites explícitos. Nenhuma movimentação habilitada.
+**Próximo teste:** `git pull origin main`, executar a suíte e catalogar explicitamente a pasta sintética `tests/fixtures/sha256_demo` pela aba Inventário; em Organização → Duplicatas (SHA-256), selecionar o snapshot recém-criado, categoria Imagens e verificar **2 grupos / 5 arquivos com conteúdo igual** (3 arquivos de dados e 2 vazios). Os nomes iguais com bytes diferentes não devem formar grupo.
 
 ## Limitações e evolução
 
