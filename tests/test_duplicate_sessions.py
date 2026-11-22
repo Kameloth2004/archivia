@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import shutil
 import unittest
 
 from support import temporary_test_directory
@@ -49,7 +48,7 @@ class ProgressiveDuplicateSessionTests(unittest.TestCase):
             self.assertEqual(len(list(source.rglob("*.jpg"))), 134)
             self.assertFalse(last["files_modified"])
             self.assertFalse(last["executable"])
-            self.assertFalse(last["state_storage"] != "memory_only")
+            self.assertEqual(last["state_storage"], "memory_only")
 
     def test_per_batch_limits_mark_skipped_without_false_completeness(self):
         with temporary_test_directory() as temp:
