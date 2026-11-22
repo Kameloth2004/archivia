@@ -79,7 +79,7 @@ Depois de validar os testes e instalar a atualização, na GUI pedir:
 Procure no catálogo arquivos com backup no nome ou caminho. Mostre os cinco primeiros.
 ```
 
-No resultado `tools_used`, verificar ferramenta `buscar_arquivos_catalogo`, `count` total e `files` limitada a cinco se o modelo escolher `limite=5`. A ferramenta consulta o **snapshot global mais recente**, exceto se `scan_id` for enviado explicitamente pelo modelo. A seleção de histórico feita na GUI **não** é transmitida automaticamente à ferramenta. O modelo pode escolher argumentos incorretos ou não chamar a ferramenta; confirmar sempre o JSON estruturado. Não interpretar a busca como reconhecimento visual.
+No resultado `tools_used`, verificar ferramenta `buscar_arquivos_catalogo`, `count` total e `files` limitada a cinco se o modelo escolher `limite=5`. A ferramenta consulta o **snapshot da pasta selecionada em Inventário**; somente sem pasta selecionada conserva o comportamento legado do snapshot global mais recente. A seleção de histórico feita na GUI **não** é transmitida automaticamente à ferramenta. O modelo pode escolher argumentos incorretos ou não chamar a ferramenta; confirmar sempre o JSON estruturado. Não interpretar a busca como reconhecimento visual.
 
 ## Simulação cronológica por linguagem natural — validação pendente
 
@@ -91,13 +91,17 @@ usando como destino-base D:/PROJETOS/archivia/tests/fixtures/manual/destino.
 Mostre o destino proposto para uma imagem. Não mova nem crie arquivos.
 ```
 
-A pasta `destino` precisa **existir previamente**; não a criar automaticamente por esta função. Conferir em `tools_used`: `simular_organizacao_por_data`, `mode=simulation`, `executable=false`, `scan_id=1`, `selected`/ `blocked`; verificar que o destino permanece sem subpastas novas. O modelo pode selecionar outra ferramenta ou argumentos errados; observar o JSON real antes de homologar. **A seleção de snapshot e pasta feita na aba Organização não é transmitida ao agente**: fornecê-los explicitamente no texto.
+A pasta `destino` precisa **existir previamente**; não a criar automaticamente por esta função. Conferir em `tools_used`: `simular_organizacao_por_data`, `mode=simulation`, `executable=false`, `scan_id=1`, `selected`/ `blocked`; verificar que o destino permanece sem subpastas novas. O modelo pode selecionar outra ferramenta ou argumentos errados; observar o JSON real antes de homologar. **A seleção da aba Organização não é transmitida ao agente; o contexto vem da pasta selecionada em Inventário**: fornecê-los explicitamente no texto.
 
-## Contexto da pasta escolhida na GUI (aguardando homologação)
+## Contexto da pasta escolhida na GUI (homologado para consulta)
 
 Quando o usuário informa uma pasta em **Inventário**, ao perguntar ao agente a interface identifica o **snapshot mais recente daquela origem específica** pelo caminho do SQLite. As ferramentas do modelo ficam restritas a esse `scan_id`; uma tentativa de indicar outro snapshot é recusada. A pasta sem inventário salvo gera aviso para catalogá-la antes — nunca faz fallback silencioso para outra pasta. O resumo, as buscas e as simulações usam o mesmo contexto. A integração continua somente leitura/simulação, sem execução de arquivos.
 
 Por compatibilidade, sem pasta selecionada na GUI o comportamento anterior usa o snapshot global mais recente. Esta é uma etapa técnica intermediária; na futura experiência principal, uma origem selecionada será pré-requisito explícito.
+
+## Consulta real aprovada em 22/11/2026
+
+O usuário selecionou `E:\\Ashley`, catalogou a origem e consultou o Qwen3: ferramenta `buscar_arquivos_catalogo`, argumentos reais `categoria=imagem`, `escopo=caminho`, `scan_id=6`; resultado `root=E:\\Ashley`, `count=1344`, 10 itens na página 1 de 135. Resposta textual correspondente ao resultado estruturado. **Nenhuma mídia foi movida**. A simulação de consolidação ainda precisa de homologação específica.
 
 ## Próxima validação
 1. Executar testes com mocks (não precisam de Ollama).
