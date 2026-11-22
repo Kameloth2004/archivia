@@ -56,6 +56,14 @@ A análise de duplicatas aceita amostras de até **1000 registros**, mas consult
 
 O modo global não identifica duplicatas em snapshots diferentes nem permite execução de movimentos. A seleção global por tamanho é completa, mas a **verificação por hash só pode ser considerada completa** quando `unprocessed_candidate_files=0`, `skipped=[]` e `complete=true`. Limites por arquivo, orçamento I/O, alterações da origem e arquivos inacessíveis impedem conclusões sobre itens não lidos. A GUI indica a incompletude; a ausência de grupos retornados não comprova unicidade no acervo.
 
+## Sessão progressiva em RAM — protótipo sem interface
+
+O módulo `src/archivia/duplicate_sessions.py` implementa `ProgressiveDuplicateSession(db_path, category, scan_id)`, com `next_batch(batch_size=100, max_file_bytes, max_total_bytes)`. Seleciona candidatos pelo SQLite em leitura (`mode=ro`) com agrupamento de tamanhos repetidos; utiliza cursor `media.id` crescente para não recalcular hashes de arquivos já processados em **uma mesma sessão**. O contexto de snapshot/categoria é fixo. Resultados SHA-256 são acumulados em RAM, permitindo descobrir pares cujos arquivos estejam em lotes distintos.
+
+Cada lote tem limite independente de quantidade (1–200), tamanho por arquivo (1–16 MiB) e orçamento total de leitura (1–256 MiB, padrão 64 MiB). Eventos de progresso são opcionais. Estado `done=true` significa que o cursor chegou ao fim; `complete=true` exige também zero itens ignorados. Um teto de **100 mil candidatos** impede sessão ilimitada em memória. Nenhum checkpoint é gravado; ao reiniciar o processo, reinicia-se a sessão. Este é o **motor inicial**, ainda sem comandos de GUI ou agente e sem validação Windows.
+
+O agrupamento por `SHA-256` baseia-se no conteúdo lido em cada momento, com revalidação de metadados; não significa garantia transacional sobre alterações futuras. O formato persistente e o mecanismo de retomada após reinício precisarão de decisões específicas de proteção de dados e integridade.
+
 ## Garantias e limites
 - Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
