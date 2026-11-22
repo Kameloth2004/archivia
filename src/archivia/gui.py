@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from .agent import ask_agent
-from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary
+from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, list_catalog_scans, catalog_origins_summary, scan_for_folder
 from .cataloging import catalog_verified_preview
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .inventory import inventory
@@ -72,7 +72,7 @@ class QueryWorker(QThread):
             if self.mode == "summary":
                 result = catalog_summary(self.database)
             elif self.mode == "agent":
-                result = ask_agent(self.question, self.model, self.database)
+                result = ask_agent(self.question, self.model, self.database, context_scan_id=self.scan_id)
             elif self.mode == "catalog_page":
                 result = query_catalog_page(
                     self.database, self.category, page=self.page, scan_id=self.scan_id,
@@ -613,6 +613,13 @@ class ArchivIAWindow(QMainWindow):
         self.question.setPlaceholderText("Ex.: Quantas imagens existem no meu catálogo?")
         self.question.returnPressed.connect(self._run_agent)
         agent_layout.addWidget(self.question)
+        context_info = QLabel(
+            "Se uma pasta estiver selecionada em Inventário, o agente consultará "
+            "somente o snapshot mais recente dessa pasta. "
+            "Para uma pasta nova, examine e catalogue primeiro."
+        )
+        context_info.setWordWrap(True)
+        agent_layout.addWidget(context_info)
         self.ask_button = QPushButton("Perguntar ao agente")
         self.ask_button.clicked.connect(self._run_agent)
         agent_layout.addWidget(self.ask_button)
@@ -1014,7 +1021,15 @@ class ArchivIAWindow(QMainWindow):
         if not question or not model:
             self._show_error("Informe a pergunta e o modelo Ollama.")
             return
-        self._start_worker("agent", database, question, model)
+        # Se houver pasta selecionada, vincular todas as ferramentas à origem
+        # catalogada. Não usar silenciosamente o último snapshot de outra pasta.
+        selected = self.folder.text().strip()
+        try:
+            selected_scan = scan_for_folder(selected, database) if selected else None
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._start_worker("agent", database, question, model, scan_id=selected_scan)
 
     def _start_worker(
         self, mode: str, database: Path, question: str = "", model: str = "",
