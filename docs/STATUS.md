@@ -326,9 +326,16 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Limitação deliberada:** mesmo no modo global, `complete` só é verdadeiro quando nenhum grupo candidato ficou de fora e nenhuma leitura foi ignorada. Não é busca entre snapshots ou discos diferentes. A verificação está sujeita a orçamento e race conditions da origem; não há executor ou escrita.
 - **Ainda não homologado no Windows**. A suíte deve passar de 68 para **72 testes**, com um possivelmente ignorado.
 
+## Correção de teste multiplataforma — CRLF/LF no Windows
+
+- Relatório do usuário identificou falha em `test_global_rejects_invalid_args_and_preserves_originals` (linha 103): fixture devolvia `b"...\\r\\n"` no Windows, mas teste exigia `b"...\\n"`.
+- **Causa:** formato de quebra de linha da fixture de texto, não erro na verificação de hashes nem mudança do arquivo.
+- Corrigido `tests/test_duplicates_global.py` para capturar os bytes reais antes de executar a verificação e compará-los com os bytes posteriores, testando diretamente a propriedade desejada: **nenhuma modificação da origem**.
+- Relatório anterior: `Ran 72 tests in 2.757s`, `FAILED (failures=1, skipped=1)`. Correção publicada; **aguardando nova execução local no Windows**.
+
 ## Próximo passo seguro
 
-**Modo SHA-256 global implementado, aguardando homologação local:** atualizar main, executar 72 testes esperados e usar snapshot #4 com modo Candidatos em todo o snapshot e limite 200. Verificar 3 grupos, 7 arquivos e zero candidatos pendentes; depois testar limite menor para mostrar `GLOBAL INCOMPLETA`. Nenhum arquivo será movido ou excluído.
+**Falha de teste CRLF/LF corrigida no repositório e pendente de reexecução no Windows.** Atualizar main e executar 72 testes; após aprovação, usar snapshot #4 com modo Candidatos em todo o snapshot e limite 200. Verificar 3 grupos, 7 arquivos e zero candidatos pendentes. Nenhum arquivo será movido ou excluído.
 
 ## Limitações e evolução
 
