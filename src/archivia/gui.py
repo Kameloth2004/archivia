@@ -1069,13 +1069,11 @@ class ArchivIAWindow(QMainWindow):
                 "agent", DEFAULT_DB, question, model, folder_session=session,
             )
             return
-        # Compatibilidade: sem origem selecionada, consulta a base persistente.
-        try:
-            database = self._database_path()
-        except ValueError as exc:
-            self._show_error(str(exc))
-            return
-        self._start_worker("agent", database, question, model)
+        # Sem origem explícita, não consultar silenciosamente o catálogo histórico.
+        # A mensagem do usuário pode mencionar uma pasta que NÃO está selecionada.
+        self._show_error(
+            "Selecione a pasta de origem na aba Inventário antes de perguntar ao agente."
+        )
 
     def _start_worker(
         self, mode: str, database: Path, question: str = "", model: str = "",
