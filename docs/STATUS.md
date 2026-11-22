@@ -209,9 +209,17 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Não homologado com Qwen3 real ainda**. Primeiro rodar suíte Windows e testar em pasta-base descartável.
 - Histórico/configuração da GUI **não** é compartilhado automaticamente com o agente.
 
+## Integração real Qwen3 → planejador cronológico — homologada
+
+- O usuário testou com Qwen3 a ferramenta `simular_organizacao_por_data` em snapshot #1, categoria imagem, destino-base `D:/PROJETOS/archivia/tests/fixtures/manual`.
+- Resultado estruturado: `operation=organize_by_modified_date`, `mode=simulation`, `executable=false`, `requires_explicit_approval=true`, `scan_id=1`, `selected=1`, `total_matches=1`, `blocked=0`, `truncated=false`.
+- Proposta: `foto_teste.jpg` → `2026/11/foto_teste.jpg` dentro da pasta-base de teste; `directory_would_need_creation=true` apenas sinaliza futuro diretório, sem criá-lo.
+- Integração com ferramenta real **homologada**; o plano não possui executor e não há autorização de movimentação.
+- Ajuste de precisão: a resposta textual do Qwen3 afirmou incorretamente que o resultado era parcial apesar de `truncated=false`. Reforçado no prompt que `truncated=false` significa que a categoria selecionada foi completamente representada no plano, não resultado parcial. **A nova instrução ainda não foi revalidada com Qwen3 real.**
+
 ## Próximo passo seguro
 
-**Suíte anterior de 52 testes e aba Organização aprovadas pelo usuário.** Próximo teste: `git pull origin main`, rodar suíte (55 testes esperados, 1 possivelmente ignorado), testar Qwen3 com `simular_organizacao_por_data` em diretório de testes existente. Não mover nem criar arquivos.
+**Integração do Qwen3 com a simulação cronológica homologada pelo usuário:** 1 proposta, 0 bloqueios, `truncated=false`. Próximo passo: validar a precisão da nova instrução de resposta e planejar o avanço seguro do sistema sem conceder execução de movimentos.
 
 ## Limitações e evolução
 
