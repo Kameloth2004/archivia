@@ -208,6 +208,16 @@ Executar na raiz do projeto `python tests/generate_sha256_paged_demo.py`. O scri
 
 O cenário contém arquivos sintéticos com extensão `.jpg` que não são JPEGs válidos. Não utilizar tratamento visual. A rotina de hash permanece estritamente leitura. O script não remove a pasta para não apagar dados sem autorização; uma segunda execução sobre a mesma pasta será recusada.
 
+## Dois modos de verificação SHA-256 — global em homologação
+
+A subaba **Organização → Duplicatas (SHA-256)** oferece **Tipo de análise**:
+- **Amostra por nome** (até 1.000): modo já homologado; examina apenas os primeiros registros do snapshot ordenados por caminho.
+- **Candidatos em todo o snapshot** (até 5.000): novo modo, identifica **todos os grupos com tamanho repetido** no snapshot pelo SQLite read-only e seleciona grupos inteiros de candidatos dentro do limite. Isto evita perder uma cópia cujo nome está depois da primeira página, mas **não garante verificar tudo** quando há grupos maiores que o limite ou arquivos que excedem o orçamento.
+
+As opções de MiB/arquivo e Leitura total aplicam-se aos dois modos. No modo global, o resumo distingue **candidatos encontrados no snapshot inteiro**, **candidatos efetivamente selecionados**, **grupos omitidos por limite**, **hashes lidos** e **arquivos ignorados**. A marca `GLOBAL INCOMPLETA` alerta sobre candidatos pendentes ou leituras não realizadas. Não há remoção automática de arquivos ou exportação de planos.
+
+Para o teste: snapshot sintético #4, categoria Imagens, modo **Candidatos em todo o snapshot**, limite 200; esperar 134 candidatos, 3 grupos e 7 arquivos idênticos, sem pendências. Testar limite 50 para confirmar pendência de grupo maior que o limite, sem classificá-lo como verificado. **Pendente validação Windows.**
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
