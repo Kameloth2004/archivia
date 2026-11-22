@@ -46,6 +46,10 @@ O módulo `src/archivia/duplicates.py` implementa `verify_duplicate_hashes()` co
 
 A verificação de tamanho/mtime e hash não cria garantia atômica contra alterações posteriores ou reparse points em todas as plataformas; um futuro executor precisará de projeto separado e revalidação. Os fixtures `tests/fixtures/sha256_demo/` cobrem nomes iguais/diferentes, mesmo tamanho com conteúdos diferentes e arquivos vazios. O resultado não é ferramenta disponível ao agente Ollama nesta etapa.
 
+## SHA-256 paginado: orçamento e progresso
+
+A análise de duplicatas aceita amostras de até **1000 registros**, mas consulta SQLite sempre em páginas de **100**, com `scan_id` fixado na primeira página (quando automático). Reúne somente metadados da amostra para agrupar tamanhos iguais; hashes entre páginas são então comparados em memória. Esse desenho reduz a carga frente à consulta integral, mas a memória ainda cresce proporcionalmente à amostra limitada. Limites por arquivo (16 MiB) e leitura total (até 256 MiB, padrão 64 MiB) são validados. Eventos de progresso `catalog/hash/done` são enviados à interface em worker Qt; não há escrita em disco nem estimativa temporal.
+
 ## Garantias e limites
 - Ainda não há executor, renomeação, exclusão, análise visual por IA ou GUI. A integração Ollama com ferramentas de consulta e simulação já foi validada.
 - Nenhum plano é executável; não transformar `executable` em `true` sem projeto e revisão separados.
