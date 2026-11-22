@@ -30,7 +30,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 ## Homologação recente
 
-- **89 testes homologados no Windows pelo usuário antes do novo fluxo temporário**: `Ran 89 tests in 4.731s`, `OK (skipped=1)` (88 aprovados e um ignorado), nenhuma falha.
+- **92 testes homologados no Windows pelo usuário**: `Ran 89 tests in 4.731s`, `OK (skipped=1)` (88 aprovados e um ignorado), nenhuma falha.
 - Ollama real / GUI: pasta `E:\\Ashley`, snapshot **#6**, consulta `buscar_arquivos_catalogo` com `categoria=imagem`; resultado **1.344 imagens**, 10 exemplos, 135 páginas; resposta do agente coerente com os dados. Erro anterior `limite inválido` não reapareceu.
 - Modo SHA-256 global / fixture snapshot #4: 134 candidatos, 3 grupos de conteúdo igual e 7 arquivos associados; com limite 50, 125 candidatos pendentes e estado **GLOBAL INCOMPLETA**. Indicador visual específico de cobertura foi implementado, **mas sua aparência final ainda não foi homologada por captura**.
 - Verificação remota de `main` em 22/11/2026, antes da atualização editorial: commit `a622f47716bbad4e32aafb1dd966d2d48565d134` idêntico a `main`, zero commits divergentes; única branch encontrada: `main`. Não foram encontrados status checks associados ao commit. O repositório remoto não permite confirmar alterações locais não enviadas.
@@ -76,12 +76,12 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Adicionada `ask_agent_for_folder()` ao `agent.py`, usando `TemporaryDirectory`, `inventory()`, `store_inventory()` e o agente já existente. O banco SQLite nasce fora da pasta do usuário e é descartado após a solicitação, inclusive se houver erro.
 - Na GUI, quando a origem está selecionada em Inventário, clicar em **Perguntar ao agente** agenda a varredura e catalogação temporária no worker, **sem precisar examinar previamente nem salvar inventário**. A função anterior de catalogação manual e o banco permanente ficam intocados.
 - Uma pasta nova é reexaminada **em toda pergunta ao agente** nesta primeira implementação: não há cache persistente ou reaproveitamento entre consultas. Essa decisão é segura para o crescimento do banco, mas terá custo de leitura a avaliar em acervos grandes.
-- Três testes `TEST-ONLY` acrescentados em `tests/test_agent.py`: sucesso sem modificar catálogo persistente; falha Ollama com limpeza; inventário incompleto recusado. **Suíte esperada: 92 testes** (89 anteriores + 3), com um possivelmente ignorado. Código ainda não homologado no Windows.
+- Três testes `TEST-ONLY` acrescentados em `tests/test_agent.py`: sucesso sem modificar catálogo persistente; falha Ollama com limpeza; inventário incompleto recusado. **92 testes homologados no Windows**: `Ran 92 tests in 5.652s`, `OK (skipped=1)`; 91 aprovados, um ignorado.
 - Sem criação de novas abas, módulos, dependências ou qualquer execução de movimentações.
 
 ## Próxima etapa
 
-**89 testes anteriores aprovados no Windows; 92 esperados após a alteração.** Próximo passo: validar a suíte e depois consultar o Ollama com **pasta selecionada sem salvar o inventário**, verificando `total_matches`, `examined`, `blocked`, `pending` e `complete`. Ainda não há plano executável. Antes de qualquer executor, revisar atomicidade SQLite, junctions/reparse points do Windows e condições de corrida.
+**92 testes aprovados no Windows.** Próximo passo: consultar o Ollama real com **pasta selecionada sem salvar o inventário**, verificando `total_matches`, `examined`, `blocked`, `pending` e `complete`. Ainda não há plano executável. Antes de qualquer executor, revisar atomicidade SQLite, junctions/reparse points do Windows e condições de corrida.
 
 ## Referências
 
