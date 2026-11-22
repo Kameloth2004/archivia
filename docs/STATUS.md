@@ -411,9 +411,18 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Homologação visual/funcional no Ollama real continua pendente**. Próximo teste controlado: selecionar pasta de fixtures já catalogada e perguntar quantas imagens ela contém; conferir no resultado `tools_used` se `scan_id` e `root` apontam para a origem escolhida. Não utilizar mídia real na primeira validação.
 - Nenhuma movimentação, exclusão ou renomeação real habilitada. Não adicionar interfaces ou recursos antes de validar esta etapa.
 
+## Diagnóstico de consulta Ollama — erro "limite inválido" na GUI
+
+- Usuário executou corretamente o fluxo: selecionar pasta → examinar prévia → salvar inventário → perguntar ao Ollama. A GUI apresentou `buscar_arquivos_catalogo` com erro `limite inválido` em `tools_used`, enquanto o texto mostrado pelo modelo continha apenas `categoria`, `escopo` e `scan_id`.
+- A investigação do dispatcher confirmou: **omitir o argumento `limite` é permitido** e aplica padrão 10. A validação rejeita valores presentes mas incorretos, como uma string. O texto da resposta não garante que corresponda à chamada estruturada de ferramenta.
+- Atualizado `src/archivia/agent.py` para incluir o campo `arguments` (valores reais recebidos, sem alteração) em cada registro `tools_used`; adicionada cobertura em `tests/test_agent.py` para argumento ausente, limitação ao snapshot e registro de argumentos.
+- **Não foi afrouxada a validação do agente nem alterada a origem escolhida.** Esta é uma melhoria de diagnóstico, não comprovação da causa exata do erro anterior.
+- **Homologação local pendente:** esperados **83 testes** (82 anteriores + 1 novo), com um possível teste de symlink ignorado. Depois repetir a consulta na GUI e observar o novo campo `arguments` para localizar o argumento problemático, se o erro persistir.
+- Nenhuma movimentação, exclusão ou renomeação foi habilitada.
+
 ## Próximo passo seguro
 
-**82 testes homologados no Windows, com um ignorado.** Validar na interface com Ollama real a associação da pasta selecionada ao snapshot, utilizando fixtures; conferir o snapshot e a origem informados em `tools_used`. Não ampliar funcionalidades até esse teste.
+**Diagnóstico do erro `limite inválido` publicado, não declarado resolvido.** Atualizar main, executar 83 testes, repetir o pedido do agente na GUI e verificar o campo real `arguments` em `tools_used`. Somente então decidir a correção específica, preservando limites e origem escolhida.
 
 ## Limitações e evolução
 
