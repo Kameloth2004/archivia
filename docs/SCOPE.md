@@ -24,7 +24,7 @@ A operação real não deve ser antecipada para resolver lacunas de UX.
 | Planejamento de organização cronológica com validação | Simulação validada | **Núcleo — consolidar**, não ampliar regras sem casos de uso |
 | Planejador genérico `propose_moves` | Simulação de consolidação para pasta única; agora usa **uma página SQLite** limitada a 100 arquivos e aceita snapshot opcional | **Núcleo — manter enxuto**; uma página não equivale ao plano completo |
 | SHA-256 por amostra e global | Ambos homologados com dados sintéticos | **Auxiliar — congelar expansão** |
-| Sessão SHA-256 progressiva em RAM | 77 testes homologados; sem GUI | **Motor experimental — manter desacoplado**, sem novos botões agora |
+| Sessão SHA-256 progressiva em RAM | Suíte atual de 84 testes homologada; sem GUI | **Motor experimental — manter desacoplado**, sem novos botões agora |
 | Preferência de datas | Implementada | **Configuração mínima — manter** |
 | Classificação semântica/visual | Ainda não implementada | **Lacuna central para planejar depois do fluxo mínimo** |
 | Regras flexíveis de organização e renomeação | Ainda não implementadas | **Lacuna central; especificar antes de codificar** |
@@ -46,6 +46,10 @@ A operação real não deve ser antecipada para resolver lacunas de UX.
 3. `src/archivia/duplicates.py` contém estratégias de amostra e de candidatos globais; `duplicate_sessions.py` adiciona outra estratégia experimental. Não gerar um quarto modo; documentar quando usar cada um e priorizar simplicidade da interface.
 4. O `README.md`, `docs/GUI.md`, `docs/ARCHITECTURE.md` e `docs/EDITIONS.md` contêm **passagens historicamente válidas, mas hoje desatualizadas** (por exemplo, recursos já implementados ainda descritos como futuros). Uma revisão editorial posterior deve separar histórico de estado atual, sem apagar decisões úteis.
 5. As regras atuais de organização são concentradas em mídias e por modificação UTC; o objetivo original inclui categorias variadas, renomeação e destinos escolhidos pelo usuário. **Não presumir** que AAAA/MM resolverá todos os casos.
+
+## Especificação vigente de planejamento de grandes acervos
+
+Para consolidar arquivos de subpastas em destino único, consultar o **contrato proposto em [ARCHITECTURE.md](ARCHITECTURE.md)**. Ainda não implementado: lotes estáveis, colisões globais entre páginas, proteção contra nomes equivalentes no Windows e relatório de cobertura. Preservar a simulação de até 100 itens como prévia parcial enquanto o motor completo não estiver homologado; nenhuma execução em arquivos reais.
 
 ## Ordem de trabalho recomendada
 
