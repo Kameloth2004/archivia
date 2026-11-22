@@ -123,9 +123,19 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Limites da primeira migração:** a aba Biblioteca ainda depende do fluxo histórico do banco persistente; a tela Início exige Ollama para os atalhos de contagem e não possui ainda fluxo local equivalente no modo sem IA. Não é o redesign final nem habilita executor.
 - **Código publicado, sem suíte executada nesta atualização de layout.** Os últimos testes informados pelo usuário foram os 94 testes anteriores; a atualização subsequente de filtro de origem acrescentou um teste (95 previstos). Validar testes e abertura da GUI no Windows antes de ocultar/remover mais controles.
 
+## Executor experimental de arquivo único — TEST-ONLY (aguardando homologação)
+
+- `src/archivia/executor.py`: **única operação real de arquivo introduzida**, deliberadamente **inacessível pela GUI, Ollama ou CLI**. Aceita somente uma ação da prévia `propose_moves()`, sem truncamento, conflitos ou itens adicionais, e exige a confirmação literal `CONFIRMO TESTE ARCHIVIA`.
+- **Escopo físico obrigatório:** origem e destino dentro do **mesmo caso isolado** em `tests/.runtime/`, com diretório de destino previamente existente. Não suporta caminhos pessoais, `E:\\Ashley`, movimentação entre discos ou operações em lote. Não introduzir opção que contorne essa contenção nesta etapa.
+- Valida a proposta contra o catálogo e o estado físico antes da operação. Rejeita links simbólicos e junctions detectáveis; bloqueia destinos já ocupados (inclusive diferença de maiúsculas/minúsculas); testa mesmo volume e identidade do arquivo.
+- Usa `os.link` sem substituição do destino, seguido de `os.unlink` da origem, e grava eventos em `archivia-executor-journal.jsonl` dentro da fixture, com `fsync`. **Não é transação atômica**: falha após criar o hardlink pode deixar os dois caminhos. Nessa condição, **não repetir automaticamente** nem alegar rollback; revisão manual do journal é obrigatória.
+- Cinco testes `TEST-ONLY` novos cobrem movimentação de fixture, ausência de consentimento, destino ocupado/arquivo alterado, plano adulterado ou parcial e tentativa de saída de `tests/.runtime`. Execução Windows ainda pendente.
+- **Não implementado:** recuperação automática, rollback confiável, movimentação entre unidades, segurança completa contra condições de corrida, autorização de lote, interface de revisão e executor generalizado.
+- **Suíte esperada:** 100 testes, assumindo 95 anteriores (o teste 95 ainda não teve homologação reportada). Nenhuma mídia do usuário deve ser usada nesta fase.
+
 ## Próxima etapa
 
-Executar a suíte no Windows (95 testes previstos após o teste de filtro de origem), iniciar `archivia-gui` e verificar: três abas iniciais, Início → escolher pasta → contar imagens, Configurações → modelo, Avançado → quatro telas técnicas preservadas, alternância de Avançado, ausência de escrita em mídias. **Não iniciar segunda migração antes da homologação visual.**
+No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (100 testes esperados). Se passarem, conferir especificamente `tests/test_executor.py` e depois planejar reversão/recuperação antes de considerar testes manuais. **Não utilizar arquivos de `E:\\Ashley` nem habilitar integração com GUI/Ollama.**
 
 ## Referências
 
