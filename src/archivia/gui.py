@@ -395,9 +395,10 @@ class ArchivIAWindow(QMainWindow):
         self.plan_summary = QLabel("Nenhum plano gerado. Serão examinados no máximo 50 arquivos.")
         self.plan_summary.setWordWrap(True)
         plan_layout.addWidget(self.plan_summary)
-        self.plan_table = QTableWidget(0, 4)
+        self.plan_table = QTableWidget(0, 6)
         self.plan_table.setHorizontalHeaderLabels(
-            ["Origem (arquivo)", "Destino proposto", "Situação", "Observação"]
+            ["Origem (arquivo)", "Destino proposto", "Situação", "Observação",
+             "Possível duplicata?", "Nome alternativo sugerido"]
         )
         self.plan_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.plan_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -914,6 +915,8 @@ class ArchivIAWindow(QMainWindow):
                         "Subpasta futura" if item.get("directory_would_need_creation")
                         else "Destino-base pronto"
                     ),
+                    "Sim (não confirmada)" if item.get("possible_duplicate_by_metadata") else "Não",
+                    item.get("alternative_name_suggestion") or "—",
                 )
                 for col_index, value in enumerate(values):
                     self.plan_table.setItem(
@@ -923,6 +926,8 @@ class ArchivIAWindow(QMainWindow):
                 f"Snapshot #{result['scan_id']} | {result['selected']} examinados "
                 f"de {result['total_matches']} arquivos da categoria | "
                 f"{result['blocked']} bloqueados | "
+                f"{result.get('name_collisions', 0)} colisões de nome | "
+                f"{result.get('potential_duplicate_items', 0)} suspeitas por metadados | "
                 f"{'Resultado parcial' if result['truncated'] else 'Categoria completa'}"
                 " — SIMULAÇÃO: nenhuma operação de escrita."
             )
