@@ -394,9 +394,19 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Aguardando suíte de homologação Windows:** 79 testes esperados, com um possivelmente ignorado. Não foi adicionada nova dependência nem pasta de produção.
 - Próxima decisão somente após teste: definir um plano seguro completo e paginado para todos os arquivos, sem expandir a interface ou o SHA-256.
 
+## Contexto da pasta selecionada para o agente — aguardando testes no Windows
+
+- Incremento mínimo orientado ao fluxo central: a pasta informada em **Inventário** passa a definir o snapshot usado pelo **Agente IA** durante suas consultas e simulações. Nenhuma nova aba ou dependência.
+- Adicionado `scan_for_folder()` em `catalog.py`: busca **somente** o snapshot mais recente da origem exata em SQLite leitura; não escolhe outra origem se a pasta selecionada não estiver catalogada. O usuário deve examinar e catalogar a pasta primeiro.
+- `ask_agent(..., context_scan_id=...)` e `dispatch_tool(..., context_scan_id=...)` vinculam as ferramentas autorizadas ao snapshot; tentativas do modelo de fornecer outro `scan_id` são rejeitadas. Consultas de resumo, pesquisa e simulações recebem o mesmo contexto.
+- Nenhuma pasta selecionada: mantém comportamento legado do agente com último snapshot global, explicitamente para compatibilidade; isto será reconsiderado na interface simplificada.
+- O agente **não** grava inventários automaticamente, não move/renomeia/exclui arquivos e não pode executar código. Uma simulação continua limitada por página e é não executável.
+- Adicionados três testes TEST-ONLY em `tests/test_agent.py`: seleção de origem antiga diante de snapshot global mais recente; recusa de pasta sem catálogo; recusa de tentativa de troca de snapshot pelo modelo.
+- **Aguardando homologação local:** suíte esperada **82 testes** (79 anteriores + 3 novos), com um possivelmente ignorado. O código foi publicado, mas não foi executado neste ambiente.
+
 ## Próximo passo seguro
 
-**Suíte de 72 testes e modo global SHA-256 homologados no Windows com fixtures:** snapshot #4, 134 candidatos completos, 3 grupos, 7 arquivos idênticos, 0 pendentes e 5 lotes SQL. Próxima etapa recomendada: verificar o comportamento com limites restritos e grupos pendentes, ainda somente leitura; não habilitar operações de arquivos.
+**Validar a associação segura entre pasta e agente** com `git pull origin main` e `python -m unittest discover -s tests -v`. Esperados 82 testes, um possivelmente ignorado. Depois, fazer teste na GUI com uma pasta de fixture já catalogada, sem alterações de mídia.
 
 ## Limitações e evolução
 
