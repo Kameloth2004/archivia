@@ -79,9 +79,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Três testes `TEST-ONLY` acrescentados em `tests/test_agent.py`: sucesso sem modificar catálogo persistente; falha Ollama com limpeza; inventário incompleto recusado. **92 testes homologados no Windows**: `Ran 92 tests in 5.652s`, `OK (skipped=1)`; 91 aprovados, um ignorado.
 - Sem criação de novas abas, módulos, dependências ou qualquer execução de movimentações.
 
+## Homologação real do catálogo temporário — 22/11/2026
+
+- GUI: usuário selecionou `E:\\Ashley` e perguntou ao Ollama sem usar **Examinar pasta** ou **Salvar inventário**; resposta `1.344 imagens`.
+- Ferramenta real `buscar_arquivos_catalogo`: argumentos `{"categoria":"imagem","scan_id":1}`, resultado `count=1344`, `page_size=10`, `pages=135`, `root=E:\\Ashley`.
+- SQLite foi criado em `%LOCALAPPDATA%/Temp/archivia-session-*/catalogo.sqlite3`, confirmando o uso do **catálogo temporário** e não do banco persistente. `scan_id=1` é local à sessão.
+- **Homologado:** selecionar pasta → inventário/catalogação automáticos → consulta Ollama. Nenhum arquivo foi movimentado.
+- **Limite da evidência:** o resultado mostra o banco temporário em uso, mas não comprova por si só a remoção após o retorno; a limpeza foi testada anteriormente com mocks (suíte de 92 testes), incluindo erro simulado.
+- Próximas prioridades: evitar nova varredura a cada pergunta na mesma sessão, revisar tratamento de falhas abruptas e desenhar o fluxo principal simplificado; sem persistência involuntária e sem executor de arquivos.
+
 ## Próxima etapa
 
-**92 testes aprovados no Windows.** Próximo passo: consultar o Ollama real com **pasta selecionada sem salvar o inventário**, verificando `total_matches`, `examined`, `blocked`, `pending` e `complete`. Ainda não há plano executável. Antes de qualquer executor, revisar atomicidade SQLite, junctions/reparse points do Windows e condições de corrida.
+**92 testes aprovados no Windows e fluxo temporário homologado com Ollama real.** Próximo incremento: reduzir revarreduras desnecessárias ao perguntar novamente sobre a mesma origem durante a sessão, sem tornar o banco permanente. Antes de implementar, revisar ciclo de vida, limpeza e falhas abruptas.
 
 ## Referências
 
