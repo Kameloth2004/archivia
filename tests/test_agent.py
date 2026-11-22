@@ -130,6 +130,74 @@ class AgentTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         dispatch_tool("buscar_arquivos_catalogo", arguments, tmp / "ausente.db")
 
+    def test_date_organization_tool_is_readonly_and_limited(self):
+        # TEST-ONLY: arquivos sintéticos; a ferramenta não cria subpastas.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            root.mkdir()
+            dest.mkdir()
+            media = root / "foto.jpg"
+            media.write_bytes(b"imagem de teste")
+            ts = datetime(2025, 8, 9, tzinfo=timezone.utc).timestamp()
+            os.utime(media, (ts, ts))
+            db = tmp / "catalogo.sqlite3"
+            snapshot = store_inventory(inventory(root), db)
+            result = dispatch_tool("simular_organizacao_por_data", {
+                "categoria": "imagem", "destino": str(dest),
+                "scan_id": snapshot["scan_id"], "limite": 1,
+            }, db)
+            self.assertFalse(result["executable"])
+            self.assertEqual(result["mode"], "simulation")
+            self.assertEqual(result["blocked"], 0)
+            self.assertEqual(result["selected"], 1)
+            self.assertEqual(result["actions"][0]["destination"], str(dest / "2025" / "08" / "foto.jpg"))
+            self.assertFalse((dest / "2025").exists())
+            self.assertTrue(media.exists())
+
+    def test_date_organization_tool_rejects_unauthorized_arguments(self):
+        # TEST-ONLY: falhas são verificadas antes de qualquer tentativa de leitura.
+        with temporary_test_directory() as tmp:
+            for args in (
+                {}, {"categoria": "imagem"},
+                {"categoria": "documento", "destino": str(tmp)},
+                {"categoria": "imagem", "destino": ""},
+                {"categoria": "imagem", "destino": str(tmp), "execute": True},
+                {"categoria": "imagem", "destino": str(tmp), "limite": 51},
+                {"categoria": "imagem", "destino": str(tmp), "limite": True},
+                {"categoria": "imagem", "destino": str(tmp), "scan_id": 0},
+            ):
+                with self.subTest(arguments=args):
+                    with self.assertRaises(ValueError):
+                        dispatch_tool("simular_organizacao_por_data", args, tmp / "nao_existe.db")
+
+    def test_ollama_mock_date_plan_never_executes(self):
+        # MOCK-ONLY: modelo simulado, sem chamadas de rede Ollama.
+        with temporary_test_directory() as tmp:
+            root = tmp / "origem"
+            dest = tmp / "destino"
+            root.mkdir()
+            dest.mkdir()
+            media = root / "imagem.jpg"
+            media.write_bytes(b"x")
+            db = tmp / "catalogo.sqlite3"
+            store_inventory(inventory(root), db)
+            first = {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {
+                    "name": "simular_organizacao_por_data",
+                    "arguments": {"categoria": "imagem", "destino": str(dest)},
+                }}
+            ]}
+            final = {"role": "assistant", "content": "Simulação produzida; nada foi movido."}
+            with patch("archivia.agent._ollama_chat", side_effect=[first, final]) as mocked:
+                output = ask_agent("Simule ano e mês", "modelo-falso", db)
+            self.assertEqual(mocked.call_count, 2)
+            self.assertEqual(output["tools_used"][0]["tool"], "simular_organizacao_por_data")
+            self.assertFalse(output["tools_used"][0]["result"]["executable"])
+            self.assertFalse(output["files_modified"])
+            self.assertTrue(media.exists())
+            self.assertEqual(list(dest.iterdir()), [])
+
     def test_ollama_mock_cannot_execute_unknown_tool(self):
         with temporary_test_directory() as tmp:
             message = {"role": "assistant", "content": "", "tool_calls": [
