@@ -172,9 +172,19 @@ Protótipo inicial: `archivia-gui`, instalado opcionalmente com `python -m pip i
 - **Pendente de homologação Windows:** executar suíte e digitar `01012024` e `31122024` sem separadores; testar também a seleção ISO/EUA.
 - Não modifica metadados de arquivos, inventário ou snapshots.
 
+## Planejamento de organização por ano/mês — simulação em homologação
+
+- Preferência de formatos e máscara automática confirmadas pelo usuário na GUI Windows.
+- Adicionado `propose_date_moves()` em `src/archivia/planner.py` para propor `AAAA/MM/nome.ext` pela data de modificação UTC.
+- Somente categorias `imagem/video/audio`, último snapshot global por padrão ou `scan_id` explícito. Destino-base **já existente**, sem links simbólicos.
+- A consulta SQL é paginada: no máximo 100 arquivos por plano, sem carregar dezenas de milhares em memória.
+- Verifica symlinks, colisões, destinos existentes, tamanho e modificação da origem; marca ações bloqueadas ou propostas. **Não cria subpastas e não move arquivos.**
+- Três testes novos em `tests/test_planner.py` com fixtures sintéticas, sem escrita em mídias pessoais.
+- **Etapa ainda não homologada no Windows.** Sem comando novo no agente ou botão novo na GUI, para manter separação de privilégios e concluir segurança do motor antes da interface.
+
 ## Próximo passo seguro
 
-**Próximo teste:** após `git pull`, rodar testes e verificar na Biblioteca que `01012024` vira `01/01/2024` e `31122024` vira `31/12/2024` automaticamente. Em Configurações, verificar também mudança para ISO e EUA. Sem nova catalogação.
+**Próximo teste:** `git pull origin main` e suíte com 52 testes (um possivelmente ignorado). Comprovado o sucesso, integrar a simulação cronológica à GUI com prévia de destino e aprovação de execução sempre indisponível. Não catalogar nem mover arquivos.
 
 ## Limitações e evolução
 
