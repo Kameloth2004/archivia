@@ -93,6 +93,12 @@ Mostre o destino proposto para uma imagem. Não mova nem crie arquivos.
 
 A pasta `destino` precisa **existir previamente**; não a criar automaticamente por esta função. Conferir em `tools_used`: `simular_organizacao_por_data`, `mode=simulation`, `executable=false`, `scan_id=1`, `selected`/ `blocked`; verificar que o destino permanece sem subpastas novas. O modelo pode selecionar outra ferramenta ou argumentos errados; observar o JSON real antes de homologar. **A seleção de snapshot e pasta feita na aba Organização não é transmitida ao agente**: fornecê-los explicitamente no texto.
 
+## Contexto da pasta escolhida na GUI (aguardando homologação)
+
+Quando o usuário informa uma pasta em **Inventário**, ao perguntar ao agente a interface identifica o **snapshot mais recente daquela origem específica** pelo caminho do SQLite. As ferramentas do modelo ficam restritas a esse `scan_id`; uma tentativa de indicar outro snapshot é recusada. A pasta sem inventário salvo gera aviso para catalogá-la antes — nunca faz fallback silencioso para outra pasta. O resumo, as buscas e as simulações usam o mesmo contexto. A integração continua somente leitura/simulação, sem execução de arquivos.
+
+Por compatibilidade, sem pasta selecionada na GUI o comportamento anterior usa o snapshot global mais recente. Esta é uma etapa técnica intermediária; na futura experiência principal, uma origem selecionada será pré-requisito explícito.
+
 ## Próxima validação
 1. Executar testes com mocks (não precisam de Ollama).
 2. Verificar `ollama list` e escolher um modelo instalado com tool calling.
