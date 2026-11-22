@@ -49,6 +49,7 @@ python -m unittest discover -s tests -v
 - [Agente Ollama: protocolo e limitações](docs/AGENT.md)
 - [Edições planejadas: Standard e duas Lite](docs/EDITIONS.md)
 - [Estado atual e próximos passos](docs/STATUS.md)
+- [Escopo mínimo e regras contra excesso de funcionalidades](docs/SCOPE.md)
 - [Interface gráfica Standard](docs/GUI.md)
 - [Política de testes e mocks](tests/README.md)
 
