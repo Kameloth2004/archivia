@@ -155,13 +155,13 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 
 - O executor passou a proteger **execução e recuperação** com o mesmo lock exclusivo por caso de fixture: diretório atômico `.archivia-operation.lock` criado com `os.mkdir`; tentativa concorrente é recusada. Um lock remanescente após falha/crash exige revisão, não é removido automaticamente em nova execução.
 - Após persistir `DESTINO_CRIADO`, o executor revalida `st_dev`, `st_ino`, tamanho e `mtime_ns` da origem e identidade do hardlink destino antes de tentar remover a origem. Se algo mudar, registra `INTERROMPIDO_VERIFICACAO` e preserva ambos os caminhos para revisão.
-- Três testes novos: concorrência na execução, concorrência na recuperação e modificação durante o registro do destino. **Suíte esperada: 109 testes**, com um possivelmente ignorado. A atualização ainda não foi executada no Windows pelo usuário.
+- Três testes novos: concorrência na execução, concorrência na recuperação e modificação durante o registro do destino. **109 testes homologados no Windows:** `Ran 109 tests in 5.879s`, `OK (skipped=1)`; 108 aprovados e um ignorado.
 - **Limitação expressa:** lock é cooperativo apenas entre chamadas do ArchivIA que o respeitam; processos externos podem modificar caminhos. A revalidação ainda sofre TOCTOU entre `stat` e `unlink`. Nenhuma garantia de segurança geral nem permissão para utilizar arquivos reais.
 - Permanece **TEST-ONLY** dentro de `tests/.runtime`, sem integração com GUI, CLI ou Ollama.
 
 ## Próxima etapa
 
-No Windows, atualizar `main` e executar `python -m unittest discover -s tests -v`; **109 testes esperados** (106 homologados + 3 novos). Se aprovados, revisar os limites TOCTOU restantes e preparar testes isolados de cópia segura entre volumes. Não utilizar mídias pessoais nem habilitar a GUI ou o agente para executar movimentações.
+Com os **109 testes homologados**, projetar e testar uma **cópia verificada TEST-ONLY**, necessária para futuras movimentações entre discos: destino temporário isolado, hash integral origem/cópia, publicação sem sobrescrita, journal durável e falha segura que preserve a origem. Inicialmente **não remover a origem**, não utilizar mídias pessoais e não integrar GUI, CLI ou Ollama. A correção TOCTOU contra processos externos continua pendente.
 
 ## Referências
 
