@@ -186,6 +186,14 @@ Por solicitação do usuário, a tabela de seis colunas ficou visualmente trunca
 
 A tabela agora utiliza apenas quatro colunas principais (**Arquivo, Destino proposto, Situação, Observação**), com larguras ajustadas, linhas alternadas, rolagem horizontal quando necessária e tooltip contendo o texto completo. Ao selecionar uma linha, um painel inferior mostra **origem completa, destino completo, motivo do bloqueio, suspeita de duplicata e sugestão de nome alternativo**. A informação secundária não ocupa mais seis colunas estreitas. Continuam as mesmas ferramentas, critérios e limites de 50 arquivos; **nenhuma funcionalidade de gravação ou execução foi acrescentada**. A revisão ainda precisa de homologação visual no Windows.
 
+## Verificação de duplicatas por SHA-256 — aguardando homologação
+
+Dentro da aba **Organização** há agora duas subabas: **Simulação por data** e **Duplicatas (SHA-256)**. A primeira preserva o planejador já homologado; a segunda tem seu próprio seletor de categoria/snapshot e botão **Verificar duplicatas — SHA-256 (somente leitura)**. Exibe os grupos com conteúdo idêntico na amostra, quantidade de arquivos efetivamente comparados e motivos de itens ignorados.
+
+**Limites:** até 50 arquivos por verificação na GUI, 16 MiB por arquivo e 64 MiB de leitura total. A rotina analisa somente um snapshot e primeiro identifica candidatos de mesmo tamanho; usa SHA-256 por blocos somente para esses candidatos. Arquivos isolados por tamanho não recebem hash, e arquivos fora da amostra não são verificados. A ausência de grupos repetidos **não comprova ausência de duplicatas no disco**. Não apaga, não renomeia, não move nem altera o catálogo.
+
+**Teste manual preparado:** foi criada a pasta `tests/fixtures/sha256_demo` contendo oito arquivos sintéticos (extensão `.jpg` usada como metadado, não imagens reais). Primeiro selecione essa pasta em Inventário, faça uma prévia e confirme um novo snapshot no SQLite; depois atualize o histórico na subaba Duplicatas, escolha o novo snapshot, categoria Imagens e verifique. O cenário esperado é **2 grupos SHA-256 com 5 arquivos**: um grupo de 3 arquivos com mesmo conteúdo e nomes mistos, outro com 2 arquivos vazios. Arquivos de mesmo tamanho mas conteúdo diferente não são duplicatas. Essas fixtures só existem para os testes, nunca são arquivos de produção.
+
 ## Planejamento posterior
 
 - Seletor de pastas, botão para inventário com prévia e confirmação de gravação no SQLite.
