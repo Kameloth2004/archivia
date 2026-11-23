@@ -116,8 +116,8 @@ def copy_manual_image_verified(
         temp = _safe_path(Path(temp_name))
         temp_info = os.fstat(fd)
         temp_id = (temp_info.st_dev, temp_info.st_ino)
-        _record(journal, "TEMPORARIO_CRIADO", source, target, temporary=str(temp))
         try:
+            _record(journal, "TEMPORARIO_CRIADO", source, target, temporary=str(temp))
             src_flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
             if hasattr(os, "O_NOFOLLOW"):
                 src_flags |= os.O_NOFOLLOW
