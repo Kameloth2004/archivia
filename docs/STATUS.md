@@ -265,9 +265,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - O fluxo reutiliza a confirmação e a catalogação SQLite já existentes; a avaliação prática não comprova todos os casos de erro possíveis, mas não foi relatada regressão.
 - **Segurança mantida:** nenhuma mídia é movimentada, renomeada ou excluída pela GUI/Ollama; executor TEST-ONLY permanece isolado.
 
+## Pipeline de movimentação verificada TEST-ONLY (aguardando homologação Windows)
+
+- Implementado `src/archivia/move_pipeline.py`: **pipeline independente**, sem integração à GUI, CLI ou Ollama. Recebe somente uma ação integral de `propose_moves()`, revalida o plano no catálogo/disco e exige aprovação literal `CONFIRMO MOVIMENTO DE TESTE`. Origem e destino continuam fisicamente restritos ao **mesmo caso descartável** de `tests/.runtime`.
+- Fluxo: identifica e calcula SHA-256 da origem; cria temporário exclusivo no destino; copia em blocos e executa `fsync`; compara SHA-256 e metadados da cópia/origem; publica o temporário com `os.link` sem sobrescrita; valida novamente ambos os arquivos; registra `REMOCAO_AUTORIZADA`; **só então tenta remover a origem** e registra `CONCLUIDO`. O temporário é limpo somente se ainda possuir a identidade física registrada.
+- Journal próprio: `archivia-move-v2.jsonl`, com eventos `PREPARADO`, `TEMPORARIO_CRIADO`, `HASH_VERIFICADO`, `PUBLICADO`, `REMOCAO_AUTORIZADA`, `CONCLUIDO`, `INTERROMPIDO`. Journal pré-existente bloqueia reexecução; **sem rollback automático**.
+- `tests/test_move_pipeline.py`: **8 testes novos** de sucesso/remoção da origem fictícia, confirmação obrigatória, destino ocupado, plano adulterado, falha de hash, falha de remoção com origem preservada, journal preexistente e bloqueio cooperativo. **174 testes esperados** (166 anteriormente homologados + 8 novos; 1 possivelmente ignorado), ainda não executados no Windows.
+- A estratégia de temporário no volume do destino permite projetar movimentação futura entre unidades, **mas esta versão ainda não realiza nem homologa transferências reais entre volumes diferentes**.
+- **Limitações críticas antes de liberar mídias pessoais:** corrida entre `stat`/`hash` e `unlink` contra processos externos (TOCTOU), resistência do journal a falha de energia/diretório, tratamento de falha pós-exclusão da origem, preservação de metadados/ACLs relevantes, múltiplos arquivos e recuperação idempotente. O lock é apenas cooperativo entre chamadas do ArchivIA. Não autorizar uso com arquivos pessoais nem conectar o agente IA.
+
 ## Próxima etapa
 
-Com a catalogação simplificada homologada, priorizar a **próxima funcionalidade de produto** e evitar modularização adicional sem necessidade demonstrada. Avaliar separadamente o executor experimental e suas limitações de segurança antes de cogitar disponibilizar movimentação de mídias reais. Manter homologação incremental e confirmação explícita para qualquer gravação.
+No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (**174 testes esperados**). Se aprovados, revisar em detalhe os estados do journal e falhas pós-publicação com fixtures; só então projetar autorização para movimentação controlada de mídias pessoais. **O código desta etapa não aceita caminhos fora de `tests/.runtime` e não está ligado à GUI/Ollama.**
 
 ## Referências
 
