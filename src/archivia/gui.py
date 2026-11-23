@@ -26,6 +26,7 @@ from .gui_tables import fill_table
 from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
 )
+from .gui_navigation import find_saved_snapshot
 from .gui_presentation import (
     catalog_filters, previous_page, next_page, summary_report, inventory_report,
     agent_report,
@@ -48,6 +49,9 @@ class ArchivIAWindow(QMainWindow):
         self._preview_source_path: str | None = None
         self._preview_page = 1
         self._preview_pages = 0
+        # Navegação pós-catalogação: espera o término do worker antes de
+        # consultar histórico e, depois, listar o snapshot recém-salvo.
+        self._saved_snapshot_navigation: dict | None = None
         self.setWindowTitle("ArchivIA Standard — Prévia")
         self.resize(960, 760)
         self.setMinimumSize(760, 540)
@@ -1231,9 +1235,14 @@ class ArchivIAWindow(QMainWindow):
             self._page = 1
             self._pages = 0
             self.catalog_table.setRowCount(0)
-            self.page_label.setText("Novo snapshot salvo — clique em Listar catálogo")
+            self.page_label.setText("Novo snapshot salvo — preparando Biblioteca")
             self.prev_button.setEnabled(False)
             self.next_button.setEnabled(False)
+            self._saved_snapshot_navigation = {
+                "scan_id": result["scan_id"],
+                "database": str(self._database_path()),
+                "stage": "await_history",
+            }
         elif mode == "origins":
             origins = result["origins"]
             fill_table(self.origins_table, origin_rows(origins))
@@ -1285,9 +1294,36 @@ class ArchivIAWindow(QMainWindow):
                 max(0, self.duplicate_snapshot.findData(selected_duplicate))
             )
             self.duplicate_snapshot.blockSignals(False)
-            self.status.setText(
-                f"Histórico consultado: {len(result)} snapshots encontrados (máximo 100)."
-            )
+            navigation = self._saved_snapshot_navigation
+            if navigation is not None and navigation["stage"] == "await_history":
+                saved_id = navigation["scan_id"]
+                if find_saved_snapshot(result, saved_id):
+                    self.history_select.blockSignals(True)
+                    try:
+                        self.history_select.setCurrentIndex(
+                            self.history_select.findData(saved_id)
+                        )
+                    finally:
+                        self.history_select.blockSignals(False)
+                    # Limpar filtros anteriores antes de listar o snapshot.
+                    # Ainda estamos no worker do histórico, então nenhuma
+                    # consulta concorrente será iniciada pelos sinais.
+                    self._clear_catalog_search()
+                    self.tabs.setCurrentIndex(1)
+                    navigation["stage"] = "await_listing"
+                    self.status.setText(
+                        f"Snapshot #{saved_id} salvo e selecionado. Abrindo Biblioteca..."
+                    )
+                else:
+                    self._saved_snapshot_navigation = None
+                    self._show_error(
+                        f"Snapshot #{saved_id} salvo, mas não encontrado no histórico. "
+                        "Atualize o histórico da Biblioteca para conferir."
+                    )
+            else:
+                self.status.setText(
+                    f"Histórico consultado: {len(result)} snapshots encontrados (máximo 100)."
+                )
         elif mode == "duplicate_hash":
             self.duplicate_progress.setValue(100)
             self.duplicate_progress.setFormat("Verificação concluída")
@@ -1425,10 +1461,21 @@ class ArchivIAWindow(QMainWindow):
         self.result_view.setPlainText(f"Erro: {message}")
 
     def _worker_done(self) -> None:
+        completed_mode = self._worker.mode if self._worker is not None else None
         if self._worker is not None:
             self._worker.deleteLater()
             self._worker = None
         self._set_busy(False)
+        navigation = self._saved_snapshot_navigation
+        if navigation is None:
+            return
+        if completed_mode == "catalog_verified_preview" and navigation["stage"] == "await_history":
+            # Não iniciar um segundo QueryWorker antes de o primeiro terminar.
+            self._start_worker("history", Path(navigation["database"]))
+        elif completed_mode == "history":
+            self._saved_snapshot_navigation = None
+            if navigation["stage"] == "await_listing":
+                self._load_catalog_page()
 
     def closeEvent(self, event) -> None:
         # Não destruir QThread enquanto a operação Ollama estiver em andamento.
