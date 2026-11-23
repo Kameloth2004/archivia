@@ -239,9 +239,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Dez testes novos:** oito em `tests/test_gui_presentation.py` (filtros, datas, paginação e relatórios) e dois de integração estrutural em `tests/test_gui_structure.py`. **152 testes homologados no Windows**: `Ran 152 tests in 6.507s`, `OK (skipped=1)`; 151 aprovados, 1 ignorado e zero falhas. A verificação visual desta terceira etapa ainda está pendente.
 - Próxima validação visual: busca no catálogo com filtros, mudança de data e paginação; prévia paginada e resposta do agente em Início/Avançado; textos de resumo iguais aos da versão anterior. Não há liberação de movimentos reais.
 
+## Navegação automática após salvar inventário — implementação publicada, homologação pendente
+
+- Após o usuário confirmar **Salvar inventário no catálogo SQLite** em **Avançado → Inventário**, a GUI aguarda a conclusão do `QueryWorker` de gravação, atualiza o histórico pelo banco configurado e seleciona pelo **ID exato** o snapshot recém-criado. Só então abre a aba **Biblioteca** e lista os arquivos; não confia na seleção genérica `Mais recente (automático)`.
+- Filtros anteriores do catálogo são limpos durante a consulta do histórico, antes de iniciar a listagem, para não aplicar inadvertidamente critérios de outra pasta. As operações encadeadas não iniciam um segundo worker antes do encerramento do anterior.
+- Em caso de histórico sem o novo snapshot, exibe erro claro e não seleciona outro silenciosamente; falhas de apresentação cancelam o encadeamento. A atualização do histórico após a gravação não exige uma nova varredura da pasta nem envia dados ao Ollama.
+- Criado `src/archivia/gui_navigation.py` com helper puro `find_saved_snapshot()`. Quatro testes de ID/histórico em `tests/test_gui_navigation.py` e dois novos testes estruturais de fluxo em `tests/test_gui_structure.py`. **158 testes esperados** (152 homologados anteriormente + 6 novos, um possivelmente ignorado). **Ainda não executados pelo usuário no Windows.**
+- Escopo: melhora somente a navegação entre catálogo persistente e Biblioteca. O catálogo temporário do **Início** segue separado; nenhuma mídia é movida/copieda/excluída pelo agente ou interface.
+- Homologação visual necessária: salvar fixture sem dados pessoais, confirmar seleção do snapshot salvo e abertura da Biblioteca; filtros anteriores devem ser removidos. Testar retorno ao fluxo manual caso a consulta ao histórico falhe.
+
 ## Próxima etapa
 
-Os **152 testes automatizados foram aprovados**. Agora realizar homologação visual da terceira modularização: abrir `archivia-gui`, consultar catálogo com filtros (inclusive datas), navegar entre páginas da prévia e do catálogo, conferir os resumos e uma resposta do Ollama. Somente após confirmar os fluxos visuais, continuar extraindo responsabilidades. O executor continua sem integração com GUI/Ollama.
+Executar no Windows `git pull origin main` e `python -m unittest discover -s tests -v` (**158 testes esperados**). Se aprovados, validar visualmente o fluxo `Avançado → Inventário → Examinar pasta → Salvar inventário` e confirmar abertura automática da **Biblioteca** com seleção do **ID do novo snapshot**, limpeza de filtros e listagem. Não utilizar o executor de movimentação nem habilitar o Ollama para alterar arquivos.
 
 ## Referências
 
