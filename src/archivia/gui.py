@@ -1139,7 +1139,8 @@ class ArchivIAWindow(QMainWindow):
         destination = self.home_destination.text().strip()
         # O destino é pertinente somente a pedidos de simulação, não a contagens.
         wants_plan = any(word in prompt.casefold() for word in (
-            "simul", "organiza", "reunir", "consolida", "mover", "movimenta",
+            "simul", "organiza", "reunir", "consolida", "mover", "mova",
+            "movimenta", "junte", "agrupe",
         ))
         if destination and wants_plan:
             target = Path(destination).expanduser().absolute()
