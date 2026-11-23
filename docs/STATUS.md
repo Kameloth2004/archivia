@@ -166,12 +166,12 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Abre a origem em modo de leitura, cria arquivo temporário exclusivo **dentro do diretório de destino**, copia em blocos e força `fsync`; compara **SHA-256 da origem e da cópia**, tamanho e identidade/metadados da origem.
 - Publica o temporário com `os.link(temp, destino)` para **não substituir destino existente** e remove somente o nome temporário depois; **nunca apaga a origem**. Um hardlink entre temporário e destino é criado no volume do destino, independentemente de onde esteja a origem, embora **não tenha sido testado em duas unidades reais**.
 - Journal independente `archivia-copy-journal.jsonl`: `PREPARADO`, `TEMPORARIO_CRIADO`, `HASH_VERIFICADO`, `PUBLICADO` e `INTERROMPIDO`. Journal existente recusa nova cópia para não ocultar falhas anteriores. Interrupção após publicação pode deixar destino publicado; não tentar repetição automática.
-- Sete testes automatizados novos: cópia correta/hash/origem preservada, ausência de aprovação, destino ocupado, plano adulterado/truncado, lock concorrente, falha injetada e journal já existente. **Suíte esperada: 116 testes**, 1 possivelmente ignorado, ainda não executada no Windows.
+- Sete testes automatizados novos: cópia correta/hash/origem preservada, ausência de aprovação, destino ocupado, plano adulterado/truncado, lock concorrente, falha injetada e journal já existente. **116 testes homologados no Windows**: `Ran 116 tests in 7.871s`, `OK (skipped=1)`; 115 aprovados e um ignorado.
 - Limitações: não implementa rollback de cópia; não prova resistência a alterações por processos externos entre verificações (TOCTOU), não valida ACLs/atributos/metadados estendidos, não cobre quedas de energia com confirmação de diretórios, e não habilita remoção da origem. **Não utilizar arquivos pessoais.**
 
 ## Próxima etapa
 
-Executar no Windows `git pull origin main` e `python -m unittest discover -s tests -v` (**116 testes esperados**, 109 homologados + 7 novos). Se aprovados, revisar falhas de publicação e journals interrompidos, antes de qualquer teste em duas unidades ou permissão de remoção da origem. Nenhuma mídia pessoal, GUI, CLI ou Ollama pode executar a cópia.
+Com os **116 testes homologados**, revisar o cenário em que a publicação do destino ocorreu mas o journal ficou interrompido, e os artefatos temporários remanescentes. Acrescentar diagnóstico **somente leitura** e testes de falha simulada antes de tentar qualquer recuperação, limpeza automática ou movimentação em duas unidades. Preservar a restrição de operações a `tests/.runtime`, sem acesso pela GUI, CLI ou Ollama e sem usar arquivos pessoais.
 
 ## Referências
 
