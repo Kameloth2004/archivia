@@ -26,10 +26,57 @@ from .conflict_report import _suggest_unused_name
 APPROVAL_PHRASE = "MOVER UM ARQUIVO"
 
 
+def preview_conflict_move(
+    plan: dict[str, Any] | None, relative_file: str, *,
+    db_path: Path = DEFAULT_DB, scan_id: int | None = None,
+) -> dict[str, Any]:
+    """Recomenda a preservação das duas versões; NÃO altera arquivos."""
+    if (not isinstance(plan, dict) or plan.get("operation") != "move_recursive_consolidation"
+            or plan.get("mode") != "simulation" or plan.get("executable") is not False
+            or plan.get("complete") is not True or plan.get("pending") != 0
+            or plan.get("scan_id") != scan_id
+            or not isinstance(plan.get("actions"), list)
+            or not isinstance(relative_file, str) or not relative_file):
+        raise ValueError("Planejamento inválido ou incompleto.")
+    actions = plan["actions"]
+    rows = [a for a in actions if isinstance(a, dict)
+            and a.get("file") == relative_file
+            and a.get("status") == "bloqueado"
+            and a.get("reason") == "destino_ja_existe"]
+    if len(rows) != 1:
+        raise ValueError("Selecione um conflito de nome único.")
+    name = relative_file.rsplit("/", 1)[-1]
+    if sum(isinstance(a, dict) and isinstance(a.get("file"), str)
+           and a["file"].rsplit("/", 1)[-1].casefold() == name.casefold()
+           for a in actions) != 1:
+        raise ValueError("Há duas origens com o mesmo nome; requer análise manual.")
+    result = verify_plan_conflict(plan, relative_file, db_path=db_path, scan_id=scan_id)
+    if result["status"] != "conteudo_diferente":
+        raise ValueError("Não há duas versões diferentes confirmadas para preservar.")
+    destination = Path(plan["destination"]).expanduser().absolute()
+    if _is_symlink_component(destination) or not destination.is_dir():
+        raise ValueError("Pasta de destino indisponível.")
+    reserved = {Path(str(a["destination"])).name.casefold()
+                for a in actions if isinstance(a, dict) and a.get("destination")}
+    reserved.update(p.name.casefold() for p in destination.iterdir())
+    alternative = _suggest_unused_name(destination, name, reserved)
+    if alternative is None or _is_symlink_component(destination / alternative):
+        raise ValueError("Não há um nome alternativo livre e seguro.")
+    return {
+        "file": relative_file,
+        "original_destination": str(destination / name),
+        "new_destination": str(destination / alternative),
+        "suggested_filename": alternative,
+        "status": "conteudo_diferente",
+        "read_only": True, "files_modified": False,
+    }
+
+
 def move_one_approved(
     plan: dict[str, Any] | None, relative_file: str, *,
     db_path: Path = DEFAULT_DB, scan_id: int | None = None,
     approval: str = "", resolve_conflict: bool = False,
+    approved_target_name: str | None = None,
 ) -> dict[str, Any]:
     """Copia, verifica, publica sem overwrite e remove a origem após revalidação.
 
@@ -93,18 +140,14 @@ def move_one_approved(
     if len(fresh_match) != 1 or fresh_match[0] != action:
         raise ValueError("Arquivo não permanece elegível no planejamento atualizado.")
     if resolve_conflict:
-        comparison = verify_plan_conflict(plan, relative_file, db_path=db_path, scan_id=scan_id)
-        if comparison["status"] != "conteudo_diferente":
-            raise ValueError("O conflito não tem conteúdo diferente confirmado; nenhuma ação permitida.")
-        reserved = {Path(str(a["destination"])).name.casefold()
-                    for a in actions if isinstance(a, dict) and a.get("destination")}
-        reserved.update(p.name.casefold() for p in destination.iterdir())
-        alternative = _suggest_unused_name(destination, source.name, reserved)
-        if alternative is None:
-            raise ValueError("Nenhum nome alternativo disponível.")
-        target = destination / alternative
-        if target.name.casefold() in reserved or _is_symlink_component(target):
-            raise ValueError("Nome alternativo ocupado ou inseguro.")
+        # O nome efetivo deve ser exatamente aquele mostrado na confirmação.
+        preview = preview_conflict_move(
+            plan, relative_file, db_path=db_path, scan_id=scan_id,
+        )
+        if (not isinstance(approved_target_name, str)
+                or preview["suggested_filename"] != approved_target_name):
+            raise ValueError("Nome alternativo mudou; revise e confirme novamente.")
+        target = destination / approved_target_name
 
     db = Path(db_path).expanduser().absolute()
     with closing(sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)) as conn:
