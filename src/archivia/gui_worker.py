@@ -15,6 +15,7 @@ from .cataloging import catalog_verified_preview
 from .inventory import inventory
 from .manual_copy import copy_manual_image_verified
 from .move_executor import move_one_approved
+from .batch_move import move_batch_approved
 from .planner import propose_date_moves
 from .duplicates import verify_duplicate_hashes, verify_snapshot_duplicate_candidates
 
@@ -39,7 +40,8 @@ class QueryWorker(QThread):
                  manual_source: str = "", manual_folder: str = "",
                  approved_source: str = "", approved_destination: str = "",
                  move_plan: dict | None = None, move_relative: str = "",
-                 move_approval: str = "") -> None:
+                 move_approval: str = "",
+                 move_files: list[str] | None = None) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -69,10 +71,21 @@ class QueryWorker(QThread):
         self.move_plan = move_plan
         self.move_relative = move_relative
         self.move_approval = move_approval
+        self.move_files = move_files
 
     def run(self) -> None:
         try:
-            if self.mode == "move_one":
+            if self.mode == "move_batch":
+                if self.folder_session is None or not self.folder_session.ready:
+                    raise ValueError("Sessão de origem não disponível.")
+                result = move_batch_approved(
+                    self.move_plan, self.move_files,
+                    db_path=self.folder_session._db,
+                    scan_id=self.folder_session._scan_id,
+                    approval=self.move_approval,
+                    progress=self.progress_update.emit,
+                )
+            elif self.mode == "move_one":
                 if self.folder_session is None or not self.folder_session.ready:
                     raise ValueError("Sessão de origem não disponível.")
                 result = move_one_approved(
