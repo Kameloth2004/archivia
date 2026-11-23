@@ -3,7 +3,7 @@ import unittest
 
 from archivia.gui_presentation import (
     catalog_filters, previous_page, next_page, summary_report,
-    inventory_report, agent_report,
+    inventory_report, agent_report, recursive_plan_report,
 )
 
 
@@ -76,6 +76,30 @@ class GUIPresentationTests(unittest.TestCase):
         self.assertIn("Pasta: C:/fixture | Arquivos: 2 | Mídias: 1", report)
         self.assertIn("Vídeos: 0", report)
         self.assertIn("Erros: 1", report)
+
+    def test_recursive_plan_report_shows_summary_and_sample(self):
+        report = recursive_plan_report({"tools_used": [{
+            "tool": "planejar_consolidacao_recursiva",
+            "result": {
+                "root": "C:/origem", "destination": "D:/destino",
+                "total_matches": 18, "examined": 10, "proposed": 9,
+                "blocked": 1, "pending": 8, "complete": False,
+                "actions": [{"file": "sub/foto.jpg", "status": "proposto",
+                             "destination": "D:/destino/foto.jpg"}],
+            },
+        }]})
+        self.assertIn("PARCIAL", report)
+        self.assertIn("Pendentes: 8", report)
+        self.assertIn("sub/foto.jpg", report)
+        self.assertIn("NENHUM ARQUIVO MOVIDO", report)
+
+    def test_recursive_plan_report_does_not_invent_plan(self):
+        self.assertIsNone(recursive_plan_report({"tools_used": []}))
+        result = recursive_plan_report({"tools_used": [{
+            "tool": "planejar_consolidacao_recursiva",
+            "result": {"error": "Destino indisponível"},
+        }]})
+        self.assertIn("Destino indisponível", result)
 
     def test_agent_report_preserves_short_and_technical_versions(self):
         short, technical = agent_report({
