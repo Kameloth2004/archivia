@@ -9,6 +9,9 @@ def find_saved_snapshot(scans: list[dict[str, Any]], scan_id: int) -> bool:
     if not isinstance(scan_id, int) or isinstance(scan_id, bool) or scan_id < 1:
         raise ValueError("Identificador do snapshot salvo inválido.")
     return any(
-        isinstance(row, dict) and row.get("id") == scan_id
+        isinstance(row, dict)
+        and isinstance(row.get("id"), int)
+        and not isinstance(row["id"], bool)
+        and row["id"] == scan_id
         for row in scans
     )
