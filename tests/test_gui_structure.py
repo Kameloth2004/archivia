@@ -143,6 +143,13 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn('mode == "manual_copy"', result.replace(chr(39), chr(34)))
         self.assertIn("A imagem original NÃO foi removida", result)
 
+    def test_home_understands_mova_and_renders_recursive_plan(self):
+        handler = ast.unparse(self.method("_home_ask"))
+        self.assertIn("'mova'", handler)
+        self.assertIn("'mover'", handler)
+        rendered = ast.unparse(self.method("_render_result"))
+        self.assertIn("recursive_plan_report(result)", rendered)
+
     def test_result_contract_is_checked_before_render(self):
         body = ast.unparse(self.method("_show_result"))
         self.assertLess(body.index("validate_gui_result("), body.index("self._render_result("))
