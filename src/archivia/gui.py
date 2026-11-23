@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from .agent import FolderCatalogSession
-from .move_executor import APPROVAL_PHRASE
+from .move_executor import APPROVAL_PHRASE, preview_conflict_move
 from .batch_move import MAX_BATCH_FILES
 from .catalog import DEFAULT_DB
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
@@ -673,6 +673,10 @@ class ArchivIAWindow(QMainWindow):
         self.home_batch_button.clicked.connect(self._approve_batch_move)
         self.home_batch_button.setEnabled(False)
         home_move_layout.addWidget(self.home_batch_button)
+        self.home_conflict_button = QPushButton("Resolver arquivos com o mesmo nome...")
+        self.home_conflict_button.clicked.connect(self._approve_conflict_move)
+        self.home_conflict_button.setEnabled(False)
+        home_move_layout.addWidget(self.home_conflict_button)
         home_layout.addWidget(home_move_box)
 
         # Catalogação opcional diretamente no Início, reutilizando a mesma
@@ -1246,6 +1250,14 @@ class ArchivIAWindow(QMainWindow):
                         and action.get("reason") is None
                         and isinstance(action.get("file"), str)):
                     self.move_choice.addItem(action["file"], action["file"])
+        conflicts = [
+            a for a in plan.get("actions", [])
+            if isinstance(a, dict) and a.get("status") == "bloqueado"
+            and a.get("reason") == "destino_ja_existe"
+        ] if plan is not None else []
+        has_conflicts = bool(conflicts and plan.get("complete") is True
+                             and plan.get("pending") == 0)
+        self.home_conflict_button.setEnabled(self._worker is None and has_conflicts)
         has_proposals = (self.move_choice.count() > 1 and plan is not None
                          and plan.get("complete") is True and plan.get("pending") == 0)
         self.move_button.setEnabled(self._worker is None and has_proposals)
@@ -1289,6 +1301,80 @@ class ArchivIAWindow(QMainWindow):
             "move_one", DEFAULT_DB, folder_session=session,
             move_plan=plan, move_relative=relative,
             move_approval=APPROVAL_PHRASE,
+        )
+
+    def _approve_conflict_move(self) -> None:
+        """Resolução guiada de um conflito, sem comandos técnicos ao usuário."""
+        if self._worker is not None:
+            return
+        session = self._folder_session
+        plan = session._last_recursive_plan if session is not None else None
+        if (session is None or not session.ready or plan is None
+                or plan.get("complete") is not True or plan.get("pending") != 0):
+            self._show_error("Peça primeiro uma organização completa ao agente.")
+            return
+        blocked = [
+            a for a in plan["actions"] if isinstance(a, dict)
+            and a.get("status") == "bloqueado"
+            and a.get("reason") == "destino_ja_existe"
+        ]
+        if not blocked:
+            self._show_error("Não há arquivos com o mesmo nome para resolver.")
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Arquivos com o mesmo nome")
+        dialog.resize(760, 360)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel(
+            "Selecione um arquivo. O ArchivIA verificará se os conteúdos "
+            "são diferentes e poderá guardar as duas versões."
+        ))
+        chosen = QListWidget(dialog)
+        chosen.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        for action in blocked:
+            chosen.addItem(action["file"])
+        chosen.setCurrentRow(0)
+        layout.addWidget(chosen)
+        controls = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        controls.accepted.connect(dialog.accept)
+        controls.rejected.connect(dialog.reject)
+        layout.addWidget(controls)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        selected = chosen.currentItem()
+        if selected is None:
+            return
+        name = selected.text()
+        try:
+            preview = preview_conflict_move(
+                plan, name, db_path=session._db, scan_id=session._scan_id,
+            )
+        except (ValueError, OSError) as exc:
+            self._show_error(
+                f"Este arquivo continua protegido e não foi movido: {exc}"
+            )
+            return
+        answer = QMessageBox.question(
+            self, "Guardar as duas versões?",
+            "Encontramos dois arquivos com o mesmo nome, mas conteúdos diferentes.\n\n"
+            "O arquivo que já está no destino ficará intacto.\n\n"
+            f"Arquivo de origem: {name}\n"
+            f"Nome da nova cópia: {preview['suggested_filename']}\n"
+            f"Pasta de destino: {plan['destination']}\n\n"
+            "A origem só será removida depois de conferir a cópia. "
+            "Deseja mover esta versão com o novo nome?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._start_worker(
+            "move_conflict", DEFAULT_DB, folder_session=session,
+            move_plan=plan, move_relative=name,
+            move_approval=APPROVAL_PHRASE,
+            approved_target_name=preview["suggested_filename"],
         )
 
     def _approve_batch_move(self) -> None:
@@ -1366,6 +1452,7 @@ class ArchivIAWindow(QMainWindow):
         approved_source: str = "", approved_destination: str = "",
         move_plan: dict | None = None, move_relative: str = "",
         move_approval: str = "", move_files: list[str] | None = None,
+        approved_target_name: str | None = None,
     ) -> None:
         if self._worker is not None:
             return
@@ -1383,6 +1470,7 @@ class ArchivIAWindow(QMainWindow):
             source_folder, folder_session,
             manual_source, manual_folder, approved_source, approved_destination,
             move_plan, move_relative, move_approval, move_files,
+            approved_target_name,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -1412,6 +1500,14 @@ class ArchivIAWindow(QMainWindow):
         self.move_button.setEnabled(not busy and self.move_choice.count() > 1)
         self.advanced_batch_button.setEnabled(not busy and self.move_choice.count() > 1)
         self.home_batch_button.setEnabled(not busy and self.move_choice.count() > 1)
+        plan = self._folder_session._last_recursive_plan if self._folder_session is not None else None
+        self.home_conflict_button.setEnabled(
+            not busy and isinstance(plan, dict)
+            and plan.get("complete") is True and plan.get("pending") == 0
+            and any(isinstance(a, dict) and a.get("status") == "bloqueado"
+                    and a.get("reason") == "destino_ja_existe"
+                    for a in plan.get("actions", []))
+        )
         self.home_ask_button.setEnabled(not busy)
         self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
@@ -1483,6 +1579,22 @@ class ArchivIAWindow(QMainWindow):
                 self._folder_session.close()
             self._update_move_choices()
             self.status.setText("Lote concluído ou interrompido. Plano invalidado; atualize a análise.")
+        elif mode == "move_conflict":
+            report = (
+                f"Resultado: {result.get('status')}
+"
+                f"Nome preservado no destino: {result.get('destination')}
+"
+                f"Origem: {result.get('source')}
+"
+                f"Observação: {result.get('detail', '')}"
+            )
+            self.result_view.setPlainText(report)
+            self.home_result.setPlainText(report)
+            if self._folder_session is not None:
+                self._folder_session.close()
+            self._update_move_choices()
+            self.status.setText("Resolução concluída; gere um novo plano antes de continuar.")
         elif mode == "move_one":
             status = result.get("status")
             self.result_view.setPlainText(
