@@ -1312,6 +1312,7 @@ class ArchivIAWindow(QMainWindow):
                     # Ainda estamos no worker do histórico, então nenhuma
                     # consulta concorrente será iniciada pelos sinais.
                     self._clear_catalog_search()
+                    self.category_filter.setCurrentIndex(0)
                     self.tabs.setCurrentIndex(1)
                     navigation["stage"] = "await_listing"
                     self.status.setText(
