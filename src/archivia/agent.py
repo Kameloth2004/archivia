@@ -17,6 +17,7 @@ from .inventory import CATEGORIES, inventory
 from .planner import propose_moves, propose_date_moves, summarize_consolidation
 from .recursive_plan import propose_recursive_consolidation
 from .plan_memory import blocked_details, latest_recursive_plan
+from .conflict_hash import verify_plan_conflict
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 SYSTEM_PROMPT = (
@@ -64,11 +65,33 @@ SYSTEM_PROMPT = (
     "consultar_bloqueios_ultimo_plano; motivo destino_ja_existe significa "
     "CONFLITO DE NOME, e não duplicata SHA-256 confirmada. "
     "Nunca diga que faltam ferramentas sem verificar a consulta de bloqueios. "
+    "Se o usuário solicitar comparação SHA-256 de um bloqueio, use "
+    "verificar_sha256_bloqueio_ultimo_plano com arquivo individual. "
+    "Um nome ocupado não é duplicata confirmada sem hash; nunca execute movimentos. "
     "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
 )
 
 TOOLS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "verificar_sha256_bloqueio_ultimo_plano",
+            "description": (
+                "Compara SOB DEMANDA via SHA-256 um único conflito destino_ja_existe "
+                "do último plano, sem modificar arquivos e sem autorizar movimentação. "
+                "Exige nome de arquivo único; não aceita caminhos arbitrários."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "arquivo": {"type": "string", "description": "Nome exato ou caminho relativo do arquivo bloqueado"},
+                },
+                "required": ["arquivo"],
+                "additionalProperties": False,
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -256,6 +279,11 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
     if context_scan_id is not None and "scan_id" in arguments:
         if arguments["scan_id"] != context_scan_id:
             raise ValueError("O agente não pode consultar outro snapshot fora da pasta selecionada.")
+    if name == "verificar_sha256_bloqueio_ultimo_plano":
+        if set(arguments) != {"arquivo"}:
+            raise ValueError("Informe somente o arquivo a comparar por SHA-256.")
+        return verify_plan_conflict(previous_plan, arguments["arquivo"],
+                                    db_path=db_path, scan_id=context_scan_id)
     if name == "consultar_bloqueios_ultimo_plano":
         if set(arguments) - {"arquivo", "limite"}:
             raise ValueError("Argumento não permitido na consulta de bloqueios.")
