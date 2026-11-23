@@ -43,7 +43,12 @@ class GUIStructureTests(unittest.TestCase):
     def test_timestamp_cell_keeps_raw_iso_in_user_role(self):
         method = self.method("_render_result")
         body = ast.unparse(method)
-        self.assertIn('setData(Qt.ItemDataRole.UserRole, item["modified_utc"])', body.replace(chr(39), chr(34)))
+        self.assertIn("catalog_rows(items, self._date_format)", body)
+        self.assertIn("fill_table(self.catalog_table, rows, roles=roles)", body)
+        helper = (GUI_FILE.parent / "gui_tables.py").read_text(encoding="utf-8")
+        self.assertIn("cell.setData(Qt.ItemDataRole.UserRole, raw)", helper)
+        row_helper = (GUI_FILE.parent / "table_rows.py").read_text(encoding="utf-8")
+        self.assertIn('item["modified_utc"]', row_helper)
 
     def test_date_format_uses_saved_iso_not_previous_display(self):
         method = self.method("_change_date_format")
