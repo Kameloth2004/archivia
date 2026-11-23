@@ -6,7 +6,7 @@ from support import temporary_test_directory
 from archivia.catalog import store_inventory
 from archivia.inventory import inventory
 from archivia.planner import propose_moves
-from archivia.verified_copy import copy_verified_test_file
+from archivia.verified_copy import copy_verified_test_file, inspect_verified_copy_test
 
 
 class VerifiedCopyTests(unittest.TestCase):
@@ -38,6 +38,83 @@ class VerifiedCopyTests(unittest.TestCase):
             self.assertIn("HASH_VERIFICADO", journal)
             self.assertIn("PUBLICADO", journal)
             self.assertEqual(list(destination.parent.glob(".archivia-copy-*.tmp")), [])
+
+    def test_inspect_published_copy_is_read_only(self):
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            copy_verified_test_file(plan, db, approval="CONFIRMO TESTE ARCHIVIA")
+            before = (source.read_bytes(), destination.read_bytes())
+            report = inspect_verified_copy_test(tmp)
+            self.assertEqual(report["status"], "publicacao_registrada_inspecionada")
+            self.assertEqual(report["last_event"], "PUBLICADO")
+            self.assertTrue(report["source_exists"])
+            self.assertTrue(report["destination_exists"])
+            self.assertTrue(report["current_sha256_equal"])
+            self.assertEqual(report["temporary_count"], 0)
+            self.assertTrue(report["read_only"])
+            self.assertFalse(report["automatic_recovery"])
+            self.assertEqual(
+                (source.read_bytes(), destination.read_bytes()), before,
+            )
+
+    def test_inspect_failure_after_publication_preserves_both_files(self):
+        from archivia import verified_copy
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            original_journal = verified_copy._journal
+
+            def fail_publication_log(journal, event, src, dst):
+                if event == "PUBLICADO":
+                    raise OSError("falha de journal pós-publicação")
+                return original_journal(journal, event, src, dst)
+
+            with patch("archivia.verified_copy._journal", side_effect=fail_publication_log):
+                with self.assertRaisesRegex(OSError, "pós-publicação"):
+                    copy_verified_test_file(
+                        plan, db, approval="CONFIRMO TESTE ARCHIVIA",
+                    )
+            report = inspect_verified_copy_test(tmp)
+            self.assertEqual(report["status"], "interrompido_revisao_manual")
+            self.assertEqual(report["last_event"], "INTERROMPIDO")
+            self.assertTrue(report["source_exists"])
+            self.assertTrue(report["destination_exists"])
+            self.assertTrue(report["current_sha256_equal"])
+            self.assertEqual(source.read_bytes(), destination.read_bytes())
+
+    def test_inspect_partial_copy_and_leftover_temp_without_cleanup(self):
+        from archivia import verified_copy
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            with patch("archivia.verified_copy._fingerprint",
+                       side_effect=OSError("falha antes da publicação")):
+                with self.assertRaisesRegex(OSError, "falha antes"):
+                    copy_verified_test_file(
+                        plan, db, approval="CONFIRMO TESTE ARCHIVIA",
+                    )
+            temp = destination.parent / ".archivia-copy-teste.tmp"
+            temp.write_bytes(b"TEMPORARIO-NAO-APAGAR")
+            report = inspect_verified_copy_test(tmp)
+            self.assertEqual(report["status"], "interrompido_revisao_manual")
+            self.assertFalse(report["destination_exists"])
+            self.assertEqual(report["temporary_count"], 1)
+            self.assertEqual(report["temporary_files"], [str(temp)])
+            self.assertEqual(temp.read_bytes(), b"TEMPORARIO-NAO-APAGAR")
+            self.assertTrue(source.exists())
+
+    def test_inspect_refuses_invalid_journal_and_outside_runtime(self):
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            with self.assertRaisesRegex(ValueError, "Journal"):
+                inspect_verified_copy_test(tmp)
+            (tmp / "archivia-copy-journal.jsonl").write_text(
+                "isto-nao-e-json\\n", encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "inválido|incompleta"):
+                inspect_verified_copy_test(tmp)
+            with self.assertRaisesRegex(ValueError, "tests/.runtime|restrita"):
+                inspect_verified_copy_test(tmp.parent.parent)
+            self.assertTrue(source.exists())
+            self.assertFalse(destination.exists())
 
     def test_copy_denies_without_explicit_approval(self):
         with temporary_test_directory() as tmp:
