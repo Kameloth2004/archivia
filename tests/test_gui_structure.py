@@ -122,6 +122,8 @@ class GUIStructureTests(unittest.TestCase):
             self.assertIn(f"self.{name}.setEnabled(False)", cleared)
         result = ast.unparse(self.method("_render_result"))
         self.assertIn("preview_report = inventory_report(result)", result)
+        confirm = ast.unparse(self.method("_confirm_catalog_preview"))
+        self.assertIn("can_save_inventory_preview(", confirm)
 
     def test_result_contract_is_checked_before_render(self):
         body = ast.unparse(self.method("_show_result"))
