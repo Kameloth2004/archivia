@@ -223,9 +223,15 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **142 testes homologados no Windows:** `Ran 142 tests in 6.884s`, `OK (skipped=1)`; 141 aprovados, 1 ignorado e nenhuma falha. **Homologação visual das tabelas ainda pendente.** Validar visualmente as cinco tabelas e alternância BR/ISO/US antes de continuar a extração.
 - **Pendente:** testes visuais completos dos componentes Qt, avaliação futura de um modelo/delegate de tabela se houver necessidade de desempenho ou paginação maior, sem reescrita prematura.
 
+## Homologação visual da modularização das tabelas — 23/11/2026
+
+- Usuário confirmou que **tudo foi preservado** após abrir a GUI e verificar a apresentação, em resposta à solicitação de conferir tabelas de inventário/catálogo, datas e detalhes disponíveis de duplicatas e simulação.
+- Somado à suíte Windows de **142 testes** (`OK (skipped=1)`), o resultado aprova a segunda etapa incremental de extração de `table_rows.py` e `gui_tables.py` para prosseguir.
+- Limite da evidência: a confirmação é de preservação visual observada; não demonstra todos os estados possíveis, concorrência externa, nem autoriza movimentação de mídias pessoais.
+
 ## Próxima etapa
 
-Com **142 testes automatizados aprovados**, realizar conferência visual das tabelas após a extração dos helpers: abrir `archivia-gui`, listar arquivos no catálogo, alternar formatos de data e verificar os detalhes e tooltips de duplicatas, inventário e simulação quando disponíveis. Confirmar que linhas, seleção e paginação permanecem corretas. Somente depois continuar a modularização de filtros e relatórios. Manter execução de arquivos pessoais indisponível na GUI/Ollama.
+Seguir com a terceira etapa **incremental** de modularização da GUI, começando por funções puras de filtros, paginação e formatação de relatórios, acompanhadas de testes de regressão antes de alterações de widgets. Preservar componentes, abas, resultados do Ollama e isolamento do executor. Não reescrever a GUI inteira de uma vez.
 
 ## Referências
 
