@@ -143,7 +143,10 @@ def move_one_approved(
             os.fsync(output.fileno())
         # Confere os bytes realmente gravados, sem depender do hash em trânsito.
         with stage.open("rb") as stream:
-            verified_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+            verifier = hashlib.sha256()
+            while chunk := stream.read(CHUNK_BYTES):
+                verifier.update(chunk)
+            verified_hash = verifier.hexdigest()
         if verified_hash != source_hash or stage.stat().st_size != size:
             raise ValueError("Falha de integridade na cópia temporária.")
         if (_is_symlink_component(destination)
