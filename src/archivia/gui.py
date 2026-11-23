@@ -30,7 +30,7 @@ from .gui_navigation import find_saved_snapshot
 from .manual_copy import preview_manual_image_copy
 from .gui_presentation import (
     catalog_filters, previous_page, next_page, summary_report, inventory_report,
-    agent_report,
+    agent_report, recursive_plan_report,
 )
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
@@ -1579,7 +1579,7 @@ class ArchivIAWindow(QMainWindow):
             answer, report = agent_report(result)
             self.result_view.setPlainText(report)
             self.status.setText("Resposta recebida. Nenhum arquivo de mídia modificado.")
-            self.home_result.setPlainText(answer)
+            self.home_result.setPlainText(recursive_plan_report(result) or answer)
 
     def _show_error(self, message: str) -> None:
         self.home_result.setPlainText(f"Erro: {message}")
