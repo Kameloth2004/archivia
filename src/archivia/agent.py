@@ -18,6 +18,7 @@ from .planner import propose_moves, propose_date_moves, summarize_consolidation
 from .recursive_plan import propose_recursive_consolidation
 from .plan_memory import blocked_details, latest_recursive_plan
 from .conflict_hash import verify_plan_conflict
+from .conflict_report import conflict_resolution_report
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 SYSTEM_PROMPT = (
@@ -68,11 +69,30 @@ SYSTEM_PROMPT = (
     "Se o usuário solicitar comparação SHA-256 de um bloqueio, use "
     "verificar_sha256_bloqueio_ultimo_plano com arquivo individual. "
     "Um nome ocupado não é duplicata confirmada sem hash; nunca execute movimentos. "
+    "Se solicitar recomendações para resolver os bloqueios do último plano, "
+    "use relatorio_resolucao_conflitos, que verifica até 10 itens sob demanda "
+    "e retorna apenas recomendações, sem executar nem reservar nomes. "
     "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
 )
 
 TOOLS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "relatorio_resolucao_conflitos",
+            "description": (
+                "Produz relatório consultivo de até 10 arquivos bloqueados do "
+                "último plano e recomendações baseadas em SHA-256 quando aplicável. "
+                "Pode sugerir nomes alternativos; NÃO move, apaga ou renomeia."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"limite": {"type": "integer", "minimum": 1, "maximum": 10}},
+                "additionalProperties": False,
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -279,6 +299,12 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
     if context_scan_id is not None and "scan_id" in arguments:
         if arguments["scan_id"] != context_scan_id:
             raise ValueError("O agente não pode consultar outro snapshot fora da pasta selecionada.")
+    if name == "relatorio_resolucao_conflitos":
+        if set(arguments) - {"limite"}:
+            raise ValueError("Argumento não permitido no relatório de conflitos.")
+        return conflict_resolution_report(previous_plan, db_path=db_path,
+                                          scan_id=context_scan_id,
+                                          limit=arguments.get("limite", 10))
     if name == "verificar_sha256_bloqueio_ultimo_plano":
         if set(arguments) != {"arquivo"}:
             raise ValueError("Informe somente o arquivo a comparar por SHA-256.")
