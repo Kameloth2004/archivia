@@ -13,11 +13,12 @@ from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
     QFileDialog, QComboBox, QTableWidget, QHeaderView, QTabWidget,
-    QSpinBox, QProgressBar,
+    QSpinBox, QProgressBar, QDialog, QListWidget, QAbstractItemView, QDialogButtonBox,
 )
 
 from .agent import FolderCatalogSession
 from .move_executor import APPROVAL_PHRASE
+from .batch_move import MAX_BATCH_FILES
 from .catalog import DEFAULT_DB
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .preview import preview_inventory_page
@@ -570,6 +571,10 @@ class ArchivIAWindow(QMainWindow):
         move_note.setWordWrap(True)
         move_layout.addWidget(move_note)
         agent_layout.addWidget(move_box)
+        self.advanced_batch_button = QPushButton("Movimentar lote selecionado...")
+        self.advanced_batch_button.clicked.connect(self._approve_batch_move)
+        self.advanced_batch_button.setEnabled(False)
+        agent_layout.addWidget(self.advanced_batch_button)
         agent_page_layout.addWidget(agent_box)
 
         result_box = QGroupBox("Resposta e ferramentas utilizadas")
@@ -657,6 +662,18 @@ class ArchivIAWindow(QMainWindow):
         self.home_refresh_button.clicked.connect(self._refresh_folder_session)
         home_actions.addWidget(self.home_refresh_button)
         home_layout.addLayout(home_actions)
+        home_move_box = QGroupBox("Organização real supervisionada")
+        home_move_layout = QVBoxLayout(home_move_box)
+        self.home_move_info = QLabel(
+            "Peça ao agente um planejamento recursivo completo; depois selecione os arquivos a mover."
+        )
+        self.home_move_info.setWordWrap(True)
+        home_move_layout.addWidget(self.home_move_info)
+        self.home_batch_button = QPushButton("Revisar e mover arquivos selecionados...")
+        self.home_batch_button.clicked.connect(self._approve_batch_move)
+        self.home_batch_button.setEnabled(False)
+        home_move_layout.addWidget(self.home_batch_button)
+        home_layout.addWidget(home_move_box)
 
         # Catalogação opcional diretamente no Início, reutilizando a mesma
         # prévia, validação e confirmação do Inventário avançado.
@@ -689,18 +706,18 @@ class ArchivIAWindow(QMainWindow):
         self.home_result = QPlainTextEdit()
         self.home_result.setReadOnly(True)
         self.home_result.setPlaceholderText(
-            "A resposta aparecerá aqui. Nenhum arquivo será movido."
+            "A resposta e o plano aparecerão aqui. Movimentações exigem autorização na interface."
         )
         home_layout.addWidget(self.home_result, 1)
         home_safety = QLabel(
-            "Somente consultas e simulações. Nenhum arquivo será alterado."
+            "A IA apenas planeja. A execução supervisionada exige revisão e confirmação."
         )
         home_safety.setWordWrap(True)
         home_layout.addWidget(home_safety)
 
         self._refresh_date_placeholders()
 
-        self.status = QLabel("Pronto. Nenhuma operação de escrita em mídias está disponível.")
+        self.status = QLabel("Pronto. Escrita em mídias somente com autorização explícita.")
         root.addWidget(self.status)
         self.setCentralWidget(content)
 
@@ -1229,7 +1246,14 @@ class ArchivIAWindow(QMainWindow):
                         and action.get("reason") is None
                         and isinstance(action.get("file"), str)):
                     self.move_choice.addItem(action["file"], action["file"])
-        self.move_button.setEnabled(self._worker is None and self.move_choice.count() > 1)
+        has_proposals = self.move_choice.count() > 1
+        self.move_button.setEnabled(self._worker is None and has_proposals)
+        self.home_batch_button.setEnabled(self._worker is None and has_proposals)
+        self.advanced_batch_button.setEnabled(self._worker is None and has_proposals)
+        self.home_move_info.setText(
+            f"{self.move_choice.count() - 1} arquivo(s) proposto(s). Revise a seleção antes de mover."
+            if has_proposals else "Peça ao agente um planejamento recursivo completo para habilitar a execução."
+        )
 
     def _approve_one_move(self) -> None:
         if self._worker is not None:
@@ -1266,6 +1290,67 @@ class ArchivIAWindow(QMainWindow):
             move_approval=APPROVAL_PHRASE,
         )
 
+    def _approve_batch_move(self) -> None:
+        if self._worker is not None:
+            return
+        session = self._folder_session
+        plan = session._last_recursive_plan if session is not None else None
+        if (session is None or not session.ready or plan is None
+                or plan.get("complete") is not True or plan.get("pending") != 0):
+            self._show_error("Gere um planejamento recursivo completo antes de executar.")
+            return
+        proposed = [a for a in plan["actions"] if isinstance(a, dict)
+                    and a.get("status") == "proposto" and a.get("reason") is None]
+        if not proposed:
+            self._show_error("Não existem arquivos propostos para movimentação.")
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Selecionar arquivos para movimentação REAL")
+        dialog.resize(760, 430)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel(
+            f"Selecione de 1 a {MAX_BATCH_FILES} arquivos (Ctrl ou Shift). "
+            "Nenhum bloqueado será movimentado. O lote para no primeiro erro."
+        ))
+        chosen = QListWidget(dialog)
+        chosen.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        for action in proposed:
+            chosen.addItem(action["file"])
+        layout.addWidget(chosen)
+        controls = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        controls.accepted.connect(dialog.accept)
+        controls.rejected.connect(dialog.reject)
+        layout.addWidget(controls)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        files = [item.text() for item in chosen.selectedItems()]
+        if not 1 <= len(files) <= MAX_BATCH_FILES:
+            self._show_error(f"Selecione entre 1 e {MAX_BATCH_FILES} arquivos.")
+            return
+        preview = "\n".join(files)
+        answer = QMessageBox.question(
+            self, "CONFIRMAR MOVIMENTAÇÃO REAL EM LOTE",
+            f"Você selecionou {len(files)} arquivo(s).\n"
+            f"Origem: {plan['root']}\n"
+            f"Destino: {plan['destination']}\n\n"
+            f"Arquivos:\n{preview}\n\n"
+            "Cada item será revalidado por SHA-256. "
+            "A origem será removida APENAS depois da cópia verificada. "
+            "O lote NÃO é transacional: itens já movidos não serão revertidos. "
+            "Ao primeiro bloqueio, o processamento para.\n\n"
+            "AUTORIZA a movimentação real destes arquivos?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._start_worker(
+            "move_batch", DEFAULT_DB, folder_session=session,
+            move_plan=plan, move_files=files, move_approval=APPROVAL_PHRASE,
+        )
+
     def _start_worker(
         self, mode: str, database: Path, question: str = "", model: str = "",
         page: int = 1, category: str | None = None,
@@ -1279,7 +1364,7 @@ class ArchivIAWindow(QMainWindow):
         manual_source: str = "", manual_folder: str = "",
         approved_source: str = "", approved_destination: str = "",
         move_plan: dict | None = None, move_relative: str = "",
-        move_approval: str = "",
+        move_approval: str = "", move_files: list[str] | None = None,
     ) -> None:
         if self._worker is not None:
             return
@@ -1296,7 +1381,7 @@ class ArchivIAWindow(QMainWindow):
             destination, hash_limit, hash_file_mib, hash_budget_mib, hash_mode,
             source_folder, folder_session,
             manual_source, manual_folder, approved_source, approved_destination,
-            move_plan, move_relative, move_approval,
+            move_plan, move_relative, move_approval, move_files,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -1324,6 +1409,8 @@ class ArchivIAWindow(QMainWindow):
         self.ask_button.setEnabled(not busy)
         self.move_choice.setEnabled(not busy)
         self.move_button.setEnabled(not busy and self.move_choice.count() > 1)
+        self.advanced_batch_button.setEnabled(not busy and self.move_choice.count() > 1)
+        self.home_batch_button.setEnabled(not busy and self.move_choice.count() > 1)
         self.home_ask_button.setEnabled(not busy)
         self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
@@ -1377,7 +1464,25 @@ class ArchivIAWindow(QMainWindow):
             self._show_error(f"Resposta inválida do backend: {exc}")
 
     def _render_result(self, mode: str, result: dict) -> None:
-        if mode == "move_one":
+        if mode == "move_batch":
+            lines = [
+                "RESULTADO DO LOTE SUPERVISIONADO",
+                f"Solicitados: {result['requested']} | Processados: {result['processed']} | "
+                f"Movidos: {result['moved']} | Pendentes: {result['pending']}",
+            ]
+            for item in result["results"]:
+                lines.append(
+                    f"{item['status'].upper()}: {item['file']} {item.get('detail', '')}"
+                )
+            lines.append(result["note"])
+            report_text = "\n".join(lines)
+            self.result_view.setPlainText(report_text)
+            self.home_result.setPlainText(report_text)
+            if self._folder_session is not None:
+                self._folder_session.close()
+            self._update_move_choices()
+            self.status.setText("Lote concluído ou interrompido. Plano invalidado; atualize a análise.")
+        elif mode == "move_one":
             status = result.get("status")
             self.result_view.setPlainText(
                 f"RESULTADO DA MOVIMENTAÇÃO: {status}\n"
