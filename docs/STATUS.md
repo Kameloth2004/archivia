@@ -214,9 +214,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Homologação parcial da GUI:** consultas sucessivas e troca de contexto de origem funcionaram em uso real, com o `QueryWorker` extraído. A pasta de destino estava selecionada, mas o relato não implica execução de plano ou movimentação.
 - **Validação adicional informada pelo usuário:** a alternância do formato de datas na GUI funciona. O relato confirma a mudança visual do formato; não comprova separadamente todas as sequências de formatos ou casos de datas inválidas. **Ainda pendente:** revisão detalhada das demais telas e teste de erro do backend; não declarar homologação visual integral.
 
+## Modularização da apresentação das tabelas — implementação publicada (pendente de homologação)
+
+- `src/archivia/table_rows.py`: funções puras `inventory_preview_rows`, `origin_rows`, `duplicate_rows`, `date_plan_rows` e `catalog_rows`, sem dependência de PySide6. Centralizam as células, os tooltips e a preservação do timestamp ISO original no catálogo; não acessam ou alteram arquivos.
+- `src/archivia/gui_tables.py`: `fill_table()`, helper PySide6 para preencher `QTableWidget` já configurada. Valida a largura e as dimensões de tooltips e metadados antes de modificar o número de linhas; mantém a configuração das tabelas e usa `Qt.ItemDataRole.UserRole` para ISO.
+- `src/archivia/gui.py`: cinco laços de preenchimento foram substituídos por chamadas aos helpers; `QTableWidgetItem` não é mais importado diretamente. Redução de aproximadamente **1.525 para 1.481 linhas**. Nenhum redesign, renomeação de abas, mudança de consulta ao Ollama ou acesso ao executor.
+- `tests/test_table_rows.py`: **sete testes** de formatação sem Qt (prévia, origens, duplicatas, planos e datas, inclusive casos vazios). O teste estrutural de ISO existente foi adaptado para verificar `table_rows.py` + `gui_tables.py`, sem acrescentar nova contagem de testes.
+- **Suíte esperada: 142 testes** (135 homologados anteriormente + 7 novos), um possivelmente ignorado. **Ainda não executados no Windows nesta etapa.** Validar visualmente as cinco tabelas e alternância BR/ISO/US antes de continuar a extração.
+- **Pendente:** testes visuais completos dos componentes Qt, avaliação futura de um modelo/delegate de tabela se houver necessidade de desempenho ou paginação maior, sem reescrita prematura.
+
 ## Próxima etapa
 
-Com **135 testes automatizados aprovados**, realizar validação visual da GUI no Windows antes de extrair mais componentes: abrir `archivia-gui`, conferir Início, Biblioteca, Configurações e Avançado; selecionar uma pasta, testar prévia e uma consulta ao Ollama; no catálogo, alternar formatos de data BR → ISO → US → BR com registros carregados. Conferir também se erros de backend são exibidos sem encerrar a janela. **A homologação visual ainda não foi informada pelo usuário.** Manter o executor isolado de GUI/CLI/Ollama.
+Executar no Windows `git pull origin main` e `python -m unittest discover -s tests -v` (**142 testes esperados**). Em seguida abrir `archivia-gui` e conferir prévia do inventário, origens, duplicatas SHA-256, simulação por data e página do catálogo, inclusive tooltips e datas BR/ISO/US. Ainda não liberar operações de mídia pela GUI; qualquer falha deve ser corrigida antes de novas extrações.
 
 ## Referências
 
