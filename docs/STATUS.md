@@ -178,9 +178,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Quatro novos testes de fixture verificam publicação, falha injetada pós-publicação, temporário remanescente e journal inválido/fora de escopo. **120 testes homologados no Windows:** `Ran 120 tests in 6.459s`, `OK (skipped=1)`; 119 aprovados e 1 ignorado.
 - **Pendentes antes de qualquer mídia real:** consistência de journal sob falha de energia, identidade/TOCTOU, recuperabilidade idempotente, movimentação entre volumes distintos e confirmação do usuário na interface.
 
+## Reconciliação restrita de cópia publicada — TEST-ONLY (pendente de homologação)
+
+- `reconcile_published_test_copy()` em `src/archivia/verified_copy.py` aceita somente um journal com sequência exata `PREPARADO → TEMPORARIO_CRIADO → HASH_VERIFICADO → INTERROMPIDO`, ambos os arquivos presentes e nenhum temporário remanescente. Exige `CONFIRMO TESTE ARCHIVIA` e compartilha lock por fixture.
+- Calcula novamente SHA-256 dos dois arquivos, verifica que seus metadados e identidades físicas permaneceram estáveis durante a leitura e exige hashes iguais. Após essas condições, **apenas registra `COPIA_RECONCILIADA`** no journal. **Nunca remove, move, substitui ou altera origem/destino**; não retoma publicação nem limpa temporários.
+- `inspect_verified_copy_test()` reconhece a sequência reconciliada e reporta `copia_reconciliada_registrada`; a segunda tentativa é recusada. Journals inconsistentes, arquivo modificado, ausência de arquivo ou temporário remanescente bloqueiam a reconciliação.
+- **Limite importante:** o journal legado não identifica o temporário individualmente nem comprova que a publicação realmente ocorreu naquele evento; o processo apenas reconcilia evidência atual de conteúdo igual. Continua existindo risco de concorrência externa e falha de energia. Não declarar como garantia de recuperabilidade universal.
+- Quatro testes novos: reconciliação válida sem alteração de arquivos, ausência de consentimento/destino alterado, temporário remanescente e interrupção anterior à publicação. **Suíte prevista: 124 testes** (120 anteriores + 4), com 1 possivelmente ignorado; execução Windows pendente.
+- Nenhum arquivo pessoal ou unidade física externa à fixture é autorizado; GUI/CLI/Ollama continuam desconectados do executor.
+
 ## Próxima etapa
 
-Com **120 testes homologados**, desenvolver a estratégia de recuperação **somente para fixtures isoladas** de cópias interrompidas. Priorizar a diferença entre publicação já ocorrida e temporário ainda presente; exigir journal íntegro, identidade verificável e confirmação explícita para qualquer ação. Preservar a origem e evitar limpeza automática de temporários sem prova de identidade. Ainda não usar arquivos pessoais, outras unidades físicas ou integrações GUI/CLI/Ollama.
+No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (**124 testes esperados**). Se aprovados, a próxima evolução será projetar journal com identidade verificável do temporário e estados recuperáveis sem ambiguidades, mantendo fixtures e sem exclusão da origem. Não permitir operações pessoais pela GUI, CLI ou Ollama.
 
 ## Referências
 
