@@ -21,6 +21,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "catalog_page": ("page", "pages", "files", "count", "scan_id"),
     "agent": ("answer", "tools_used"),
     "move_batch": ("operation", "requested", "processed", "moved", "pending", "results", "note"),
+    "move_conflict": ("status", "source", "destination", "sha256"),
     "move_one": ("status", "source", "destination", "sha256"),
     "manual_copy": ("status", "source", "destination", "sha256",
                     "source_preserved", "files_copied", "journal"),
