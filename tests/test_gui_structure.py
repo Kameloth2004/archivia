@@ -125,6 +125,24 @@ class GUIStructureTests(unittest.TestCase):
         confirm = ast.unparse(self.method("_confirm_catalog_preview"))
         self.assertIn("can_save_inventory_preview(", confirm)
 
+    def test_manual_copy_is_opt_in_only_from_gui(self):
+        init = ast.unparse(self.method("__init__"))
+        self.assertIn("self.manual_copy_button.clicked.connect(self._manual_copy_image)", init)
+        handler = ast.unparse(self.method("_manual_copy_image"))
+        self.assertIn("QFileDialog.getOpenFileName", handler)
+        self.assertIn("QFileDialog.getExistingDirectory", handler)
+        self.assertIn("QMessageBox.question", handler)
+        self.assertIn("preview_manual_image_copy", handler)
+        self.assertIn('self._start_worker(', handler)
+        self.assertNotIn("os.unlink", handler)
+
+    def test_manual_copy_uses_existing_worker_and_disables_button(self):
+        busy = ast.unparse(self.method("_set_busy"))
+        self.assertIn("self.manual_copy_button.setEnabled(not busy)", busy)
+        result = ast.unparse(self.method("_render_result"))
+        self.assertIn('mode == "manual_copy"', result.replace(chr(39), chr(34)))
+        self.assertIn("A imagem original NÃO foi removida", result)
+
     def test_result_contract_is_checked_before_render(self):
         body = ast.unparse(self.method("_show_result"))
         self.assertLess(body.index("validate_gui_result("), body.index("self._render_result("))
