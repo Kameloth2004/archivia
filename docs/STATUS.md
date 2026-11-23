@@ -159,9 +159,19 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Limitação expressa:** lock é cooperativo apenas entre chamadas do ArchivIA que o respeitam; processos externos podem modificar caminhos. A revalidação ainda sofre TOCTOU entre `stat` e `unlink`. Nenhuma garantia de segurança geral nem permissão para utilizar arquivos reais.
 - Permanece **TEST-ONLY** dentro de `tests/.runtime`, sem integração com GUI, CLI ou Ollama.
 
+## Cópia verificada de fixture — SHA-256 e publicação exclusiva (pendente Windows)
+
+- Implementado `src/archivia/verified_copy.py` com `copy_verified_test_file()`, **separado do executor de movimentação**, sem integração GUI/CLI/Ollama.
+- Permite **um único arquivo fictício por vez**, exclusivamente sob a mesma fixture em `tests/.runtime/`, com aprovação explícita e plano de simulação integral, não bloqueado e revalidado. Usa o mesmo lock cooperativo da movimentação/recuperação.
+- Abre a origem em modo de leitura, cria arquivo temporário exclusivo **dentro do diretório de destino**, copia em blocos e força `fsync`; compara **SHA-256 da origem e da cópia**, tamanho e identidade/metadados da origem.
+- Publica o temporário com `os.link(temp, destino)` para **não substituir destino existente** e remove somente o nome temporário depois; **nunca apaga a origem**. Um hardlink entre temporário e destino é criado no volume do destino, independentemente de onde esteja a origem, embora **não tenha sido testado em duas unidades reais**.
+- Journal independente `archivia-copy-journal.jsonl`: `PREPARADO`, `TEMPORARIO_CRIADO`, `HASH_VERIFICADO`, `PUBLICADO` e `INTERROMPIDO`. Journal existente recusa nova cópia para não ocultar falhas anteriores. Interrupção após publicação pode deixar destino publicado; não tentar repetição automática.
+- Sete testes automatizados novos: cópia correta/hash/origem preservada, ausência de aprovação, destino ocupado, plano adulterado/truncado, lock concorrente, falha injetada e journal já existente. **Suíte esperada: 116 testes**, 1 possivelmente ignorado, ainda não executada no Windows.
+- Limitações: não implementa rollback de cópia; não prova resistência a alterações por processos externos entre verificações (TOCTOU), não valida ACLs/atributos/metadados estendidos, não cobre quedas de energia com confirmação de diretórios, e não habilita remoção da origem. **Não utilizar arquivos pessoais.**
+
 ## Próxima etapa
 
-Com os **109 testes homologados**, projetar e testar uma **cópia verificada TEST-ONLY**, necessária para futuras movimentações entre discos: destino temporário isolado, hash integral origem/cópia, publicação sem sobrescrita, journal durável e falha segura que preserve a origem. Inicialmente **não remover a origem**, não utilizar mídias pessoais e não integrar GUI, CLI ou Ollama. A correção TOCTOU contra processos externos continua pendente.
+Executar no Windows `git pull origin main` e `python -m unittest discover -s tests -v` (**116 testes esperados**, 109 homologados + 7 novos). Se aprovados, revisar falhas de publicação e journals interrompidos, antes de qualquer teste em duas unidades ou permissão de remoção da origem. Nenhuma mídia pessoal, GUI, CLI ou Ollama pode executar a cópia.
 
 ## Referências
 
