@@ -6,7 +6,7 @@ from support import temporary_test_directory
 from archivia.catalog import store_inventory
 from archivia.inventory import inventory
 from archivia.planner import propose_moves
-from archivia.verified_copy import copy_verified_test_file, inspect_verified_copy_test
+from archivia.verified_copy import copy_verified_test_file, inspect_verified_copy_test, reconcile_published_test_copy
 
 
 class VerifiedCopyTests(unittest.TestCase):
@@ -113,6 +113,89 @@ class VerifiedCopyTests(unittest.TestCase):
                 inspect_verified_copy_test(tmp)
             with self.assertRaisesRegex(ValueError, "tests/.runtime|restrita"):
                 inspect_verified_copy_test(tmp.parent.parent)
+            self.assertTrue(source.exists())
+            self.assertFalse(destination.exists())
+
+    def _interrupted_published_fixture(self, plan, db):
+        from archivia import verified_copy
+        original_journal = verified_copy._journal
+
+        def fail_published(journal, event, src, dst):
+            if event == "PUBLICADO":
+                raise OSError("falha pós-publicação simulada")
+            return original_journal(journal, event, src, dst)
+
+        with patch("archivia.verified_copy._journal", side_effect=fail_published):
+            with self.assertRaisesRegex(OSError, "pós-publicação"):
+                copy_verified_test_file(
+                    plan, db, approval="CONFIRMO TESTE ARCHIVIA",
+                )
+
+    def test_reconcile_published_interrupted_journal_without_deleting(self):
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            self._interrupted_published_fixture(plan, db)
+            before = (source.read_bytes(), destination.read_bytes())
+            result = reconcile_published_test_copy(
+                tmp, approval="CONFIRMO TESTE ARCHIVIA",
+            )
+            self.assertEqual(result["status"], "copia_reconciliada_registrada")
+            self.assertTrue(result["source_preserved"])
+            self.assertTrue(result["destination_preserved"])
+            self.assertFalse(result["automatic_cleanup"])
+            self.assertEqual(
+                (source.read_bytes(), destination.read_bytes()), before,
+            )
+            self.assertEqual(
+                inspect_verified_copy_test(tmp)["status"],
+                "copia_reconciliada_registrada",
+            )
+            with self.assertRaisesRegex(ValueError, "Journal não permite"):
+                reconcile_published_test_copy(
+                    tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                )
+
+    def test_reconcile_refuses_changed_destination_and_no_approval(self):
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            self._interrupted_published_fixture(plan, db)
+            with self.assertRaisesRegex(ValueError, "Confirmação"):
+                reconcile_published_test_copy(tmp, approval="")
+            destination.write_bytes(b"ALTERADO")
+            with self.assertRaisesRegex(ValueError, "revisão manual"):
+                reconcile_published_test_copy(
+                    tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                )
+            self.assertEqual(destination.read_bytes(), b"ALTERADO")
+            self.assertTrue(source.exists())
+
+    def test_reconcile_refuses_leftover_temporary_without_removing_it(self):
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            self._interrupted_published_fixture(plan, db)
+            temporary = destination.parent / ".archivia-copy-sobra.tmp"
+            temporary.write_bytes(b"NAO-APAGAR")
+            with self.assertRaisesRegex(ValueError, "temporários"):
+                reconcile_published_test_copy(
+                    tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                )
+            self.assertEqual(temporary.read_bytes(), b"NAO-APAGAR")
+            self.assertTrue(source.exists())
+            self.assertTrue(destination.exists())
+
+    def test_reconcile_refuses_prepublication_interruption(self):
+        with temporary_test_directory() as tmp:
+            source, destination, db, plan = self._setup(tmp)
+            with patch("archivia.verified_copy._fingerprint",
+                       side_effect=OSError("falha antes de publicar")):
+                with self.assertRaisesRegex(OSError, "antes de publicar"):
+                    copy_verified_test_file(
+                        plan, db, approval="CONFIRMO TESTE ARCHIVIA",
+                    )
+            with self.assertRaisesRegex(ValueError, "Journal não permite"):
+                reconcile_published_test_copy(
+                    tmp, approval="CONFIRMO TESTE ARCHIVIA",
+                )
             self.assertTrue(source.exists())
             self.assertFalse(destination.exists())
 
