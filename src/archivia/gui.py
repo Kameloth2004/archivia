@@ -27,6 +27,7 @@ from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
 )
 from .gui_navigation import find_saved_snapshot
+from .manual_copy import preview_manual_image_copy
 from .gui_presentation import (
     catalog_filters, previous_page, next_page, summary_report, inventory_report,
     agent_report,
@@ -657,6 +658,18 @@ class ArchivIAWindow(QMainWindow):
         catalog_actions.addWidget(self.home_catalog_button)
         home_layout.addLayout(catalog_actions)
 
+        # Piloto manual separado do Ollama e do pipeline TEST-ONLY.
+        # A operação é apenas COPIAR; a origem não pode ser apagada.
+        copy_row = QHBoxLayout()
+        self.manual_copy_button = QPushButton("Teste manual: copiar 1 imagem com SHA-256")
+        self.manual_copy_button.clicked.connect(self._manual_copy_image)
+        self.manual_copy_button.setToolTip(
+            "Escolha uma imagem descartável e um destino existente; "
+            "a origem será preservada."
+        )
+        copy_row.addWidget(self.manual_copy_button)
+        home_layout.addLayout(copy_row)
+
         self.home_result = QPlainTextEdit()
         self.home_result.setReadOnly(True)
         self.home_result.setPlaceholderText(
@@ -1044,6 +1057,50 @@ class ArchivIAWindow(QMainWindow):
                 self.tabs.removeTab(index)
             self.tabs.setCurrentIndex(0)
 
+    def _manual_copy_image(self) -> None:
+        if self._worker is not None:
+            return
+        source, _ = QFileDialog.getOpenFileName(
+            self, "Escolha UMA cópia descartável para o teste",
+            self.folder.text().strip() or str(Path.home()),
+            "Imagens (*.jpg *.jpeg *.png *.webp *.avif)",
+        )
+        if not source:
+            return
+        destination = QFileDialog.getExistingDirectory(
+            self, "Escolha a pasta de destino para a CÓPIA verificada",
+            self.home_destination.text().strip() or str(Path.home()),
+        )
+        if not destination:
+            return
+        try:
+            preview = preview_manual_image_copy(source, destination)
+        except (ValueError, OSError) as exc:
+            self._show_error(str(exc))
+            return
+        response = QMessageBox.question(
+            self, "Confirmar cópia experimental",
+            f"Origem: {preview['source']}\\n"
+            f"Destino: {preview['destination']}\\n"
+            f"Tamanho: {preview['bytes']} bytes\\n\\n"
+            "Operação: COPIAR e verificar SHA-256.\\n"
+            "A origem permanecerá intacta. Nenhum arquivo será sobrescrito.\\n"
+            "Use apenas imagens duplicadas ou descartáveis.\\n\\n"
+            "Deseja efetuar esta cópia?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if response != QMessageBox.StandardButton.Yes:
+            self.status.setText("Cópia experimental cancelada.")
+            return
+        self._start_worker(
+            "manual_copy", DEFAULT_DB,
+            manual_source=preview["source"],
+            manual_folder=str(Path(preview["destination"]).parent),
+            approved_source=preview["source"],
+            approved_destination=preview["destination"],
+        )
+
     def _home_view_preview(self) -> None:
         if self._worker is not None or self._preview_result is None:
             return
@@ -1154,6 +1211,8 @@ class ArchivIAWindow(QMainWindow):
         hash_limit: int = 50, hash_file_mib: int = 16,
         hash_budget_mib: int = 64, hash_mode: str = "sample",
         source_folder: str = "", folder_session: FolderCatalogSession | None = None,
+        manual_source: str = "", manual_folder: str = "",
+        approved_source: str = "", approved_destination: str = "",
     ) -> None:
         if self._worker is not None:
             return
@@ -1169,6 +1228,7 @@ class ArchivIAWindow(QMainWindow):
             scan_id, name_contains, extension, search_scope, date_from, date_to, sort_by,
             destination, hash_limit, hash_file_mib, hash_budget_mib, hash_mode,
             source_folder, folder_session,
+            manual_source, manual_folder, approved_source, approved_destination,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -1195,6 +1255,7 @@ class ArchivIAWindow(QMainWindow):
         self.hash_total_limit_spin.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
         self.home_ask_button.setEnabled(not busy)
+        self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
         self.home_choose_button.setEnabled(not busy)
         self.home_folder.setEnabled(not busy)
@@ -1249,6 +1310,17 @@ class ArchivIAWindow(QMainWindow):
         if mode == "refresh_folder_session":
             self.status.setText("Catálogo temporário atualizado; nenhuma mídia modificada.")
             self.home_result.setPlainText("Análise atualizada. Você já pode consultar novamente.")
+        elif mode == "manual_copy":
+            self.home_result.setPlainText(
+                "CÓPIA VERIFICADA — origem preservada\\n"
+                f"Origem: {result['source']}\\n"
+                f"Destino: {result['destination']}\\n"
+                f"SHA-256: {result['sha256']}\\n"
+                f"Journal: {result['journal']}\\n\\n"
+                "A imagem original NÃO foi removida. "
+                "Esta versão ainda não executa movimentação real fora das fixtures."
+            )
+            self.status.setText("Cópia verificada concluída; original preservado.")
         elif mode == "summary":
             self.summary_view.setText(summary_report(result))
             self.status.setText("Resumo consultado. Banco não alterado.")
