@@ -13,7 +13,7 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
-    QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
+    QFileDialog, QComboBox, QTableWidget, QHeaderView, QTabWidget,
     QSpinBox, QProgressBar,
 )
 
