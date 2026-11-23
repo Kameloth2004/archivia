@@ -217,8 +217,8 @@ def inspect_verified_copy_test(test_directory: str | Path) -> dict[str, Any]:
     Não recupera, não limpa temporários, não retoma operações.
     """
     root = _safe_path(Path(test_directory))
-    _runtime, group = _inside_runtime(root / "sentinela" / "arquivo")
-    if group != root or root.parent != _runtime or not root.is_dir():
+    runtime = _safe_path(Path(__file__).resolve().parents[2] / "tests" / ".runtime")
+    if root.parent != runtime or not root.is_dir():
         raise ValueError("Inspeção restrita a caso direto de tests/.runtime.")
     journal = _safe_path(root / "archivia-copy-journal.jsonl")
     if not journal.is_file():
