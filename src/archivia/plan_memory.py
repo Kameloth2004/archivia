@@ -9,7 +9,7 @@ from copy import deepcopy
 from typing import Any
 
 _REASONS = {
-    "destino_ja_existe": "Já existe no destino um arquivo com esse nome; o conteúdo não foi comparado por SHA-256.",
+    "destino_ja_existe": "Já existe no destino um arquivo com o mesmo nome; o conteúdo não foi comparado por SHA-256.",
     "nome_repetido_entre_subpastas": "Mais de uma origem do plano produziria o mesmo nome no destino.",
     "origem_ausente_ou_link": "A origem não está disponível ou há um link simbólico no caminho.",
     "origem_alterada_desde_inventario": "Tamanho ou data de modificação da origem mudou desde o inventário.",
