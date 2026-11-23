@@ -86,3 +86,40 @@ def agent_report(result: dict[str, Any]) -> tuple[str, str]:
         "Operações de movimentação: indisponíveis nesta versão."
     )
     return answer, full
+
+
+def recursive_plan_report(result: dict[str, Any]) -> str | None:
+    """Resumo legível do plano escolhido pelo Ollama; dados reais são do Python."""
+    for entry in result.get("tools_used", []):
+        if not isinstance(entry, dict) or entry.get("tool") != "planejar_consolidacao_recursiva":
+            continue
+        plan = entry.get("result")
+        if not isinstance(plan, dict):
+            return None
+        if "error" in plan:
+            return f"PLANO NÃO GERADO: {plan['error']}"
+        if not all(key in plan for key in (
+            "root", "destination", "total_matches", "examined", "proposed",
+            "blocked", "pending", "complete", "actions",
+        )):
+            return None
+        lines = [
+            "PRÉVIA DE ORGANIZAÇÃO RECURSIVA — NENHUM ARQUIVO MOVIDO",
+            f"Origem: {plan['root']}",
+            f"Destino: {plan['destination']}",
+            f"Correspondências: {plan['total_matches']}",
+            f"Examinados: {plan['examined']} | Propostos: {plan['proposed']} | Bloqueados: {plan['blocked']}",
+            f"Pendentes: {plan['pending']} | {'COMPLETO' if plan['complete'] else 'PARCIAL'}",
+            "",
+            "EXEMPLOS DE AÇÕES (até 10):",
+        ]
+        for action in plan["actions"][:10]:
+            lines.append(
+                f"{action['status'].upper()}: {action['file']} -> "
+                f"{action.get('destination') or 'destino inválido'}"
+                + (f" ({action['reason']})" if action.get("reason") else "")
+            )
+        lines.append("")
+        lines.append("Este plano NÃO autoriza nem executa movimentação.")
+        return "\n".join(lines)
+    return None
