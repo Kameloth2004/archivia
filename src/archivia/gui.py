@@ -742,6 +742,10 @@ class ArchivIAWindow(QMainWindow):
         if self._preview_result is not None:
             self._clear_preview()
             self.inventory_view.setText("Pasta alterada. Examine novamente antes de catalogar.")
+            self.home_result.setPlainText(
+                "Pasta de origem alterada. A prévia anterior foi descartada. "
+                "Examine a nova pasta antes de salvar no catálogo."
+            )
 
     def _confirm_catalog_preview(self) -> None:
         if self._worker is not None or self._preview_result is None:
