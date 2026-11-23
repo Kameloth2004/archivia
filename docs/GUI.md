@@ -257,3 +257,13 @@ A tela padrão Início agora concentra pasta selecionada, atalhos de contagem, p
 - Os handlers de inventário, resumo, simulação por data e SHA-256 verificam worker ativo **antes** de limpar tabelas/estado. O catálogo guarda os timestamps ISO no `Qt.ItemDataRole.UserRole` para troca de formato BR/ISO/US sem reinterpretação do texto exibido.
 - Mudanças foram feitas sem redesenho ou ligação com executor de arquivo. **Validação Windows pendente:** 135 testes esperados e inspeção visual das telas.
 - Modularização futura somente após homologação: extrair componentes de tabela e filtros em alterações pequenas, mantendo compatibilidade da GUI.
+
+## Modularização da apresentação das tabelas — implementação publicada (pendente de homologação)
+
+- `src/archivia/table_rows.py`: funções puras `inventory_preview_rows`, `origin_rows`, `duplicate_rows`, `date_plan_rows` e `catalog_rows`, sem dependência de PySide6. Centralizam as células, os tooltips e a preservação do timestamp ISO original no catálogo; não acessam ou alteram arquivos.
+- `src/archivia/gui_tables.py`: `fill_table()`, helper PySide6 para preencher `QTableWidget` já configurada. Valida a largura e as dimensões de tooltips e metadados antes de modificar o número de linhas; mantém a configuração das tabelas e usa `Qt.ItemDataRole.UserRole` para ISO.
+- `src/archivia/gui.py`: cinco laços de preenchimento foram substituídos por chamadas aos helpers; `QTableWidgetItem` não é mais importado diretamente. Redução de aproximadamente **1.525 para 1.481 linhas**. Nenhum redesign, renomeação de abas, mudança de consulta ao Ollama ou acesso ao executor.
+- `tests/test_table_rows.py`: **sete testes** de formatação sem Qt (prévia, origens, duplicatas, planos e datas, inclusive casos vazios). O teste estrutural de ISO existente foi adaptado para verificar `table_rows.py` + `gui_tables.py`, sem acrescentar nova contagem de testes.
+- **Suíte esperada: 142 testes** (135 homologados anteriormente + 7 novos), um possivelmente ignorado. **Ainda não executados no Windows nesta etapa.** Validar visualmente as cinco tabelas e alternância BR/ISO/US antes de continuar a extração.
+- **Pendente:** testes visuais completos dos componentes Qt, avaliação futura de um modelo/delegate de tabela se houver necessidade de desempenho ou paginação maior, sem reescrita prematura.
+
