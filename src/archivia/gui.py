@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from .agent import FolderCatalogSession
+from .move_executor import APPROVAL_PHRASE
 from .catalog import DEFAULT_DB
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .preview import preview_inventory_page
@@ -554,6 +555,21 @@ class ArchivIAWindow(QMainWindow):
         self.refresh_session_button = QPushButton("Atualizar análise da pasta")
         self.refresh_session_button.clicked.connect(self._refresh_folder_session)
         agent_layout.addWidget(self.refresh_session_button)
+        move_box = QGroupBox("Execução supervisionada — um arquivo")
+        move_layout = QVBoxLayout(move_box)
+        self.move_choice = QComboBox()
+        self.move_choice.addItem("Gere uma prévia recursiva no Agente IA", None)
+        move_layout.addWidget(self.move_choice)
+        self.move_button = QPushButton("Revisar e autorizar movimentação de um arquivo")
+        self.move_button.setEnabled(False)
+        self.move_button.clicked.connect(self._approve_one_move)
+        move_layout.addWidget(self.move_button)
+        move_note = QLabel("Só arquivos propostos no último plano. Confirmação individual, "
+                           "sem sobrescrita ou exclusão automática de duplicatas. "
+                           "Limite inicial: 16 MiB por arquivo.")
+        move_note.setWordWrap(True)
+        move_layout.addWidget(move_note)
+        agent_layout.addWidget(move_box)
         agent_page_layout.addWidget(agent_box)
 
         result_box = QGroupBox("Resposta e ferramentas utilizadas")
@@ -1202,6 +1218,54 @@ class ArchivIAWindow(QMainWindow):
             "Selecione a pasta de origem na aba Inventário antes de perguntar ao agente."
         )
 
+    def _update_move_choices(self) -> None:
+        self.move_choice.clear()
+        self.move_choice.addItem("Selecione um arquivo proposto", None)
+        session = self._folder_session
+        plan = session._last_recursive_plan if session is not None else None
+        if plan is not None:
+            for action in plan.get("actions", []):
+                if (isinstance(action, dict) and action.get("status") == "proposto"
+                        and action.get("reason") is None
+                        and isinstance(action.get("file"), str)):
+                    self.move_choice.addItem(action["file"], action["file"])
+        self.move_button.setEnabled(self._worker is None and self.move_choice.count() > 1)
+
+    def _approve_one_move(self) -> None:
+        if self._worker is not None:
+            return
+        session = self._folder_session
+        relative = self.move_choice.currentData()
+        if (session is None or not session.ready
+                or session._last_recursive_plan is None or not relative):
+            self._show_error("Gere um plano recursivo e selecione um arquivo proposto.")
+            return
+        plan = session._last_recursive_plan
+        chosen = [a for a in plan["actions"] if a.get("file") == relative
+                  and a.get("status") == "proposto"]
+        if len(chosen) != 1:
+            self._show_error("Arquivo não é uma proposta única.")
+            return
+        item = chosen[0]
+        answer = QMessageBox.question(
+            self, "Confirmar movimentação REAL",
+            "ATENÇÃO: esta operação moverá um arquivo real.\n\n"
+            f"Origem: {item['source']}\n"
+            f"Destino: {item['destination']}\n\n"
+            "A origem será removida apenas após copiar e validar SHA-256. "
+            "Se houver conflito ou falha, a execução será bloqueada.\n\n"
+            "Confirma a movimentação deste ÚNICO arquivo?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._start_worker(
+            "move_one", DEFAULT_DB, folder_session=session,
+            move_plan=plan, move_relative=relative,
+            move_approval=APPROVAL_PHRASE,
+        )
+
     def _start_worker(
         self, mode: str, database: Path, question: str = "", model: str = "",
         page: int = 1, category: str | None = None,
@@ -1214,6 +1278,8 @@ class ArchivIAWindow(QMainWindow):
         source_folder: str = "", folder_session: FolderCatalogSession | None = None,
         manual_source: str = "", manual_folder: str = "",
         approved_source: str = "", approved_destination: str = "",
+        move_plan: dict | None = None, move_relative: str = "",
+        move_approval: str = "",
     ) -> None:
         if self._worker is not None:
             return
@@ -1230,6 +1296,7 @@ class ArchivIAWindow(QMainWindow):
             destination, hash_limit, hash_file_mib, hash_budget_mib, hash_mode,
             source_folder, folder_session,
             manual_source, manual_folder, approved_source, approved_destination,
+            move_plan, move_relative, move_approval,
         )
         self._worker = worker
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
@@ -1255,6 +1322,8 @@ class ArchivIAWindow(QMainWindow):
         self.hash_file_limit_spin.setEnabled(not busy)
         self.hash_total_limit_spin.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
+        self.move_choice.setEnabled(not busy)
+        self.move_button.setEnabled(not busy and self.move_choice.count() > 1)
         self.home_ask_button.setEnabled(not busy)
         self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
@@ -1308,7 +1377,22 @@ class ArchivIAWindow(QMainWindow):
             self._show_error(f"Resposta inválida do backend: {exc}")
 
     def _render_result(self, mode: str, result: dict) -> None:
-        if mode == "refresh_folder_session":
+        if mode == "move_one":
+            status = result.get("status")
+            self.result_view.setPlainText(
+                f"RESULTADO DA MOVIMENTAÇÃO: {status}\n"
+                f"Origem: {result.get('source')}\n"
+                f"Destino: {result.get('destination')}\n"
+                f"SHA-256: {result.get('sha256')}\n"
+                f"Observação: {result.get('detail', '')}\n"
+            )
+            self.home_result.setPlainText(self.result_view.toPlainText())
+            if self._folder_session is not None:
+                self._folder_session.close()
+            self._update_move_choices()
+            self.status.setText("Movimentação finalizada; plano antigo invalidado.")
+        elif mode == "refresh_folder_session":
+            self._update_move_choices()
             self.status.setText("Catálogo temporário atualizado; nenhuma mídia modificada.")
             self.home_result.setPlainText("Análise atualizada. Você já pode consultar novamente.")
         elif mode == "manual_copy":
@@ -1578,6 +1662,7 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText("Snapshot #{} consultado em modo somente leitura.".format(result["scan_id"]))
         else:
             answer, report = agent_report(result)
+            self._update_move_choices()
             self.result_view.setPlainText(report)
             self.status.setText("Resposta recebida. Nenhum arquivo de mídia modificado.")
             self.home_result.setPlainText(recursive_plan_report(result) or answer)
