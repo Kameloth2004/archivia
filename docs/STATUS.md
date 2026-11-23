@@ -205,6 +205,15 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Decisões preservadas: não alterar sincronização bidirecional de campos sem falha reproduzida; não alterar ciclo de vida `QThread` ou lógica de fechamento enquanto estiverem estáveis; não fragmentar os 1.525 linhas restantes em uma refatoração ampla sem homologação incremental.
 - Limitações: testes estruturais e de contrato não substituem abertura real da GUI com PySide6; verificar visualmente Início, Biblioteca, Configurações, Avançado e troca de formatos de data. O executor real continua desconectado da GUI.
 
+## Homologação visual parcial — mudança de pasta e consultas (23/11/2026)
+
+- Usuário abriu a GUI após os 135 testes automatizados e selecionou uma pasta de origem e uma pasta de destino já existente.
+- Consultou a **quantidade de imagens** da primeira pasta: resultado conferido como correto.
+- Sem atualizar manualmente a análise, consultou a **quantidade de vídeos** da mesma pasta: resultado conferido como correto.
+- Mudou a **pasta de origem durante a mesma sessão** e consultou novamente a quantidade de imagens, sem atualização manual: resultado conferido como correto.
+- **Homologação parcial da GUI:** consultas sucessivas e troca de contexto de origem funcionaram em uso real, com o `QueryWorker` extraído. A pasta de destino estava selecionada, mas o relato não implica execução de plano ou movimentação.
+- **Ainda pendente:** exibição detalhada das abas Avançado/Biblioteca/Configurações, mudança do formato de data com tabela carregada e teste de erro do backend; não declarar homologação visual completa.
+
 ## Próxima etapa
 
 Com **135 testes automatizados aprovados**, realizar validação visual da GUI no Windows antes de extrair mais componentes: abrir `archivia-gui`, conferir Início, Biblioteca, Configurações e Avançado; selecionar uma pasta, testar prévia e uma consulta ao Ollama; no catálogo, alternar formatos de data BR → ISO → US → BR com registros carregados. Conferir também se erros de backend são exibidos sem encerrar a janela. **A homologação visual ainda não foi informada pelo usuário.** Manter o executor isolado de GUI/CLI/Ollama.
