@@ -640,7 +640,7 @@ class ArchivIAWindow(QMainWindow):
             quick_row.addWidget(quick_button)
         home_layout.addWidget(quick_box)
 
-        home_destination_box = QGroupBox("Pasta de destino para simulação (opcional)")
+        home_destination_box = QGroupBox("Pasta de destino (para organizar ou simular)")
         home_destination_row = QHBoxLayout(home_destination_box)
         self.home_destination = QLineEdit()
         self.home_destination.setPlaceholderText("Selecione uma pasta de destino já existente")
@@ -651,7 +651,7 @@ class ArchivIAWindow(QMainWindow):
         home_layout.addWidget(home_destination_box)
 
         self.home_prompt = QLineEdit()
-        self.home_prompt.setPlaceholderText("Descreva o que deseja encontrar ou simular")
+        self.home_prompt.setPlaceholderText("Ex.: Organize minhas imagens nesta pasta")
         self.home_prompt.returnPressed.connect(self._home_ask)
         home_layout.addWidget(self.home_prompt)
         home_actions = QHBoxLayout()
@@ -1263,10 +1263,16 @@ class ArchivIAWindow(QMainWindow):
         self.move_button.setEnabled(self._worker is None and has_proposals)
         self.home_batch_button.setEnabled(self._worker is None and has_proposals)
         self.advanced_batch_button.setEnabled(self._worker is None and has_proposals)
-        self.home_move_info.setText(
-            f"{self.move_choice.count() - 1} arquivo(s) proposto(s). Revise a seleção antes de mover."
-            if has_proposals else "Peça ao agente um planejamento recursivo completo para habilitar a execução."
-        )
+        proposed_count = self.move_choice.count() - 1
+        if has_proposals or has_conflicts:
+            self.home_move_info.setText(
+                f"Prontos para mover: {proposed_count} | Conflitos de nome: {len(conflicts)}. "
+                "Escolha a operação abaixo."
+            )
+        else:
+            self.home_move_info.setText(
+                "Peça ao agente um planejamento recursivo completo para habilitar a execução."
+            )
 
     def _approve_one_move(self) -> None:
         if self._worker is not None:
