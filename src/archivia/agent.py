@@ -16,6 +16,7 @@ from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, store_inve
 from .inventory import CATEGORIES, inventory
 from .planner import propose_moves, propose_date_moves, summarize_consolidation
 from .recursive_plan import propose_recursive_consolidation
+from .plan_memory import blocked_details, latest_recursive_plan
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 SYSTEM_PROMPT = (
@@ -59,11 +60,35 @@ SYSTEM_PROMPT = (
     "Esta ferramenta retorna apenas totais, nunca ações executáveis. "
     "Informe examined, proposed, blocked, pending, complete e total_matches. "
     "Nunca chame um resultado PARCIAL de completo. "
+    "Se o usuário perguntar sobre um bloqueio no plano anterior, use "
+    "consultar_bloqueios_ultimo_plano; motivo destino_ja_existe significa "
+    "CONFLITO DE NOME, e não duplicata SHA-256 confirmada. "
+    "Nunca diga que faltam ferramentas sem verificar a consulta de bloqueios. "
     "A seleção de histórico feita na GUI não é compartilhada automaticamente com o agente. "
     "Responda de forma curta e clara em português."
 )
 
 TOOLS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "consultar_bloqueios_ultimo_plano",
+            "description": (
+                "Consulta os motivos individuais de bloqueio do plano recursivo "
+                "anterior da MESMA sessão e snapshot. Somente dados em memória, "
+                "não acessa disco nem calcula hashes. Se nome omitido, lista até "
+                "25 arquivos bloqueados. Conflito de nome NÃO prova duplicata."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "arquivo": {"type": "string", "description": "Nome exato do arquivo opcional"},
+                    "limite": {"type": "integer", "minimum": 1, "maximum": 25},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -218,7 +243,8 @@ TOOLS: list[dict[str, Any]] = [
 
 
 def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_DB,
-                  context_scan_id: int | None = None) -> dict[str, Any]:
+                  context_scan_id: int | None = None,
+                  previous_plan: dict[str, Any] | None = None) -> dict[str, Any]:
     """Executa apenas ferramentas conhecidas, com validação independente do modelo."""
     if not isinstance(arguments, dict):
         raise ValueError("Argumentos da ferramenta devem ser um objeto JSON.")
@@ -230,6 +256,18 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
     if context_scan_id is not None and "scan_id" in arguments:
         if arguments["scan_id"] != context_scan_id:
             raise ValueError("O agente não pode consultar outro snapshot fora da pasta selecionada.")
+    if name == "consultar_bloqueios_ultimo_plano":
+        if set(arguments) - {"arquivo", "limite"}:
+            raise ValueError("Argumento não permitido na consulta de bloqueios.")
+        if context_scan_id is None or previous_plan is None:
+            raise ValueError("Nenhum plano anterior disponível nesta sessão.")
+        if previous_plan.get("scan_id") != context_scan_id:
+            raise ValueError("O plano anterior pertence a outro snapshot.")
+        return blocked_details(
+            previous_plan,
+            file_name=arguments.get("arquivo", ""),
+            limit=arguments.get("limite", 25),
+        )
     if name == "planejar_consolidacao_recursiva":
         if set(arguments) - {"categoria", "destino", "limite"}:
             raise ValueError("Argumento não permitido no planejamento recursivo.")
@@ -384,7 +422,8 @@ def _ollama_chat(payload: dict[str, Any], timeout: float = 120) -> dict[str, Any
 
 
 def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
-              context_scan_id: int | None = None) -> dict[str, Any]:
+              context_scan_id: int | None = None,
+              previous_plan: dict[str, Any] | None = None) -> dict[str, Any]:
     """Uma solicitação, no máximo uma rodada de ferramentas, seguida da resposta final."""
     if not prompt.strip() or not model.strip():
         raise ValueError("Solicitação e modelo não podem estar vazios.")
@@ -396,6 +435,16 @@ def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
         instructions += (" A interface selecionou a pasta do snapshot "
                          f"#{context_scan_id}. Use exclusivamente esse contexto; "
                          "não tente acessar outro snapshot.")
+    if previous_plan is not None and previous_plan.get("scan_id") == context_scan_id:
+        blocked = blocked_details(previous_plan, limit=10)
+        instructions += (
+            " CONTEXTO DO ÚLTIMO PLANO (sem nova varredura): "
+            f"{blocked['total_blocked_in_plan']} bloqueados no snapshot "
+            f"#{context_scan_id}. Use consultar_bloqueios_ultimo_plano para "
+            "examinar motivos individuais. "
+            "Esta memória é uma prévia histórica e pode estar desatualizada. "
+            "Não afirme duplicidade de conteúdo sem SHA-256."
+        )
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": instructions},
         {"role": "user", "content": prompt},
@@ -423,7 +472,10 @@ def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
             if not isinstance(name, str):
                 raise ValueError("Nome de ferramenta inválido.")
             try:
-                value = dispatch_tool(name, args, db_path, context_scan_id=context_scan_id)
+                value = dispatch_tool(
+                    name, args, db_path, context_scan_id=context_scan_id,
+                    previous_plan=previous_plan,
+                )
             except (ValueError, OSError) as exc:
                 value = {"error": str(exc)}
             # Registra argumentos efetivamente recebidos, não o texto narrado pelo
@@ -436,7 +488,8 @@ def ask_agent(prompt: str, model: str, db_path: Path = DEFAULT_DB,
         # Segunda chamada sem ferramentas: não cria ciclo de autonomia.
         message = _ollama_chat({"model": model, "messages": messages, "stream": False})
     return {"model": model, "answer": str(message.get("content") or ""),
-            "tools_used": results, "files_modified": False}
+            "tools_used": results, "files_modified": False,
+            "latest_recursive_plan": latest_recursive_plan(results, context_scan_id)}
 
 
 
@@ -455,6 +508,7 @@ class FolderCatalogSession:
         self._db: Path | None = None
         self._scan_id: int | None = None
         self._scanned_utc: str | None = None
+        self._last_recursive_plan: dict[str, Any] | None = None
 
     @property
     def ready(self) -> bool:
@@ -480,6 +534,7 @@ class FolderCatalogSession:
         self._db = db
         self._scan_id = scan["scan_id"]
         self._scanned_utc = summary["scanned_utc"]
+        self._last_recursive_plan = None
         if old is not None:
             old.cleanup()
 
@@ -489,7 +544,14 @@ class FolderCatalogSession:
             self.refresh()
         if not self.source.is_dir() or self.source.is_symlink():
             raise ValueError("Pasta de origem não está mais disponível.")
-        result = ask_agent(prompt, model, self._db, context_scan_id=self._scan_id)
+        result = ask_agent(
+            prompt, model, self._db, context_scan_id=self._scan_id,
+            previous_plan=self._last_recursive_plan,
+        )
+        new_plan = result.get("latest_recursive_plan")
+        if new_plan is not None:
+            self._last_recursive_plan = new_plan
+        result["plan_memory_available"] = self._last_recursive_plan is not None
         result["temporary_catalog"] = True
         result["catalog_reused"] = reused
         result["source_root"] = str(self.source)
@@ -503,6 +565,7 @@ class FolderCatalogSession:
         self._db = None
         self._scan_id = None
         self._scanned_utc = None
+        self._last_recursive_plan = None
         if temp is not None:
             temp.cleanup()
 
