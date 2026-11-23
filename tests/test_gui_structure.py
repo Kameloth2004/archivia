@@ -95,6 +95,7 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("find_saved_snapshot(result, saved_id)", body)
         self.assertIn("self.history_select.findData(saved_id)", body)
         self.assertIn("self._clear_catalog_search()", body)
+        self.assertIn("self.category_filter.setCurrentIndex(0)", body)
         self.assertIn("self.tabs.setCurrentIndex(1)", body)
 
     def test_result_contract_is_checked_before_render(self):
