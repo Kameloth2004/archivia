@@ -175,12 +175,12 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Lê e valida sequência dos eventos JSONL da cópia (`PREPARADO`, `TEMPORARIO_CRIADO`, `HASH_VERIFICADO`, `PUBLICADO`, `INTERROMPIDO`). Rejeita registros inválidos, misturados, truncados ou que apontem para outro caso.
 - Inspeciona presença de origem e destino, calcula SHA-256 atual dos dois arquivos quando ambos existem e lista eventuais temporários `.archivia-copy-*.tmp`. **Igualdade de hash só indica igualdade no instante da inspeção**; não comprova durabilidade nem autoriza exclusão da origem.
 - A falha de journal após a publicação do hardlink pode deixar origem e destino presentes com último evento `INTERROMPIDO`: estado `interrompido_revisao_manual`. Cópias normais reportam `publicacao_registrada_inspecionada`. Nenhum estado dispara recuperação.
-- Quatro novos testes de fixture verificam publicação, falha injetada pós-publicação, temporário remanescente e journal inválido/fora de escopo. **Suíte esperada: 120 testes** (116 homologados + 4 novos), um possivelmente ignorado; execução Windows pendente.
+- Quatro novos testes de fixture verificam publicação, falha injetada pós-publicação, temporário remanescente e journal inválido/fora de escopo. **120 testes homologados no Windows:** `Ran 120 tests in 6.459s`, `OK (skipped=1)`; 119 aprovados e 1 ignorado.
 - **Pendentes antes de qualquer mídia real:** consistência de journal sob falha de energia, identidade/TOCTOU, recuperabilidade idempotente, movimentação entre volumes distintos e confirmação do usuário na interface.
 
 ## Próxima etapa
 
-No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (**120 testes esperados**). Homologar a inspeção sem efeitos colaterais; em seguida avaliar estados reais de interrupção e desenhar recuperação segura de cópias por etapas, ainda exclusivamente em `tests/.runtime`. Não utilizar mídias pessoais nem integrar GUI/CLI/Ollama.
+Com **120 testes homologados**, desenvolver a estratégia de recuperação **somente para fixtures isoladas** de cópias interrompidas. Priorizar a diferença entre publicação já ocorrida e temporário ainda presente; exigir journal íntegro, identidade verificável e confirmação explícita para qualquer ação. Preservar a origem e evitar limpeza automática de temporários sem prova de identidade. Ainda não usar arquivos pessoais, outras unidades físicas ou integrações GUI/CLI/Ollama.
 
 ## Referências
 
