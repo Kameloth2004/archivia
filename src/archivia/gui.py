@@ -5,7 +5,6 @@ Sem operações reais de organização, exclusão ou renomeação.
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -26,6 +25,10 @@ from .gui_worker import QueryWorker
 from .gui_tables import fill_table
 from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
+)
+from .gui_presentation import (
+    catalog_filters, previous_page, next_page, summary_report, inventory_report,
+    agent_report,
 )
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
@@ -782,12 +785,12 @@ class ArchivIAWindow(QMainWindow):
 
     def _previous_preview_page(self) -> None:
         if self._preview_page > 1:
-            self._preview_page -= 1
+            self._preview_page = previous_page(self._preview_page)
             self._show_preview_page()
 
     def _next_preview_page(self) -> None:
         if self._preview_page < self._preview_pages:
-            self._preview_page += 1
+            self._preview_page = next_page(self._preview_page, self._preview_pages)
             self._show_preview_page()
 
     def _show_preview_page(self) -> None:
@@ -851,31 +854,30 @@ class ArchivIAWindow(QMainWindow):
             self._show_error(str(exc))
             return
         try:
-            date_from = parse_user_date(self.catalog_date_from.text(), self._date_format)
-            date_to = parse_user_date(self.catalog_date_to.text(), self._date_format)
+            filters = catalog_filters(
+                category=self.category_filter.currentData(),
+                scan_id=self.history_select.currentData(),
+                name=self.catalog_name_filter.text(),
+                extension=self.catalog_extension_filter.text(),
+                scope=self.catalog_search_scope.currentData(),
+                date_from=self.catalog_date_from.text(),
+                date_to=self.catalog_date_to.text(),
+                date_format=self._date_format,
+                sort_by=self.catalog_sort.currentData(),
+            )
         except ValueError as exc:
             self._show_error(str(exc))
             return
-        self._start_worker(
-            "catalog_page", database, page=self._page,
-            category=self.category_filter.currentData(),
-            scan_id=self.history_select.currentData(),
-            name_contains=self.catalog_name_filter.text().strip(),
-            extension=self.catalog_extension_filter.text().strip(),
-            search_scope=self.catalog_search_scope.currentData(),
-            date_from=date_from,
-            date_to=date_to,
-            sort_by=self.catalog_sort.currentData(),
-        )
+        self._start_worker("catalog_page", database, page=self._page, **filters)
 
     def _previous_page(self) -> None:
         if self._page > 1:
-            self._page -= 1
+            self._page = previous_page(self._page)
             self._load_catalog_page()
 
     def _next_page(self) -> None:
         if self._page < self._pages:
-            self._page += 1
+            self._page = next_page(self._page, self._pages)
             self._load_catalog_page()
 
     def _run_summary(self) -> None:
@@ -1200,31 +1202,14 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText("Catálogo temporário atualizado; nenhuma mídia modificada.")
             self.home_result.setPlainText("Análise atualizada. Você já pode consultar novamente.")
         elif mode == "summary":
-            if result.get("scan_id") is None:
-                self.summary_view.setText("Catálogo vazio: nenhuma catalogação encontrada.")
-            else:
-                categories = result.get("by_category", {})
-                self.summary_view.setText(
-                    f"Inventário #{result['scan_id']} | Arquivos: {result['indexed_files']} | Mídias: {result['media_files']} "
-                    f"| Imagens: {categories.get('imagem', 0)} "
-                    f"| Vídeos: {categories.get('video', 0)} "
-                    f"| Áudios: {categories.get('audio', 0)} "
-                    f"| Espaço: {result['bytes_media']:,} bytes"
-                )
+            self.summary_view.setText(summary_report(result))
             self.status.setText("Resumo consultado. Banco não alterado.")
         elif mode == "inventory_preview":
             self._preview_result = result
             self._preview_source_path = self.folder.text().strip()
             self._preview_page = 1
             self._show_preview_page()
-            info = result["summary"]
-            self.inventory_view.setText(
-                f"Pasta: {result['root']} | Arquivos: {info['indexed_files']} | Mídias: {info['media_files']} "
-                f"| Imagens: {info['by_category'].get('imagem', 0)} "
-                f"| Vídeos: {info['by_category'].get('video', 0)} "
-                f"| Áudios: {info['by_category'].get('audio', 0)} "
-                f"| Erros: {len(result['errors'])}"
-            )
+            self.inventory_view.setText(inventory_report(result))
             self.status.setText(
                 "Prévia concluída. Nenhum dado gravado no catálogo; arquivos preservados."
             )
@@ -1429,20 +1414,8 @@ class ArchivIAWindow(QMainWindow):
             )
             self.status.setText("Snapshot #{} consultado em modo somente leitura.".format(result["scan_id"]))
         else:
-            answer = result.get("answer") or "(Resposta textual vazia)"
-            tools = result.get("tools_used", [])
-            details = json.dumps(tools, ensure_ascii=False, indent=2)
-            session_info = (
-                f"\n\nCATÁLOGO DE SESSÃO: {result.get('catalog_scanned_utc', 'sem horário')} UTC. "
-                "Se a pasta mudou, clique em Atualizar análise da pasta."
-                if result.get("temporary_catalog") else ""
-            )
-            self.result_view.setPlainText(
-                f"RESPOSTA DO AGENTE\n{answer}\n\n"
-                f"FERRAMENTAS UTILIZADAS\n{details}"
-                f"{session_info}\n\n"
-                "Operações de movimentação: indisponíveis nesta versão."
-            )
+            answer, report = agent_report(result)
+            self.result_view.setPlainText(report)
             self.status.setText("Resposta recebida. Nenhum arquivo de mídia modificado.")
             self.home_result.setPlainText(answer)
 
