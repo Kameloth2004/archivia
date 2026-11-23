@@ -74,3 +74,22 @@ def _require_mapping(value: Any, required: tuple[str, ...], context: str) -> Non
 def _require_sequence(value: Any, context: str) -> None:
     if not isinstance(value, list):
         raise ValueError(f"Resultado inválido em {context}: esperada lista.")
+
+
+def can_save_inventory_preview(
+    preview: Any, selected_folder: str, preview_source: str | None,
+) -> bool:
+    """Apenas uma prévia válida da pasta selecionada pode ser catalogada.
+
+    Controle de interface; o backend continua reexaminando antes de gravar.
+    """
+    return (
+        isinstance(preview, dict)
+        and isinstance(preview.get("summary"), dict)
+        and isinstance(preview["summary"].get("indexed_files"), int)
+        and not isinstance(preview["summary"]["indexed_files"], bool)
+        and isinstance(preview.get("errors"), list)
+        and not preview["errors"]
+        and bool(selected_folder.strip())
+        and selected_folder.strip() == preview_source
+    )
