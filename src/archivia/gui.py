@@ -20,7 +20,7 @@ from .agent import FolderCatalogSession
 from .catalog import DEFAULT_DB
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .preview import preview_inventory_page
-from .gui_helpers import validate_gui_result
+from .gui_helpers import validate_gui_result, can_save_inventory_preview
 from .gui_worker import QueryWorker
 from .gui_tables import fill_table
 from .table_rows import (
@@ -641,6 +641,22 @@ class ArchivIAWindow(QMainWindow):
         home_actions.addWidget(self.home_refresh_button)
         home_layout.addLayout(home_actions)
 
+        # Catalogação opcional diretamente no Início, reutilizando a mesma
+        # prévia, validação e confirmação do Inventário avançado.
+        catalog_actions = QHBoxLayout()
+        self.home_inventory_button = QPushButton("Examinar pasta para catalogar")
+        self.home_inventory_button.clicked.connect(self._run_inventory_preview)
+        catalog_actions.addWidget(self.home_inventory_button)
+        self.home_preview_button = QPushButton("Conferir arquivos da prévia")
+        self.home_preview_button.setEnabled(False)
+        self.home_preview_button.clicked.connect(self._home_view_preview)
+        catalog_actions.addWidget(self.home_preview_button)
+        self.home_catalog_button = QPushButton("Salvar no catálogo SQLite...")
+        self.home_catalog_button.setEnabled(False)
+        self.home_catalog_button.clicked.connect(self._confirm_catalog_preview)
+        catalog_actions.addWidget(self.home_catalog_button)
+        home_layout.addLayout(catalog_actions)
+
         self.home_result = QPlainTextEdit()
         self.home_result.setReadOnly(True)
         self.home_result.setPlaceholderText(
@@ -775,6 +791,8 @@ class ArchivIAWindow(QMainWindow):
         self._preview_result = None
         self._preview_source_path = None
         self.catalog_preview_button.setEnabled(False)
+        self.home_preview_button.setEnabled(False)
+        self.home_catalog_button.setEnabled(False)
         self._preview_page = 1
         self._preview_pages = 0
         self.preview_table.setRowCount(0)
@@ -1017,6 +1035,18 @@ class ArchivIAWindow(QMainWindow):
                 self.tabs.removeTab(index)
             self.tabs.setCurrentIndex(0)
 
+    def _home_view_preview(self) -> None:
+        if self._worker is not None or self._preview_result is None:
+            return
+        if not can_save_inventory_preview(
+            self._preview_result, self.folder.text(), self._preview_source_path,
+        ):
+            self._show_error("Prévia indisponível ou desatualizada. Examine a pasta novamente.")
+            return
+        # A visualização completa continua única; não duplicamos a tabela.
+        self.advanced_button.setChecked(True)
+        self.advanced_tabs.setCurrentIndex(1)
+
     def _home_choose_destination(self) -> None:
         selected = QFileDialog.getExistingDirectory(
             self, "Selecionar pasta de destino existente",
@@ -1169,11 +1199,13 @@ class ArchivIAWindow(QMainWindow):
         self.folder.setEnabled(not busy)
         self.folder_button.setEnabled(not busy)
         self.inventory_button.setEnabled(not busy)
-        self.catalog_preview_button.setEnabled(
-            not busy and self._preview_result is not None
-            and not self._preview_result.get("errors")
-            and self.folder.text().strip() == self._preview_source_path
+        self.home_inventory_button.setEnabled(not busy)
+        ready = not busy and can_save_inventory_preview(
+            self._preview_result, self.folder.text(), self._preview_source_path,
         )
+        self.catalog_preview_button.setEnabled(ready)
+        self.home_preview_button.setEnabled(ready)
+        self.home_catalog_button.setEnabled(ready)
         self.preview_filter.setEnabled(not busy)
         self.preview_prev.setEnabled(not busy and self._preview_page > 1)
         self.preview_next.setEnabled(not busy and self._preview_page < self._preview_pages)
@@ -1216,7 +1248,14 @@ class ArchivIAWindow(QMainWindow):
             self._preview_source_path = self.folder.text().strip()
             self._preview_page = 1
             self._show_preview_page()
-            self.inventory_view.setText(inventory_report(result))
+            preview_report = inventory_report(result)
+            self.inventory_view.setText(preview_report)
+            self.home_result.setPlainText(
+                "PRÉVIA DA PASTA (somente leitura)\n"
+                + preview_report
+                + "\n\nPara conferir a lista completa, use Conferir arquivos da prévia. "
+                "Salvar no catálogo SQLite exige sua confirmação explícita."
+            )
             self.status.setText(
                 "Prévia concluída. Nenhum dado gravado no catálogo; arquivos preservados."
             )
@@ -1228,6 +1267,8 @@ class ArchivIAWindow(QMainWindow):
             self._preview_result = None
             self._preview_source_path = None
             self.catalog_preview_button.setEnabled(False)
+            self.home_preview_button.setEnabled(False)
+            self.home_catalog_button.setEnabled(False)
             self.status.setText(
                 f"Snapshot #{result['scan_id']} salvo no SQLite. "
                 "Arquivos originais preservados."
