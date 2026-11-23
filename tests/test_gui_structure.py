@@ -98,6 +98,31 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("self.category_filter.setCurrentIndex(0)", body)
         self.assertIn("self.tabs.setCurrentIndex(1)", body)
 
+    def test_home_catalog_buttons_reuse_existing_handlers(self):
+        constructor = ast.unparse(self.method("__init__"))
+        self.assertIn("self.home_inventory_button.clicked.connect(self._run_inventory_preview)", constructor)
+        self.assertIn("self.home_catalog_button.clicked.connect(self._confirm_catalog_preview)", constructor)
+        self.assertIn("self.home_preview_button.clicked.connect(self._home_view_preview)", constructor)
+        self.assertNotIn("copy_verified_test_file", constructor)
+        self.assertNotIn("execute_test_move", constructor)
+
+    def test_home_preview_opens_existing_advanced_inventory(self):
+        body = ast.unparse(self.method("_home_view_preview"))
+        self.assertIn("can_save_inventory_preview(", body)
+        self.assertIn("self.advanced_button.setChecked(True)", body)
+        self.assertIn("self.advanced_tabs.setCurrentIndex(1)", body)
+
+    def test_busy_and_saved_preview_control_all_catalog_buttons(self):
+        busy = ast.unparse(self.method("_set_busy"))
+        self.assertIn("can_save_inventory_preview(", busy)
+        for name in ("catalog_preview_button", "home_preview_button", "home_catalog_button"):
+            self.assertIn(f"self.{name}.setEnabled(ready)", busy)
+        cleared = ast.unparse(self.method("_clear_preview"))
+        for name in ("home_preview_button", "home_catalog_button"):
+            self.assertIn(f"self.{name}.setEnabled(False)", cleared)
+        result = ast.unparse(self.method("_render_result"))
+        self.assertIn("preview_report = inventory_report(result)", result)
+
     def test_result_contract_is_checked_before_render(self):
         body = ast.unparse(self.method("_show_result"))
         self.assertLess(body.index("validate_gui_result("), body.index("self._render_result("))
