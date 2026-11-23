@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 from .catalog import DEFAULT_DB, catalog_summary, query_catalog_page, store_inventory
 from .inventory import CATEGORIES, inventory
 from .planner import propose_moves, propose_date_moves, summarize_consolidation
+from .recursive_plan import propose_recursive_consolidation
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 SYSTEM_PROMPT = (
@@ -47,6 +48,12 @@ SYSTEM_PROMPT = (
     "Somente diga PARCIAL se truncated=true; selected=total_matches não é parcial. "
     "não declare criação de pastas, movimentação ou autorização disponível. "
     "Na GUI, a pasta selecionada em Inventário fixa o snapshot da consulta. "
+    "Quando o pedido for reunir ou mover arquivos de subpastas para uma única pasta, "
+    "com categoria e destino existente, use planejar_consolidacao_recursiva. "
+    "Essa ferramenta traz uma prévia DETALHADA, não executável, de até 500 arquivos. "
+    "Mesmo que o usuário diga 'mova', apenas planeje; nunca execute. "
+    "Informe total_matches, examined, proposed, blocked, pending e complete; "
+    "se pending>0, destaque que é prévia PARCIAL. "
     "Para consolidar muitos arquivos em uma pasta única, use resumir_consolidacao "
     "se houver categoria de mídia e um destino existente informado pelo usuário. "
     "Esta ferramenta retorna apenas totais, nunca ações executáveis. "
@@ -57,6 +64,29 @@ SYSTEM_PROMPT = (
 )
 
 TOOLS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "planejar_consolidacao_recursiva",
+            "description": (
+                "PLANEJAMENTO DETALHADO, NUNCA EXECUTÁVEL: varre o snapshot da "
+                "origem selecionada, incluindo subpastas, para reunir arquivos da "
+                "categoria imagem/video/audio em uma única pasta existente. "
+                "Retorna até 500 ações e marca nomes duplicados e conflitos. "
+                "Se limitado, indica pending e complete=false. NÃO move arquivos."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "categoria": {"type": "string", "enum": ["imagem", "video", "audio"]},
+                    "destino": {"type": "string", "description": "Pasta de destino já existente"},
+                    "limite": {"type": "integer", "minimum": 1, "maximum": 500},
+                },
+                "required": ["categoria", "destino"],
+                "additionalProperties": False,
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -200,6 +230,22 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
     if context_scan_id is not None and "scan_id" in arguments:
         if arguments["scan_id"] != context_scan_id:
             raise ValueError("O agente não pode consultar outro snapshot fora da pasta selecionada.")
+    if name == "planejar_consolidacao_recursiva":
+        if set(arguments) - {"categoria", "destino", "limite"}:
+            raise ValueError("Argumento não permitido no planejamento recursivo.")
+        if not {"categoria", "destino"} <= set(arguments):
+            raise ValueError("Categoria e destino são obrigatórios.")
+        if arguments["categoria"] not in ("imagem", "video", "audio"):
+            raise ValueError("Categoria inválida para planejamento recursivo.")
+        if not isinstance(arguments["destino"], str) or not arguments["destino"].strip():
+            raise ValueError("Destino deve ser uma pasta informada explicitamente.")
+        limit = arguments.get("limite", 100)
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
+            raise ValueError("Limite inválido.")
+        return propose_recursive_consolidation(
+            arguments["destino"], arguments["categoria"],
+            db_path=db_path, scan_id=context_scan_id, limit=limit,
+        )
     if name == "resumo_catalogo":
         if arguments:
             raise ValueError("resumo_catalogo não aceita argumentos.")
