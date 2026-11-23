@@ -134,3 +134,14 @@ O banco é **temporário por solicitação**; uma nova pergunta faz uma nova lei
 - Testes adicionados: seis em `tests/test_recursive_plan.py` (subpastas, colisões, truncamento, destino existente, parâmetros e tool calling simulado), dois em `tests/test_gui_presentation.py` e um teste estrutural de integração em `tests/test_gui_structure.py`. **192 testes esperados** (183 prévios + 9, um possivelmente ignorado), ainda não executados pelo usuário após a atualização.
 - **Atenção:** o Ollama pode não escolher a ferramenta ou gerar argumentos incorretos. O resultado estruturado de `tools_used` é a referência e erros não autorizam execução. **Nenhuma execução recursiva de lotes** foi criada; movimento real via agente continua indisponível. Testar com a pasta descartável de imagens já criada; conferir se a pasta de destino permanece inalterada.
 
+
+## Memória operacional de plano recursivo e consulta dos bloqueios (aguardando homologação)
+
+- Criado `src/archivia/plan_memory.py`, módulo puro que retém em **RAM** uma cópia defensiva do último resultado estruturado de `planejar_consolidacao_recursiva` associado ao `scan_id` ativo. Não persiste diálogos nem grava arquivos de memória.
+- `FolderCatalogSession` armazena somente esse plano entre perguntas, mantendo-o quando a pergunta posterior não cria outro plano. `refresh()` descarta a memória após nova varredura; `close()` descarta ao sair/trocar de origem. Um plano de outro snapshot não é aceito.
+- Ferramenta de Ollama **somente leitura** `consultar_bloqueios_ultimo_plano({arquivo?, limite?})`: recupera motivos individuais do último plano em memória, com filtro opcional por nome exato e limite máximo de 25 linhas. Não faz nova leitura em disco nem permite mover, renomear ou apagar. O retorno informa `reason_code`, explicação e `duplicate_sha256_confirmed=false` (conflito de nome **não** é duplicata confirmada).
+- Instruções do agente orientam a consultar essa ferramenta em perguntas de acompanhamento sobre bloqueios, sem afirmar falsamente que não possui ferramenta; o contexto do último plano é anunciado na próxima pergunta. A resposta final ainda depende da interpretação do modelo, portanto verificar `tools_used`.
+- `tests/test_plan_memory.py`: **6 testes** sobre explicação, filtro, isolamento de snapshot, validação de argumentos, duas perguntas simuladas na mesma sessão, persistência após consulta comum e descarte em atualização/encerramento.
+- **Suíte esperada: 198 testes** (192 previstos na etapa anterior + 6 novos; um possivelmente ignorado). A etapa anterior teve homologação visual do planejador com 6 imagens, 5 propostas e 1 bloqueio `destino_ja_existe`; não foi fornecido novo log numérico da suíte de 192 testes.
+- A memória explica o motivo registrado no instante da prévia; **não revalida** o destino e não garante que os arquivos continuem no mesmo estado. SHA-256 dos bloqueios será uma melhoria separada. Não há integração de movimentação de lotes com executor.
+
