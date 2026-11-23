@@ -137,3 +137,13 @@ Um único motor Python compartilhado por Standard, Lite sem IA e Lite + IA. No m
 - **Não implementado:** recuperação automática, rollback confiável, movimentação entre unidades, segurança completa contra condições de corrida, autorização de lote, interface de revisão e executor generalizado.
 - **Suíte esperada:** 100 testes, assumindo 95 anteriores (o teste 95 ainda não teve homologação reportada). Nenhuma mídia do usuário deve ser usada nesta fase.
 
+
+## Pipeline de movimentação verificada TEST-ONLY (aguardando homologação Windows)
+
+- Implementado `src/archivia/move_pipeline.py`: **pipeline independente**, sem integração à GUI, CLI ou Ollama. Recebe somente uma ação integral de `propose_moves()`, revalida o plano no catálogo/disco e exige aprovação literal `CONFIRMO MOVIMENTO DE TESTE`. Origem e destino continuam fisicamente restritos ao **mesmo caso descartável** de `tests/.runtime`.
+- Fluxo: identifica e calcula SHA-256 da origem; cria temporário exclusivo no destino; copia em blocos e executa `fsync`; compara SHA-256 e metadados da cópia/origem; publica o temporário com `os.link` sem sobrescrita; valida novamente ambos os arquivos; registra `REMOCAO_AUTORIZADA`; **só então tenta remover a origem** e registra `CONCLUIDO`. O temporário é limpo somente se ainda possuir a identidade física registrada.
+- Journal próprio: `archivia-move-v2.jsonl`, com eventos `PREPARADO`, `TEMPORARIO_CRIADO`, `HASH_VERIFICADO`, `PUBLICADO`, `REMOCAO_AUTORIZADA`, `CONCLUIDO`, `INTERROMPIDO`. Journal pré-existente bloqueia reexecução; **sem rollback automático**.
+- `tests/test_move_pipeline.py`: **8 testes novos** de sucesso/remoção da origem fictícia, confirmação obrigatória, destino ocupado, plano adulterado, falha de hash, falha de remoção com origem preservada, journal preexistente e bloqueio cooperativo. **174 testes esperados** (166 anteriormente homologados + 8 novos; 1 possivelmente ignorado), ainda não executados no Windows.
+- A estratégia de temporário no volume do destino permite projetar movimentação futura entre unidades, **mas esta versão ainda não realiza nem homologa transferências reais entre volumes diferentes**.
+- **Limitações críticas antes de liberar mídias pessoais:** corrida entre `stat`/`hash` e `unlink` contra processos externos (TOCTOU), resistência do journal a falha de energia/diretório, tratamento de falha pós-exclusão da origem, preservação de metadados/ACLs relevantes, múltiplos arquivos e recuperação idempotente. O lock é apenas cooperativo entre chamadas do ArchivIA. Não autorizar uso com arquivos pessoais nem conectar o agente IA.
+
