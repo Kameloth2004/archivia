@@ -267,3 +267,14 @@ A tela padrão Início agora concentra pasta selecionada, atalhos de contagem, p
 - **Suíte esperada: 142 testes** (135 homologados anteriormente + 7 novos), um possivelmente ignorado. **Ainda não executados no Windows nesta etapa.** Validar visualmente as cinco tabelas e alternância BR/ISO/US antes de continuar a extração.
 - **Pendente:** testes visuais completos dos componentes Qt, avaliação futura de um modelo/delegate de tabela se houver necessidade de desempenho ou paginação maior, sem reescrita prematura.
 
+
+## Terceira modularização da GUI — filtros, paginação e relatórios (aguardando homologação)
+
+- Adicionado `src/archivia/gui_presentation.py`, módulo **puro**, sem Qt, Ollama ou SQLite, com `catalog_filters`, `previous_page`, `next_page`, `summary_report`, `inventory_report` e `agent_report`.
+- `catalog_filters` centraliza a tradução das datas digitadas para ISO e os demais parâmetros de pesquisa; passa os mesmos argumentos ao worker e recusa intervalo de datas invertido antes da consulta. Isso é validação de UI; as validações do backend permanecem.
+- A navegação pelas páginas de inventário e catálogo compartilha helpers de limites, preservando os handlers e sinais de widgets existentes.
+- Os textos de resumo, prévia e resposta detalhada do agente foram movidos para funções reutilizáveis sem alteração intencional de conteúdo, incluindo avisos de segurança e horário de catálogo temporário.
+- `gui.py` passou de aproximadamente **1.481 para 1.454 linhas**; nenhuma tela foi redesenhada, os algoritmos e o executor não foram alterados.
+- **Dez testes novos:** oito em `tests/test_gui_presentation.py` (filtros, datas, paginação e relatórios) e dois de integração estrutural em `tests/test_gui_structure.py`. **152 testes esperados** (142 homologados anteriormente + 10), com 1 possivelmente ignorado. Execução Windows e verificação visual ainda pendentes.
+- Próxima validação visual: busca no catálogo com filtros, mudança de data e paginação; prévia paginada e resposta do agente em Início/Avançado; textos de resumo iguais aos da versão anterior. Não há liberação de movimentos reais.
+
