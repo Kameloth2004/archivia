@@ -1,7 +1,7 @@
-"""Primeira interface desktop do ArchivIA Standard (PySide6 opcional).
+"""Interface desktop do ArchivIA Standard (PySide6 opcional).
 
-Somente consultas e solicitações ao agente com ferramentas de leitura/simulação.
-Sem operações reais de organização, exclusão ou renomeação.
+O agente trabalha apenas em leitura/simulação. Uma movimentação unitária real
+pode ser autorizada separadamente na interface, após confirmação explícita.
 """
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ class ArchivIAWindow(QMainWindow):
         # Navegação pós-catalogação: espera o término do worker antes de
         # consultar histórico e, depois, listar o snapshot recém-salvo.
         self._saved_snapshot_navigation: dict | None = None
-        self.setWindowTitle("ArchivIA Standard — Prévia")
+        self.setWindowTitle("ArchivIA Standard — Organização supervisionada")
         self.resize(960, 760)
         self.setMinimumSize(760, 540)
 
@@ -67,8 +67,8 @@ class ArchivIAWindow(QMainWindow):
         root.addWidget(title)
 
         info = QLabel(
-            "Primeira interface de homologação. Somente consulta e simulação; "
-            "nenhum arquivo será movimentado."
+            "O agente apenas analisa e planeja. Movimentações unitárias exigem "
+            "seleção e confirmação explícita no painel."
         )
         info.setWordWrap(True)
         root.addWidget(info)
