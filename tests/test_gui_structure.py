@@ -83,7 +83,7 @@ class GUIStructureTests(unittest.TestCase):
         self.assertNotIn("json.dumps(", rendered)
 
     def test_saved_snapshot_navigation_waits_for_worker_finish(self):
-        body = ast.unparse(self.method("_worker_done"))
+        body = ast.unparse(self.method("_worker_done")).replace(chr(39), chr(34))
         self.assertIn('completed_mode == "catalog_verified_preview"', body)
         self.assertIn('self._start_worker("history", Path(navigation["database"]))', body)
         self.assertIn('completed_mode == "history"', body)
@@ -91,7 +91,7 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("self._load_catalog_page()", body)
 
     def test_saved_snapshot_selection_uses_id_and_clears_old_filters(self):
-        body = ast.unparse(self.method("_render_result"))
+        body = ast.unparse(self.method("_render_result")).replace(chr(39), chr(34))
         self.assertIn("find_saved_snapshot(result, saved_id)", body)
         self.assertIn("self.history_select.findData(saved_id)", body)
         self.assertIn("self._clear_catalog_search()", body)
