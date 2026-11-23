@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal, QSettings, Qt
@@ -26,6 +25,7 @@ from .inventory import inventory
 from .preview import preview_inventory_page
 from .planner import propose_date_moves
 from .duplicates import verify_duplicate_hashes, verify_snapshot_duplicate_candidates
+from .gui_helpers import validate_gui_result
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
 
@@ -785,17 +785,14 @@ class ArchivIAWindow(QMainWindow):
         self._settings.setValue("interface/date_format", next_format)
         self._settings.sync()
         self._refresh_date_placeholders()
-        # Reexibe as datas já apresentadas, sem reler SQLite ou alterar arquivos.
+        # Cada célula guarda o ISO original em Qt.UserRole. Nunca tentar
+        # interpretar novamente o texto que já foi formatado para a tela.
         for row in range(self.catalog_table.rowCount()):
             cell = self.catalog_table.item(row, 4)
-            if cell is not None and cell.text():
-                try:
-                    iso = datetime.strptime(
-                        cell.text(), DATE_FORMATS[previous_format][0] + " %H:%M:%S UTC"
-                    ).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            if cell is not None:
+                iso = cell.data(Qt.ItemDataRole.UserRole)
+                if isinstance(iso, str):
                     cell.setText(display_timestamp(iso, next_format))
-                except ValueError:
-                    pass
         message = (
             f"Formato salvo: {DATE_FORMATS[next_format][1]}. "
             "Separadores inseridos automaticamente. SQLite não alterado."
@@ -860,6 +857,8 @@ class ArchivIAWindow(QMainWindow):
         self._start_worker("catalog_verified_preview", database, preview=preview)
 
     def _run_inventory_preview(self) -> None:
+        if self._worker is not None:
+            return
         path = self.folder.text().strip()
         if not path:
             self._show_error("Selecione uma pasta antes de examinar.")
@@ -988,6 +987,8 @@ class ArchivIAWindow(QMainWindow):
             self._load_catalog_page()
 
     def _run_summary(self) -> None:
+        if self._worker is not None:
+            return
         try:
             database = self._database_path()
         except ValueError as exc:
@@ -1024,6 +1025,8 @@ class ArchivIAWindow(QMainWindow):
         )
 
     def _run_date_plan(self) -> None:
+        if self._worker is not None:
+            return
         destination = self.plan_destination.text().strip()
         if not destination:
             self._show_error("Escolha um destino-base existente para simular.")
@@ -1080,6 +1083,8 @@ class ArchivIAWindow(QMainWindow):
         self.duplicate_progress.setFormat(label)
 
     def _run_duplicate_hash(self) -> None:
+        if self._worker is not None:
+            return
         try:
             database = self._database_path()
         except ValueError as exc:
@@ -1290,6 +1295,15 @@ class ArchivIAWindow(QMainWindow):
         self.next_button.setEnabled(not busy and self._page < self._pages)
 
     def _show_result(self, mode: str, result: dict) -> None:
+        # Uma resposta inesperada do backend não deve provocar exceção
+        # não tratada dentro de um slot Qt nem apagar dados da tela.
+        try:
+            validate_gui_result(mode, result)
+            self._render_result(mode, result)
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            self._show_error(f"Resposta inválida do backend: {exc}")
+
+    def _render_result(self, mode: str, result: dict) -> None:
         if mode == "refresh_folder_session":
             self.status.setText("Catálogo temporário atualizado; nenhuma mídia modificada.")
             self.home_result.setPlainText("Análise atualizada. Você já pode consultar novamente.")
@@ -1557,7 +1571,10 @@ class ArchivIAWindow(QMainWindow):
                     item["extension"], str(item["size_bytes"]),
                     display_timestamp(item["modified_utc"], self._date_format)
                 )):
-                    self.catalog_table.setItem(row_index, column, QTableWidgetItem(value))
+                    cell = QTableWidgetItem(value)
+                    if column == 4:
+                        cell.setData(Qt.ItemDataRole.UserRole, item["modified_utc"])
+                    self.catalog_table.setItem(row_index, column, cell)
             self.page_label.setText(
                 f"Página {self._page} de {self._pages or 0} — {result['count']} arquivos encontrados"
             )
