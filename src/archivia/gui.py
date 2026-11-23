@@ -753,6 +753,11 @@ class ArchivIAWindow(QMainWindow):
         if self.folder.text().strip() != self._preview_source_path:
             self._show_error("Pasta alterada. Examine novamente.")
             return
+        if not can_save_inventory_preview(
+            preview, self.folder.text(), self._preview_source_path,
+        ):
+            self._show_error("Prévia inválida. Examine a pasta novamente antes de salvar.")
+            return
         try:
             database = self._database_path()
         except ValueError as exc:
