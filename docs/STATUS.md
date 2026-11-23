@@ -184,8 +184,16 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Calcula novamente SHA-256 dos dois arquivos, verifica que seus metadados e identidades físicas permaneceram estáveis durante a leitura e exige hashes iguais. Após essas condições, **apenas registra `COPIA_RECONCILIADA`** no journal. **Nunca remove, move, substitui ou altera origem/destino**; não retoma publicação nem limpa temporários.
 - `inspect_verified_copy_test()` reconhece a sequência reconciliada e reporta `copia_reconciliada_registrada`; a segunda tentativa é recusada. Journals inconsistentes, arquivo modificado, ausência de arquivo ou temporário remanescente bloqueiam a reconciliação.
 - **Limite importante:** o journal legado não identifica o temporário individualmente nem comprova que a publicação realmente ocorreu naquele evento; o processo apenas reconcilia evidência atual de conteúdo igual. Continua existindo risco de concorrência externa e falha de energia. Não declarar como garantia de recuperabilidade universal.
-- Quatro testes novos: reconciliação válida sem alteração de arquivos, ausência de consentimento/destino alterado, temporário remanescente e interrupção anterior à publicação. **Suíte prevista: 124 testes** (120 anteriores + 4), com 1 possivelmente ignorado; execução Windows pendente.
+- Quatro testes novos: reconciliação válida sem alteração de arquivos, ausência de consentimento/destino alterado, temporário remanescente e interrupção anterior à publicação. **124 testes homologados no Windows**, conforme execução informada pelo usuário (`OK`, 1 ignorado). São 123 aprovados e 1 ignorado.
 - Nenhum arquivo pessoal ou unidade física externa à fixture é autorizado; GUI/CLI/Ollama continuam desconectados do executor.
+
+## Revisão externa da GUI — análise inicial
+
+- O usuário submeteu `src/archivia/gui.py` ao Gemini e apresentou cinco observações. Conferência com a versão atual de **1.615 linhas** em `main`: sincronização direta dos campos `home_folder` e `folder` não constitui, isoladamente, prova de loop infinito; `QueryWorker` tem sinais `finished_result`, `failed` e `finished` com limpeza em `_worker_done`.
+- **Prioridade alta:** handlers `_run_inventory_preview`, `_run_date_plan` e `_run_duplicate_hash` modificam/limpam widgets antes de `_start_worker` recusar segunda operação; colocar guarda explícita antes de mudanças visuais.
+- **Prioridade média:** em `_change_date_format`, reinterpretação do texto já formatado pode falhar silenciosamente; preferir ISO preservado em `Qt.UserRole` para reexibição. Em `_show_result`, validar contratos obrigatórios e não converter erros de schema em zeros ou dados falsos via `.get` indiscriminado.
+- **Outros pontos:** `DEFAULT_DB` passado ao worker em modo `folder_session` não é consultado quando a sessão existe, conforme implementação de `QueryWorker.run`. Fechamento bloqueado durante trabalho é intencional; cancelamento cooperativo pode ser projetado mais tarde.
+- Revisão registrada **sem alteração no código da GUI**. Executar correções isoladas com regressão visual antes de qualquer novo redesign.
 
 ## Próxima etapa
 
