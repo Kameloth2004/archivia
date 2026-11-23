@@ -1246,7 +1246,8 @@ class ArchivIAWindow(QMainWindow):
                         and action.get("reason") is None
                         and isinstance(action.get("file"), str)):
                     self.move_choice.addItem(action["file"], action["file"])
-        has_proposals = self.move_choice.count() > 1
+        has_proposals = (self.move_choice.count() > 1 and plan is not None
+                         and plan.get("complete") is True and plan.get("pending") == 0)
         self.move_button.setEnabled(self._worker is None and has_proposals)
         self.home_batch_button.setEnabled(self._worker is None and has_proposals)
         self.advanced_batch_button.setEnabled(self._worker is None and has_proposals)
