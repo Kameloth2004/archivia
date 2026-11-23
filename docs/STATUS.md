@@ -169,9 +169,18 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Sete testes automatizados novos: cópia correta/hash/origem preservada, ausência de aprovação, destino ocupado, plano adulterado/truncado, lock concorrente, falha injetada e journal já existente. **116 testes homologados no Windows**: `Ran 116 tests in 7.871s`, `OK (skipped=1)`; 115 aprovados e um ignorado.
 - Limitações: não implementa rollback de cópia; não prova resistência a alterações por processos externos entre verificações (TOCTOU), não valida ACLs/atributos/metadados estendidos, não cobre quedas de energia com confirmação de diretórios, e não habilita remoção da origem. **Não utilizar arquivos pessoais.**
 
+## Diagnóstico somente leitura das cópias — aguardando homologação Windows
+
+- Adicionada `inspect_verified_copy_test()` em `src/archivia/verified_copy.py`, limitada a um caso descartável de `tests/.runtime`; nenhuma remoção, repetição, rollback ou limpeza automática.
+- Lê e valida sequência dos eventos JSONL da cópia (`PREPARADO`, `TEMPORARIO_CRIADO`, `HASH_VERIFICADO`, `PUBLICADO`, `INTERROMPIDO`). Rejeita registros inválidos, misturados, truncados ou que apontem para outro caso.
+- Inspeciona presença de origem e destino, calcula SHA-256 atual dos dois arquivos quando ambos existem e lista eventuais temporários `.archivia-copy-*.tmp`. **Igualdade de hash só indica igualdade no instante da inspeção**; não comprova durabilidade nem autoriza exclusão da origem.
+- A falha de journal após a publicação do hardlink pode deixar origem e destino presentes com último evento `INTERROMPIDO`: estado `interrompido_revisao_manual`. Cópias normais reportam `publicacao_registrada_inspecionada`. Nenhum estado dispara recuperação.
+- Quatro novos testes de fixture verificam publicação, falha injetada pós-publicação, temporário remanescente e journal inválido/fora de escopo. **Suíte esperada: 120 testes** (116 homologados + 4 novos), um possivelmente ignorado; execução Windows pendente.
+- **Pendentes antes de qualquer mídia real:** consistência de journal sob falha de energia, identidade/TOCTOU, recuperabilidade idempotente, movimentação entre volumes distintos e confirmação do usuário na interface.
+
 ## Próxima etapa
 
-Com os **116 testes homologados**, revisar o cenário em que a publicação do destino ocorreu mas o journal ficou interrompido, e os artefatos temporários remanescentes. Acrescentar diagnóstico **somente leitura** e testes de falha simulada antes de tentar qualquer recuperação, limpeza automática ou movimentação em duas unidades. Preservar a restrição de operações a `tests/.runtime`, sem acesso pela GUI, CLI ou Ollama e sem usar arquivos pessoais.
+No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (**120 testes esperados**). Homologar a inspeção sem efeitos colaterais; em seguida avaliar estados reais de interrupção e desenhar recuperação segura de cópias por etapas, ainda exclusivamente em `tests/.runtime`. Não utilizar mídias pessoais nem integrar GUI/CLI/Ollama.
 
 ## Referências
 
