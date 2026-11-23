@@ -20,6 +20,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
                   "scan_id", "total_matches"),
     "catalog_page": ("page", "pages", "files", "count", "scan_id"),
     "agent": ("answer", "tools_used"),
+    "move_one": ("status", "source", "destination", "sha256"),
     "manual_copy": ("status", "source", "destination", "sha256",
                     "source_preserved", "files_copied", "journal"),
 }
