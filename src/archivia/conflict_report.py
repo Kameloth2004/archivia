@@ -38,6 +38,13 @@ def conflict_resolution_report(
     actions = plan["actions"]
     blocked = [a for a in actions if isinstance(a, dict) and a.get("status") == "bloqueado"]
     selected = blocked[:limit]
+    # Detecta nomes-base repetidos em TODO o plano, inclusive fora do limite.
+    # Não escolhe automaticamente qual origem seria comparada.
+    basename_counts: dict[str, int] = {}
+    for item in actions:
+        if isinstance(item, dict) and isinstance(item.get("file"), str):
+            basename = item["file"].rsplit("/", 1)[-1].casefold()
+            basename_counts[basename] = basename_counts.get(basename, 0) + 1
     # Nomes já presentes no planejamento não podem ser sugeridos como alternativas.
     reserved = {Path(str(a.get("destination"))).name.casefold()
                 for a in actions if isinstance(a, dict) and a.get("destination")}
@@ -64,6 +71,11 @@ def conflict_resolution_report(
             "executable": False,
         }
         if reason == "destino_ja_existe" and isinstance(name, str):
+            if basename_counts.get(name.rsplit("/", 1)[-1].casefold(), 0) > 1:
+                row["detail"] = "nome_base_ambiguo_entre_origens"
+                row["sha256_equal"] = None
+                rows.append(row)
+                continue
             try:
                 result = verify_plan_conflict(plan, name, db_path=db_path, scan_id=scan_id)
             except ValueError:
