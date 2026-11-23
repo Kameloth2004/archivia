@@ -64,7 +64,11 @@ def conflict_resolution_report(
             "executable": False,
         }
         if reason == "destino_ja_existe" and isinstance(name, str):
-            result = verify_plan_conflict(plan, name, db_path=db_path, scan_id=scan_id)
+            try:
+                result = verify_plan_conflict(plan, name, db_path=db_path, scan_id=scan_id)
+            except ValueError:
+                result = {"status": "inconclusivo", "sha256_equal": None,
+                          "detail": "conflito_ambiguo_ou_plano_invalido"}
             row["status"] = result["status"]
             row["sha256_equal"] = result["sha256_equal"]
             if result["status"] == "duplicata_confirmada":
