@@ -41,7 +41,8 @@ class QueryWorker(QThread):
                  approved_source: str = "", approved_destination: str = "",
                  move_plan: dict | None = None, move_relative: str = "",
                  move_approval: str = "",
-                 move_files: list[str] | None = None) -> None:
+                 move_files: list[str] | None = None,
+                 approved_target_name: str | None = None) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -72,10 +73,21 @@ class QueryWorker(QThread):
         self.move_relative = move_relative
         self.move_approval = move_approval
         self.move_files = move_files
+        self.approved_target_name = approved_target_name
 
     def run(self) -> None:
         try:
-            if self.mode == "move_batch":
+            if self.mode == "move_conflict":
+                if self.folder_session is None or not self.folder_session.ready:
+                    raise ValueError("Sessão de origem não disponível.")
+                result = move_one_approved(
+                    self.move_plan, self.move_relative,
+                    db_path=self.folder_session._db,
+                    scan_id=self.folder_session._scan_id,
+                    approval=self.move_approval, resolve_conflict=True,
+                    approved_target_name=self.approved_target_name,
+                )
+            elif self.mode == "move_batch":
                 if self.folder_session is None or not self.folder_session.ready:
                     raise ValueError("Sessão de origem não disponível.")
                 result = move_batch_approved(
