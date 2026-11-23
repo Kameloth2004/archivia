@@ -254,13 +254,13 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Ao examinar a pasta, o resultado apresenta no **Início** os totais e erros da prévia. **Conferir arquivos da prévia** abre a aba **Avançado → Inventário** para inspecionar a mesma tabela paginada. O botão de salvar só é habilitado após prévia válida, sem erros, e da pasta ainda selecionada.
 - **Salvar** continua mostrando o diálogo de confirmação explícita do caminho, número de arquivos e banco SQLite, e o backend continua verificando a pasta novamente antes de persistir o snapshot. Após salvar, segue o fluxo já implementado de abertura da **Biblioteca** com seleção do ID exato e limpeza dos filtros.
 - Criada `can_save_inventory_preview()` em `gui_helpers.py`, reutilizada por botões, navegação e validação antes da confirmação; mudança de pasta e início de tarefa desabilitam salvamento enquanto a prévia não é válida.
-- Adicionados **5 testes puros** em `tests/test_home_catalog.py` e **3 testes estruturais** à suíte da GUI; **166 testes esperados** (152 homologados anteriormente + 6 da navegação pós-catalogação + 8 desta etapa). A navegação anterior recebeu aprovação **visual** do usuário, mas não foi informada execução explícita da suíte de 158 testes.
+- Adicionados **5 testes puros** em `tests/test_home_catalog.py` e **3 testes estruturais** à suíte da GUI; **166 testes homologados no Windows:** `Ran 166 tests in 6.838s`, `OK (skipped=1)`; 165 aprovados, 1 ignorado e nenhuma falha. A navegação anterior recebeu aprovação visual do usuário. A homologação visual dos novos comandos do Início ainda está pendente.
 - Mudança somente no fluxo visual e gravação **consentida do catálogo SQLite**, que já existia. Nenhuma alteração em mídias, nenhuma movimentação/cópia pelo Ollama e nenhum uso do executor experimental da área `tests/.runtime`.
 - **Pendente:** rodar os 166 testes no Windows e conferir visualmente os novos botões do Início, inclusive prévia válida/inválida, mudança de pasta e confirmação de gravação.
 
 ## Próxima etapa
 
-No Windows, atualizar `main` e executar `python -m unittest discover -s tests -v` (**166 testes esperados**, 1 historicamente ignorado). Depois, abrir `archivia-gui` e testar exclusivamente o novo fluxo `Início → Examinar pasta para catalogar → Conferir prévia → Salvar no catálogo SQLite`. Confirmar que a prévia inválida impede salvamento e que o snapshot salvo abre na Biblioteca. Não utilizar a ferramenta experimental de movimentação em arquivos reais.
+Com **166 testes automatizados aprovados**, abrir `archivia-gui` e conferir os três comandos novos no **Início**: selecionar uma pasta, executar **Examinar pasta para catalogar**, abrir **Conferir arquivos da prévia** e então salvar no catálogo SQLite mediante confirmação explícita. Confirmar abertura da Biblioteca com o novo snapshot selecionado. Verificar também que trocar de pasta invalida a prévia e desabilita o salvamento anterior. Ainda não há liberação de movimentação real de mídias pela interface/Ollama.
 
 ## Referências
 
