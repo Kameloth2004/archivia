@@ -20,6 +20,8 @@ from .duplicates import (
     _sha256_checked,
 )
 from .recursive_plan import propose_recursive_consolidation
+from .conflict_hash import verify_plan_conflict
+from .conflict_report import _suggest_unused_name
 
 APPROVAL_PHRASE = "MOVER UM ARQUIVO"
 
@@ -27,7 +29,7 @@ APPROVAL_PHRASE = "MOVER UM ARQUIVO"
 def move_one_approved(
     plan: dict[str, Any] | None, relative_file: str, *,
     db_path: Path = DEFAULT_DB, scan_id: int | None = None,
-    approval: str = "",
+    approval: str = "", resolve_conflict: bool = False,
 ) -> dict[str, Any]:
     """Copia, verifica, publica sem overwrite e remove a origem após revalidação.
 
@@ -51,7 +53,8 @@ def move_one_approved(
     actions = plan["actions"]
     selected = [a for a in actions if isinstance(a, dict)
                 and a.get("file") == relative_file
-                and a.get("status") == "proposto" and a.get("reason") is None]
+                and a.get("status") == ("bloqueado" if resolve_conflict else "proposto")
+                and a.get("reason") == ("destino_ja_existe" if resolve_conflict else None)]
     if len(selected) != 1:
         raise ValueError("O arquivo não está proposto de maneira única no plano.")
     action = selected[0]
@@ -62,19 +65,21 @@ def move_one_approved(
             or destination == root or root in destination.parents):
         raise ValueError("Origem ou destino inválido, aninhado ou com link.")
     source = _candidate_path(root, relative_file)
-    target = destination / source.name
-    if (source == target or str(source) != action.get("source")
-            or str(target) != action.get("destination")):
+    original_target = destination / source.name
+    if (source == original_target or str(source) != action.get("source")
+            or str(original_target) != action.get("destination")):
         raise ValueError("Os caminhos não correspondem ao planejamento.")
+    target = original_target
     # Não aprovar nomes-base disputados por outras ações, mesmo bloqueadas.
     if sum(isinstance(a, dict) and isinstance(a.get("file"), str)
            and a["file"].rsplit("/", 1)[-1].casefold() == source.name.casefold()
            for a in actions) != 1:
         raise ValueError("Nome-base ambíguo entre arquivos do plano.")
-    if any(p.name.casefold() == target.name.casefold() for p in destination.iterdir()):
-        raise ValueError("Nome de destino já ocupado.")
-    if _is_symlink_component(target) or target.exists():
-        raise ValueError("Destino não está livre.")
+    if not resolve_conflict:
+        if any(p.name.casefold() == target.name.casefold() for p in destination.iterdir()):
+            raise ValueError("Nome de destino já ocupado.")
+        if _is_symlink_component(target) or target.exists():
+            raise ValueError("Destino não está livre.")
 
     # Reexecuta a simulação contra o estado atual do destino.
     fresh = propose_recursive_consolidation(
@@ -87,6 +92,19 @@ def move_one_approved(
     fresh_match = [a for a in fresh["actions"] if a.get("file") == relative_file]
     if len(fresh_match) != 1 or fresh_match[0] != action:
         raise ValueError("Arquivo não permanece elegível no planejamento atualizado.")
+    if resolve_conflict:
+        comparison = verify_plan_conflict(plan, relative_file, db_path=db_path, scan_id=scan_id)
+        if comparison["status"] != "conteudo_diferente":
+            raise ValueError("O conflito não tem conteúdo diferente confirmado; nenhuma ação permitida.")
+        reserved = {Path(str(a["destination"])).name.casefold()
+                    for a in actions if isinstance(a, dict) and a.get("destination")}
+        reserved.update(p.name.casefold() for p in destination.iterdir())
+        alternative = _suggest_unused_name(destination, source.name, reserved)
+        if alternative is None:
+            raise ValueError("Nenhum nome alternativo disponível.")
+        target = destination / alternative
+        if target.name.casefold() in reserved or _is_symlink_component(target):
+            raise ValueError("Nome alternativo ocupado ou inseguro.")
 
     db = Path(db_path).expanduser().absolute()
     with closing(sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)) as conn:
