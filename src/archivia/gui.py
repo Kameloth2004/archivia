@@ -1199,6 +1199,9 @@ class ArchivIAWindow(QMainWindow):
             validate_gui_result(mode, result)
             self._render_result(mode, result)
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            # Não iniciar navegação pós-catalogação com um resultado que
+            # falhou na validação ou na apresentação.
+            self._saved_snapshot_navigation = None
             self._show_error(f"Resposta inválida do backend: {exc}")
 
     def _render_result(self, mode: str, result: dict) -> None:
