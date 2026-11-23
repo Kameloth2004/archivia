@@ -207,3 +207,128 @@ def copy_verified_test_file(
                 except OSError:
                     # Temporário remanescente exige revisão, não tocar na origem.
                     pass
+
+
+def inspect_verified_copy_test(test_directory: str | Path) -> dict[str, Any]:
+    """Diagnóstico SOMENTE LEITURA de cópia em fixture.
+
+    A presença de PUBLICADO no journal não comprova durabilidade nem integridade
+    do conteúdo. Hashes atuais só demonstram igualdade NO INSTANTE da inspeção.
+    Não recupera, não limpa temporários, não retoma operações.
+    """
+    root = _safe_path(Path(test_directory))
+    _runtime, group = _inside_runtime(root / "sentinela" / "arquivo")
+    if group != root or root.parent != _runtime or not root.is_dir():
+        raise ValueError("Inspeção restrita a caso direto de tests/.runtime.")
+    journal = _safe_path(root / "archivia-copy-journal.jsonl")
+    if not journal.is_file():
+        raise ValueError("Journal de cópia não encontrado.")
+    if journal.stat().st_size > 1024 * 1024:
+        raise ValueError("Journal de cópia excessivamente grande.")
+
+    allowed = {
+        "PREPARADO", "TEMPORARIO_CRIADO", "HASH_VERIFICADO",
+        "PUBLICADO", "INTERROMPIDO",
+    }
+    events: list[str] = []
+    source = destination = None
+    with journal.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.endswith("\n"):
+                raise ValueError("Journal contém linha incompleta.")
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError("Journal de cópia inválido.") from exc
+            if (
+                not isinstance(item, dict)
+                or item.get("event") not in allowed
+                or not isinstance(item.get("source"), str)
+                or not isinstance(item.get("destination"), str)
+                or not isinstance(item.get("time_utc"), str)
+            ):
+                raise ValueError("Registro de cópia inválido.")
+            current_source = _safe_path(Path(item["source"]))
+            current_dest = _safe_path(Path(item["destination"]))
+            _, src_group = _inside_runtime(current_source)
+            _, dst_group = _inside_runtime(current_dest)
+            if src_group != root or dst_group != root:
+                raise ValueError("Journal aponta para outro caso de teste.")
+            if source is None:
+                source, destination = current_source, current_dest
+            elif source != current_source or destination != current_dest:
+                raise ValueError("Journal mistura operações distintas.")
+            events.append(item["event"])
+    if not events or events[0] != "PREPARADO":
+        raise ValueError("Sequência do journal inválida.")
+    expected = ["PREPARADO", "TEMPORARIO_CRIADO", "HASH_VERIFICADO", "PUBLICADO"]
+    # Uma interrupção pode ocorrer depois de qualquer evento registrado;
+    # falha na criação do temporário pode deixar só PREPARADO.
+    main = events[:-1] if events[-1] == "INTERROMPIDO" else events
+    if main != expected[:len(main)] or len(main) > len(expected) or (
+        "INTERROMPIDO" in events[:-1]
+    ):
+        raise ValueError("Sequência inconsistente do journal de cópia.")
+
+    if not destination.parent.is_dir():
+        raise ValueError("Pasta de destino indisponível para inspeção.")
+    leftovers = []
+    for entry in destination.parent.iterdir():
+        if entry.name.startswith(".archivia-copy-") and entry.name.endswith(".tmp"):
+            _safe_path(entry)  # Falha fechada para symlink/junction.
+            if not entry.is_file():
+                raise ValueError("Artefato temporário não é arquivo regular.")
+            leftovers.append(str(entry))
+    leftovers.sort()
+
+    def _existing_regular(path: Path) -> bool:
+        if not path.exists():
+            return False
+        info = path.stat(follow_symlinks=False)
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError("Caminho inspecionado não é arquivo regular.")
+        return True
+
+    source_exists = _existing_regular(source)
+    destination_exists = _existing_regular(destination)
+
+    # Relatar igualdade observada agora; não declarar 'recuperado' a partir disso.
+    hashes_match: bool | None = None
+    if source_exists and destination_exists:
+        def digest(path: Path) -> str:
+            h = hashlib.sha256()
+            flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(path, flags)
+            try:
+                with os.fdopen(fd, "rb", closefd=False) as handle:
+                    while chunk := handle.read(_BUFFER):
+                        h.update(chunk)
+            finally:
+                os.close(fd)
+            return h.hexdigest()
+        hashes_match = digest(source) == digest(destination)
+
+    if events[-1] == "PUBLICADO" and destination_exists and not leftovers:
+        status = "publicacao_registrada_inspecionada"
+    elif events[-1] == "INTERROMPIDO":
+        status = "interrompido_revisao_manual"
+    else:
+        status = "incompleto_revisao_manual"
+
+    return {
+        "status": status,
+        "events": events,
+        "last_event": events[-1],
+        "source": str(source),
+        "destination": str(destination),
+        "source_exists": source_exists,
+        "destination_exists": destination_exists,
+        "current_sha256_equal": hashes_match,
+        "temporary_files": leftovers,
+        "temporary_count": len(leftovers),
+        "test_only": True,
+        "read_only": True,
+        "automatic_recovery": False,
+    }
