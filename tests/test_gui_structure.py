@@ -66,6 +66,22 @@ class GUIStructureTests(unittest.TestCase):
         imports = ast.unparse(self.tree)
         self.assertIn("from .gui_worker import QueryWorker", imports)
 
+    def test_catalog_filters_and_pagination_use_shared_helpers(self):
+        catalog = ast.unparse(self.method("_load_catalog_page"))
+        self.assertIn("catalog_filters(", catalog)
+        self.assertIn("**filters", catalog)
+        self.assertIn("previous_page(", ast.unparse(self.method("_previous_page")))
+        self.assertIn("next_page(", ast.unparse(self.method("_next_page")))
+        self.assertIn("previous_page(", ast.unparse(self.method("_previous_preview_page")))
+        self.assertIn("next_page(", ast.unparse(self.method("_next_preview_page")))
+
+    def test_reports_are_delegated_to_presentation_module(self):
+        rendered = ast.unparse(self.method("_render_result"))
+        self.assertIn("summary_report(result)", rendered)
+        self.assertIn("inventory_report(result)", rendered)
+        self.assertIn("agent_report(result)", rendered)
+        self.assertNotIn("json.dumps(", rendered)
+
     def test_result_contract_is_checked_before_render(self):
         body = ast.unparse(self.method("_show_result"))
         self.assertLess(body.index("validate_gui_result("), body.index("self._render_result("))
