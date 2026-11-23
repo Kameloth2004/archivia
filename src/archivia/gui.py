@@ -23,6 +23,10 @@ from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, displa
 from .preview import preview_inventory_page
 from .gui_helpers import validate_gui_result
 from .gui_worker import QueryWorker
+from .gui_tables import fill_table
+from .table_rows import (
+    inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
+)
 
 DEFAULT_MODEL = "qwen3:8b-q4_K_M"
 
@@ -795,12 +799,7 @@ class ArchivIAWindow(QMainWindow):
             page=self._preview_page,
         )
         self._preview_pages = page["pages"]
-        self.preview_table.setRowCount(len(page["files"]))
-        for row_index, item in enumerate(page["files"]):
-            for column, value in enumerate((
-                item["path"], item["category"], item["extension"], str(item["size_bytes"])
-            )):
-                self.preview_table.setItem(row_index, column, QTableWidgetItem(value))
+        fill_table(self.preview_table, inventory_preview_rows(page["files"]))
         self.preview_page_label.setText(
             f"Página {self._preview_page} de {self._preview_pages or 0}"
         )
@@ -1252,16 +1251,7 @@ class ArchivIAWindow(QMainWindow):
             self.next_button.setEnabled(False)
         elif mode == "origins":
             origins = result["origins"]
-            self.origins_table.setRowCount(len(origins))
-            for row_index, item in enumerate(origins):
-                values = (
-                    item["root"], str(item["scan_id"]),
-                    str(item["indexed_files"]), str(item["media_files"])
-                )
-                for col_index, value in enumerate(values):
-                    self.origins_table.setItem(
-                        row_index, col_index, QTableWidgetItem(value)
-                    )
+            fill_table(self.origins_table, origin_rows(origins))
             self.origins_label.setText(
                 f"{result['origins_count']} origens | "
                 f"{result['indexed_files']} arquivos | "
@@ -1316,19 +1306,8 @@ class ArchivIAWindow(QMainWindow):
         elif mode == "duplicate_hash":
             self.duplicate_progress.setValue(100)
             self.duplicate_progress.setFormat("Verificação concluída")
-            rows = [
-                (index, file, group["size_bytes"], group["sha256"])
-                for index, group in enumerate(result["groups"], 1)
-                for file in group["files"]
-            ]
-            self.duplicate_table.setRowCount(len(rows))
-            for row_index, (group_num, name, size, digest) in enumerate(rows):
-                for column, value in enumerate((str(group_num), name, str(size))):
-                    cell = QTableWidgetItem(value)
-                    cell.setToolTip(
-                        f"{name}\nSHA-256: {digest}\nGrupo: {group_num}"
-                    )
-                    self.duplicate_table.setItem(row_index, column, cell)
+            rows, tips = duplicate_rows(result["groups"])
+            fill_table(self.duplicate_table, rows, tooltips=tips)
             global_mode = result.get("analysis_mode") == "global_size_candidates"
             amount_label = (
                 f"{result['selected']} de {result['candidate_files_total']} candidatos "
@@ -1417,22 +1396,8 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText("SHA-256 consultado em somente leitura; nada foi modificado.")
         elif mode == "date_plan":
             self._plan_actions = result["actions"]
-            self.plan_table.setRowCount(len(self._plan_actions))
-            for row_index, item in enumerate(self._plan_actions):
-                observation = item.get("reason") or (
-                    "Subpasta futura" if item.get("directory_would_need_creation")
-                    else "Destino disponível"
-                )
-                if item.get("possible_duplicate_by_metadata"):
-                    observation += " · Suspeita"
-                values = (
-                    item["file"], item.get("destination") or "—",
-                    item["status"], observation,
-                )
-                for col_index, value in enumerate(values):
-                    cell = QTableWidgetItem(str(value))
-                    cell.setToolTip(str(value))
-                    self.plan_table.setItem(row_index, col_index, cell)
+            rows, tips = date_plan_rows(self._plan_actions)
+            fill_table(self.plan_table, rows, tooltips=tips)
             self.plan_metric_labels["selected"].setText(str(result["selected"]))
             self.plan_metric_labels["blocked"].setText(str(result["blocked"]))
             self.plan_metric_labels["collisions"].setText(
@@ -1457,17 +1422,8 @@ class ArchivIAWindow(QMainWindow):
             self._page = result["page"]
             self._pages = result["pages"]
             items = result["files"]
-            self.catalog_table.setRowCount(len(items))
-            for row_index, item in enumerate(items):
-                for column, value in enumerate((
-                    item["relative_path"], item["category"],
-                    item["extension"], str(item["size_bytes"]),
-                    display_timestamp(item["modified_utc"], self._date_format)
-                )):
-                    cell = QTableWidgetItem(value)
-                    if column == 4:
-                        cell.setData(Qt.ItemDataRole.UserRole, item["modified_utc"])
-                    self.catalog_table.setItem(row_index, column, cell)
+            rows, roles = catalog_rows(items, self._date_format)
+            fill_table(self.catalog_table, rows, roles=roles)
             self.page_label.setText(
                 f"Página {self._page} de {self._pages or 0} — {result['count']} arquivos encontrados"
             )
