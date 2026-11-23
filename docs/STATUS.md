@@ -220,12 +220,12 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - `src/archivia/gui_tables.py`: `fill_table()`, helper PySide6 para preencher `QTableWidget` já configurada. Valida a largura e as dimensões de tooltips e metadados antes de modificar o número de linhas; mantém a configuração das tabelas e usa `Qt.ItemDataRole.UserRole` para ISO.
 - `src/archivia/gui.py`: cinco laços de preenchimento foram substituídos por chamadas aos helpers; `QTableWidgetItem` não é mais importado diretamente. Redução de aproximadamente **1.525 para 1.481 linhas**. Nenhum redesign, renomeação de abas, mudança de consulta ao Ollama ou acesso ao executor.
 - `tests/test_table_rows.py`: **sete testes** de formatação sem Qt (prévia, origens, duplicatas, planos e datas, inclusive casos vazios). O teste estrutural de ISO existente foi adaptado para verificar `table_rows.py` + `gui_tables.py`, sem acrescentar nova contagem de testes.
-- **Suíte esperada: 142 testes** (135 homologados anteriormente + 7 novos), um possivelmente ignorado. **Ainda não executados no Windows nesta etapa.** Validar visualmente as cinco tabelas e alternância BR/ISO/US antes de continuar a extração.
+- **142 testes homologados no Windows:** `Ran 142 tests in 6.884s`, `OK (skipped=1)`; 141 aprovados, 1 ignorado e nenhuma falha. **Homologação visual das tabelas ainda pendente.** Validar visualmente as cinco tabelas e alternância BR/ISO/US antes de continuar a extração.
 - **Pendente:** testes visuais completos dos componentes Qt, avaliação futura de um modelo/delegate de tabela se houver necessidade de desempenho ou paginação maior, sem reescrita prematura.
 
 ## Próxima etapa
 
-Executar no Windows `git pull origin main` e `python -m unittest discover -s tests -v` (**142 testes esperados**). Em seguida abrir `archivia-gui` e conferir prévia do inventário, origens, duplicatas SHA-256, simulação por data e página do catálogo, inclusive tooltips e datas BR/ISO/US. Ainda não liberar operações de mídia pela GUI; qualquer falha deve ser corrigida antes de novas extrações.
+Com **142 testes automatizados aprovados**, realizar conferência visual das tabelas após a extração dos helpers: abrir `archivia-gui`, listar arquivos no catálogo, alternar formatos de data e verificar os detalhes e tooltips de duplicatas, inventário e simulação quando disponíveis. Confirmar que linhas, seleção e paginação permanecem corretas. Somente depois continuar a modularização de filtros e relatórios. Manter execução de arquivos pessoais indisponível na GUI/Ollama.
 
 ## Referências
 
