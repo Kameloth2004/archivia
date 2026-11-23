@@ -212,7 +212,7 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Sem atualizar manualmente a análise, consultou a **quantidade de vídeos** da mesma pasta: resultado conferido como correto.
 - Mudou a **pasta de origem durante a mesma sessão** e consultou novamente a quantidade de imagens, sem atualização manual: resultado conferido como correto.
 - **Homologação parcial da GUI:** consultas sucessivas e troca de contexto de origem funcionaram em uso real, com o `QueryWorker` extraído. A pasta de destino estava selecionada, mas o relato não implica execução de plano ou movimentação.
-- **Ainda pendente:** exibição detalhada das abas Avançado/Biblioteca/Configurações, mudança do formato de data com tabela carregada e teste de erro do backend; não declarar homologação visual completa.
+- **Validação adicional informada pelo usuário:** a alternância do formato de datas na GUI funciona. O relato confirma a mudança visual do formato; não comprova separadamente todas as sequências de formatos ou casos de datas inválidas. **Ainda pendente:** revisão detalhada das demais telas e teste de erro do backend; não declarar homologação visual integral.
 
 ## Próxima etapa
 
