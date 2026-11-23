@@ -248,3 +248,12 @@ Na mesma pasta, várias perguntas ao Ollama compartilham o SQLite temporário ge
 ## Transição visual — Início simplificado (aguardando validação Windows)
 
 A tela padrão Início agora concentra pasta selecionada, atalhos de contagem, pergunta ao Ollama, destino opcional para simulações, atualização de análise e resposta textual. Os controles de modelo estão em Configurações. As quatro telas técnicas originais permanecem acessíveis pelo botão Avançado (não foram reescritas). A Biblioteca ainda é baseada no catálogo histórico e será integrada ao catálogo temporário em etapa posterior; nesta primeira entrega o fluxo de Início depende do Ollama. Nenhum recurso de movimentação real foi criado.
+
+
+## Estabilização incremental e separação do worker (23/11/2026)
+
+- `gui_worker.py` contém a classe `QueryWorker` e a lógica de despacho em thread PySide6; `gui.py` concentra os widgets e handlers, sem duplicar as operações do backend.
+- `gui_helpers.py` concentra validação pura dos contratos de resposta e pode ser testado sem PySide6. Erros de campo obrigatório são explicitados, não convertidos em zeros silenciosos.
+- Os handlers de inventário, resumo, simulação por data e SHA-256 verificam worker ativo **antes** de limpar tabelas/estado. O catálogo guarda os timestamps ISO no `Qt.ItemDataRole.UserRole` para troca de formato BR/ISO/US sem reinterpretação do texto exibido.
+- Mudanças foram feitas sem redesenho ou ligação com executor de arquivo. **Validação Windows pendente:** 135 testes esperados e inspeção visual das telas.
+- Modularização futura somente após homologação: extrair componentes de tabela e filtros em alterações pequenas, mantendo compatibilidade da GUI.
