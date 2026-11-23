@@ -14,6 +14,7 @@ from .catalog import catalog_summary, query_catalog_page, list_catalog_scans, ca
 from .cataloging import catalog_verified_preview
 from .inventory import inventory
 from .manual_copy import copy_manual_image_verified
+from .move_executor import move_one_approved
 from .planner import propose_date_moves
 from .duplicates import verify_duplicate_hashes, verify_snapshot_duplicate_candidates
 
@@ -36,7 +37,9 @@ class QueryWorker(QThread):
                  hash_mode: str = "sample", source_folder: str = "",
                  folder_session: FolderCatalogSession | None = None,
                  manual_source: str = "", manual_folder: str = "",
-                 approved_source: str = "", approved_destination: str = "") -> None:
+                 approved_source: str = "", approved_destination: str = "",
+                 move_plan: dict | None = None, move_relative: str = "",
+                 move_approval: str = "") -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -63,10 +66,22 @@ class QueryWorker(QThread):
         self.manual_folder = manual_folder
         self.approved_source = approved_source
         self.approved_destination = approved_destination
+        self.move_plan = move_plan
+        self.move_relative = move_relative
+        self.move_approval = move_approval
 
     def run(self) -> None:
         try:
-            if self.mode == "manual_copy":
+            if self.mode == "move_one":
+                if self.folder_session is None or not self.folder_session.ready:
+                    raise ValueError("Sessão de origem não disponível.")
+                result = move_one_approved(
+                    self.move_plan, self.move_relative,
+                    db_path=self.folder_session._db,
+                    scan_id=self.folder_session._scan_id,
+                    approval=self.move_approval,
+                )
+            elif self.mode == "manual_copy":
                 result = copy_manual_image_verified(
                     self.manual_source, self.manual_folder,
                     approved_source=self.approved_source,
