@@ -195,9 +195,19 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - **Outros pontos:** `DEFAULT_DB` passado ao worker em modo `folder_session` não é consultado quando a sessão existe, conforme implementação de `QueryWorker.run`. Fechamento bloqueado durante trabalho é intencional; cancelamento cooperativo pode ser projetado mais tarde.
 - Revisão registrada **sem alteração no código da GUI**. Executar correções isoladas com regressão visual antes de qualquer novo redesign.
 
+## Estabilização incremental da GUI — código publicado, testes Windows pendentes
+
+- A versão anterior do `src/archivia/gui.py` possuía **1.615 linhas**. Extraída a classe `QueryWorker` (~5 kB, ~90 linhas) para `src/archivia/gui_worker.py`. `ArchivIAWindow` importa a classe, mantendo os sinais, parâmetros e fluxos de leitura, catálogo, prévia e Ollama originais. `gui.py` passou a aproximadamente **1.525 linhas**; não houve redesenho de telas ou integração do executor.
+- Criado `src/archivia/gui_helpers.py`, independente de PySide6, com `validate_gui_result()`: valida campos obrigatórios antes de renderizar. A GUI captura respostas incompletas e exibe erro explícito; **não converte campos faltantes em valores numéricos fictícios**.
+- Adicionadas guardas `if self._worker is not None: return` no início de `_run_inventory_preview`, `_run_summary`, `_run_date_plan`, `_run_duplicate_hash`, impedindo limpar visualizações enquanto outro worker trabalha.
+- Itens da coluna de datas da tabela de catálogo agora guardam o ISO original no `Qt.ItemDataRole.UserRole`. `_change_date_format` usa esse valor original para reexibir, sem `strptime` do texto já formatado e sem `except ValueError: pass` silencioso.
+- Seis testes de contratos independentes de Qt em `tests/test_gui_helpers.py` e cinco testes estruturais em `tests/test_gui_structure.py`. **Suíte esperada: 135 testes** (124 anteriores homologados + 11 novos, um possivelmente ignorado). Esta atualização **ainda não foi executada no Windows**.
+- Decisões preservadas: não alterar sincronização bidirecional de campos sem falha reproduzida; não alterar ciclo de vida `QThread` ou lógica de fechamento enquanto estiverem estáveis; não fragmentar os 1.525 linhas restantes em uma refatoração ampla sem homologação incremental.
+- Limitações: testes estruturais e de contrato não substituem abertura real da GUI com PySide6; verificar visualmente Início, Biblioteca, Configurações, Avançado e troca de formatos de data. O executor real continua desconectado da GUI.
+
 ## Próxima etapa
 
-No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (**124 testes esperados**). Se aprovados, a próxima evolução será projetar journal com identidade verificável do temporário e estados recuperáveis sem ambiguidades, mantendo fixtures e sem exclusão da origem. Não permitir operações pessoais pela GUI, CLI ou Ollama.
+No Windows, `git pull origin main` e `python -m unittest discover -s tests -v` (**135 testes esperados**). Em seguida abrir `archivia-gui` e verificar fluxo de Início, Avançado, um inventário, uma consulta ao Ollama e troca BR/ISO/US após listar catálogo com datas. Antes de continuar a modularização, corrigir qualquer regressão apontada pela homologação.
 
 ## Referências
 
