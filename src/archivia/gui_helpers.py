@@ -20,6 +20,8 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
                   "scan_id", "total_matches"),
     "catalog_page": ("page", "pages", "files", "count", "scan_id"),
     "agent": ("answer", "tools_used"),
+    "manual_copy": ("status", "source", "destination", "sha256",
+                    "source_preserved", "files_copied", "journal"),
 }
 _SUMMARY_FIELDS = ("indexed_files", "media_files", "bytes_media", "by_category")
 _PREVIEW_SUMMARY_FIELDS = ("indexed_files", "media_files", "by_category")
