@@ -228,7 +228,7 @@ def inspect_verified_copy_test(test_directory: str | Path) -> dict[str, Any]:
 
     allowed = {
         "PREPARADO", "TEMPORARIO_CRIADO", "HASH_VERIFICADO",
-        "PUBLICADO", "INTERROMPIDO",
+        "PUBLICADO", "INTERROMPIDO", "COPIA_RECONCILIADA",
     }
     events: list[str] = []
     source = destination = None
@@ -264,11 +264,20 @@ def inspect_verified_copy_test(test_directory: str | Path) -> dict[str, Any]:
     expected = ["PREPARADO", "TEMPORARIO_CRIADO", "HASH_VERIFICADO", "PUBLICADO"]
     # Uma interrupção pode ocorrer depois de qualquer evento registrado;
     # falha na criação do temporário pode deixar só PREPARADO.
-    main = events[:-1] if events[-1] == "INTERROMPIDO" else events
-    if main != expected[:len(main)] or len(main) > len(expected) or (
-        "INTERROMPIDO" in events[:-1]
-    ):
-        raise ValueError("Sequência inconsistente do journal de cópia.")
+    reconciled = events[-1] == "COPIA_RECONCILIADA"
+    if reconciled:
+        # Registro de reconciliação apenas após falha de journal pós-publicação.
+        if events != [
+            "PREPARADO", "TEMPORARIO_CRIADO", "HASH_VERIFICADO",
+            "INTERROMPIDO", "COPIA_RECONCILIADA",
+        ]:
+            raise ValueError("Sequência de reconciliação inválida.")
+    else:
+        main = events[:-1] if events[-1] == "INTERROMPIDO" else events
+        if main != expected[:len(main)] or len(main) > len(expected) or (
+            "INTERROMPIDO" in events[:-1]
+        ):
+            raise ValueError("Sequência inconsistente do journal de cópia.")
 
     if not destination.parent.is_dir():
         raise ValueError("Pasta de destino indisponível para inspeção.")
@@ -310,7 +319,9 @@ def inspect_verified_copy_test(test_directory: str | Path) -> dict[str, Any]:
             return h.hexdigest()
         hashes_match = digest(source) == digest(destination)
 
-    if events[-1] == "PUBLICADO" and destination_exists and not leftovers:
+    if reconciled:
+        status = "copia_reconciliada_registrada"
+    elif events[-1] == "PUBLICADO" and destination_exists and not leftovers:
         status = "publicacao_registrada_inspecionada"
     elif events[-1] == "INTERROMPIDO":
         status = "interrompido_revisao_manual"
@@ -332,3 +343,75 @@ def inspect_verified_copy_test(test_directory: str | Path) -> dict[str, Any]:
         "read_only": True,
         "automatic_recovery": False,
     }
+
+
+def reconcile_published_test_copy(
+    test_directory: str | Path, *, approval: str,
+) -> dict[str, Any]:
+    """Reconcilia SOMENTE o journal após publicação confirmada em fixture.
+
+    Jamais apaga, move, altera ou recupera arquivos. O formato antigo do
+    journal não identifica temporários nem a identidade da cópia publicada:
+    por isso este procedimento só autoriza marcar a cópia como verificada
+    com ambos os arquivos presentes e nenhum temporário remanescente.
+    """
+    if approval != _CONFIRM:
+        raise ValueError("Confirmação explícita de reconciliação ausente.")
+    folder = _safe_path(Path(test_directory))
+    with _exclusive_fixture_lock(folder):
+        report = inspect_verified_copy_test(folder)
+        if report["events"] != [
+            "PREPARADO", "TEMPORARIO_CRIADO", "HASH_VERIFICADO",
+            "INTERROMPIDO",
+        ]:
+            raise ValueError("Journal não permite reconciliação deste estado.")
+        if (not report["source_exists"] or not report["destination_exists"]
+                or report["temporary_count"] != 0
+                or report["current_sha256_equal"] is not True):
+            raise ValueError("Arquivos ou temporários exigem revisão manual.")
+
+        source = _safe_path(Path(report["source"]))
+        destination = _safe_path(Path(report["destination"]))
+        # Revalidar SHA-256 e metadados sem modificar os dois arquivos.
+        def stable_digest(path: Path) -> str:
+            flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(path, flags)
+            try:
+                before = os.fstat(fd)
+                if not stat.S_ISREG(before.st_mode):
+                    raise ValueError("Arquivo deixou de ser regular.")
+                digest = hashlib.sha256()
+                with os.fdopen(os.dup(fd), "rb") as f:
+                    while chunk := f.read(_BUFFER):
+                        digest.update(chunk)
+                after = os.fstat(fd)
+                now = path.stat(follow_symlinks=False)
+                identity = lambda st: (
+                    st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns,
+                )
+                if identity(before) != identity(after) or identity(after) != identity(now):
+                    raise ValueError("Arquivo mudou durante verificação.")
+                return digest.hexdigest()
+            finally:
+                os.close(fd)
+
+        source_hash = stable_digest(source)
+        dest_hash = stable_digest(destination)
+        if source_hash != dest_hash:
+            raise ValueError("Hashes divergentes; revisão manual obrigatória.")
+        # Esta é uma reconciliação de REGISTRO, não uma garantia de segurança
+        # contra processos externos nem de resistência a queda de energia.
+        journal = _safe_path(folder / "archivia-copy-journal.jsonl")
+        _journal(journal, "COPIA_RECONCILIADA", source, destination)
+        return {
+            "status": "copia_reconciliada_registrada",
+            "source": str(source),
+            "destination": str(destination),
+            "sha256": source_hash,
+            "source_preserved": True,
+            "destination_preserved": True,
+            "automatic_cleanup": False,
+            "test_only": True,
+        }
