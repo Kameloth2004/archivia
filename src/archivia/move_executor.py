@@ -158,16 +158,23 @@ def move_one_approved(
         os.link(stage, target)
         published = True
         # Uma alteração concorrente na origem deve impedir sua remoção.
-        current = source.stat(follow_symlinks=False)
-        if (current.st_dev != original_stat.st_dev
-                or current.st_ino != original_stat.st_ino
-                or current.st_size != original_stat.st_size
-                or current.st_mtime_ns != original_stat.st_mtime_ns
-                or _sha256_checked(source, size, modified) != source_hash):
+        try:
+            current = source.stat(follow_symlinks=False)
+            unchanged = (
+                current.st_dev == original_stat.st_dev
+                and current.st_ino == original_stat.st_ino
+                and current.st_size == original_stat.st_size
+                and current.st_mtime_ns == original_stat.st_mtime_ns
+                and not _is_symlink_component(source)
+                and _sha256_checked(source, size, modified) == source_hash
+            )
+        except (OSError, ValueError):
+            unchanged = False
+        if not unchanged:
             return {
                 "status": "copiado_origem_preservada", "source": str(source),
                 "destination": str(target), "sha256": source_hash,
-                "detail": "Origem mudou após a publicação; não removida.",
+                "detail": "Origem alterada ou indisponível após a publicação; não removida.",
             }
         try:
             source.unlink()
