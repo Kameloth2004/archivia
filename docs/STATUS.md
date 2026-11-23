@@ -229,9 +229,19 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Somado à suíte Windows de **142 testes** (`OK (skipped=1)`), o resultado aprova a segunda etapa incremental de extração de `table_rows.py` e `gui_tables.py` para prosseguir.
 - Limite da evidência: a confirmação é de preservação visual observada; não demonstra todos os estados possíveis, concorrência externa, nem autoriza movimentação de mídias pessoais.
 
+## Terceira modularização da GUI — filtros, paginação e relatórios (aguardando homologação)
+
+- Adicionado `src/archivia/gui_presentation.py`, módulo **puro**, sem Qt, Ollama ou SQLite, com `catalog_filters`, `previous_page`, `next_page`, `summary_report`, `inventory_report` e `agent_report`.
+- `catalog_filters` centraliza a tradução das datas digitadas para ISO e os demais parâmetros de pesquisa; passa os mesmos argumentos ao worker e recusa intervalo de datas invertido antes da consulta. Isso é validação de UI; as validações do backend permanecem.
+- A navegação pelas páginas de inventário e catálogo compartilha helpers de limites, preservando os handlers e sinais de widgets existentes.
+- Os textos de resumo, prévia e resposta detalhada do agente foram movidos para funções reutilizáveis sem alteração intencional de conteúdo, incluindo avisos de segurança e horário de catálogo temporário.
+- `gui.py` passou de aproximadamente **1.481 para 1.454 linhas**; nenhuma tela foi redesenhada, os algoritmos e o executor não foram alterados.
+- **Dez testes novos:** oito em `tests/test_gui_presentation.py` (filtros, datas, paginação e relatórios) e dois de integração estrutural em `tests/test_gui_structure.py`. **152 testes esperados** (142 homologados anteriormente + 10), com 1 possivelmente ignorado. Execução Windows e verificação visual ainda pendentes.
+- Próxima validação visual: busca no catálogo com filtros, mudança de data e paginação; prévia paginada e resposta do agente em Início/Avançado; textos de resumo iguais aos da versão anterior. Não há liberação de movimentos reais.
+
 ## Próxima etapa
 
-Seguir com a terceira etapa **incremental** de modularização da GUI, começando por funções puras de filtros, paginação e formatação de relatórios, acompanhadas de testes de regressão antes de alterações de widgets. Preservar componentes, abas, resultados do Ollama e isolamento do executor. Não reescrever a GUI inteira de uma vez.
+Executar no Windows `git pull origin main` e `python -m unittest discover -s tests -v` (**152 testes esperados**). Se aprovados, abrir `archivia-gui` e conferir filtros, paginação, troca de data, relatórios e respostas do Ollama, sem modificar dados. Corrigir qualquer regressão antes de separar outros componentes.
 
 ## Referências
 
