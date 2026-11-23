@@ -44,6 +44,8 @@ def move_one_approved(
             or plan.get("mode") != "simulation"
             or plan.get("executable") is not False
             or not isinstance(plan.get("actions"), list)
+            or plan.get("complete") is not True
+            or plan.get("pending") != 0
             or plan.get("operation") != "move_recursive_consolidation"):
         raise ValueError("Planejamento inválido ou de outro snapshot.")
     actions = plan["actions"]
