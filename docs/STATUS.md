@@ -258,9 +258,16 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Mudança somente no fluxo visual e gravação **consentida do catálogo SQLite**, que já existia. Nenhuma alteração em mídias, nenhuma movimentação/cópia pelo Ollama e nenhum uso do executor experimental da área `tests/.runtime`.
 - **Pendente:** rodar os 166 testes no Windows e conferir visualmente os novos botões do Início, inclusive prévia válida/inválida, mudança de pasta e confirmação de gravação.
 
+## Homologação visual da catalogação pelo Início — 23/11/2026
+
+- Usuário confirmou explicitamente: **"O fluxo funcionou"**, após validar a sequência `Início → Examinar pasta para catalogar → Conferir arquivos da prévia → Salvar no catálogo SQLite → Biblioteca`.
+- Somada à suíte Windows de **166 testes** (`Ran 166 tests in 6.838s`, `OK (skipped=1)`), a implementação de catalogação simplificada é considerada **homologada nos fluxos testados**.
+- O fluxo reutiliza a confirmação e a catalogação SQLite já existentes; a avaliação prática não comprova todos os casos de erro possíveis, mas não foi relatada regressão.
+- **Segurança mantida:** nenhuma mídia é movimentada, renomeada ou excluída pela GUI/Ollama; executor TEST-ONLY permanece isolado.
+
 ## Próxima etapa
 
-Com **166 testes automatizados aprovados**, abrir `archivia-gui` e conferir os três comandos novos no **Início**: selecionar uma pasta, executar **Examinar pasta para catalogar**, abrir **Conferir arquivos da prévia** e então salvar no catálogo SQLite mediante confirmação explícita. Confirmar abertura da Biblioteca com o novo snapshot selecionado. Verificar também que trocar de pasta invalida a prévia e desabilita o salvamento anterior. Ainda não há liberação de movimentação real de mídias pela interface/Ollama.
+Com a catalogação simplificada homologada, priorizar a **próxima funcionalidade de produto** e evitar modularização adicional sem necessidade demonstrada. Avaliar separadamente o executor experimental e suas limitações de segurança antes de cogitar disponibilizar movimentação de mídias reais. Manter homologação incremental e confirmação explícita para qualquer gravação.
 
 ## Referências
 
