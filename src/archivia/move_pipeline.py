@@ -135,6 +135,7 @@ def move_verified_test_file(
         _event(journal, "PREPARADO", source, target)
         tmp: Path | None = None
         temp_id: tuple[int, int] | None = None
+        fd = -1
         published = False
         try:
             source_hash, source_before = _digest(source)
