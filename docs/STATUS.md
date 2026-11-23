@@ -274,9 +274,16 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - A estratégia de temporário no volume do destino permite projetar movimentação futura entre unidades, **mas esta versão ainda não realiza nem homologa transferências reais entre volumes diferentes**.
 - **Limitações críticas antes de liberar mídias pessoais:** corrida entre `stat`/`hash` e `unlink` contra processos externos (TOCTOU), resistência do journal a falha de energia/diretório, tratamento de falha pós-exclusão da origem, preservação de metadados/ACLs relevantes, múltiplos arquivos e recuperação idempotente. O lock é apenas cooperativo entre chamadas do ArchivIA. Não autorizar uso com arquivos pessoais nem conectar o agente IA.
 
+## Homologação 174 testes e proposta de teste real com arquivos selecionados
+
+- Usuário confirmou: `Ran 174 tests in 7.021s`, `OK (skipped=1)`. **173 testes aprovados, 1 ignorado, 0 falhas**.
+- Para a primeira homologação real, o usuário deseja **escolher pessoalmente algumas imagens duplicadas de uma pasta específica**, evitando seleção automática de arquivos pelo agente. O teste deverá usar **cópias descartáveis** dessas imagens em um diretório de teste independente; a condição de "duplicada" por si só não é evidência de integridade ou segurança de descarte.
+- Requisitos da próxima implementação: interface de revisão/seleção manual dos arquivos, raízes de origem e destino explícitas, prévia das ações, autorização individual ou de lote com limites, ausência de sobrescrita, SHA-256 integral, journal por operação, parada imediata na primeira falha, estratégia de recuperação e testes Windows em volume igual/diferente.
+- **Ainda não habilitado**: movimentação de mídias reais pela GUI ou Ollama. O pipeline atual permanece limitado a `tests/.runtime`; não orientar o usuário a alterar essa restrição manualmente nem usar imagens pessoais antes de implementar e homologar os controles.
+
 ## Próxima etapa
 
-No Windows, executar `git pull origin main` e `python -m unittest discover -s tests -v` (**174 testes esperados**). Se aprovados, revisar em detalhe os estados do journal e falhas pós-publicação com fixtures; só então projetar autorização para movimentação controlada de mídias pessoais. **O código desta etapa não aceita caminhos fora de `tests/.runtime` e não está ligado à GUI/Ollama.**
+Projetar uma operação de movimentação manual e explicitamente aprovada, começando com seleção de **3–5 cópias descartáveis de imagens** e nunca com originais pessoais. Antes de conectar a GUI, testar integridade, destino ocupado, alterações simultâneas, falha após publicação e recuperação verificável. Não liberar executor por simples remoção da restrição `tests/.runtime`.
 
 ## Referências
 
