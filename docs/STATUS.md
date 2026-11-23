@@ -248,9 +248,19 @@ Bibliotecário digital local em Python com interface PySide6 opcional e agente O
 - Escopo: melhora somente a navegação entre catálogo persistente e Biblioteca. O catálogo temporário do **Início** segue separado; nenhuma mídia é movida/copiada/excluída pelo agente ou interface.
 - Homologação visual necessária: salvar fixture sem dados pessoais, confirmar seleção do snapshot salvo e abertura da Biblioteca; filtros anteriores devem ser removidos. Testar retorno ao fluxo manual caso a consulta ao histórico falhe.
 
+## Catalogação opcional pelo Início — implementação publicada (homologação pendente)
+
+- Adicionados três comandos na tela **Início**: **Examinar pasta para catalogar**, **Conferir arquivos da prévia** e **Salvar no catálogo SQLite...**. Eles reutilizam os métodos existentes do **Avançado → Inventário**, sem duplicar consultas ou alterar o backend.
+- Ao examinar a pasta, o resultado apresenta no **Início** os totais e erros da prévia. **Conferir arquivos da prévia** abre a aba **Avançado → Inventário** para inspecionar a mesma tabela paginada. O botão de salvar só é habilitado após prévia válida, sem erros, e da pasta ainda selecionada.
+- **Salvar** continua mostrando o diálogo de confirmação explícita do caminho, número de arquivos e banco SQLite, e o backend continua verificando a pasta novamente antes de persistir o snapshot. Após salvar, segue o fluxo já implementado de abertura da **Biblioteca** com seleção do ID exato e limpeza dos filtros.
+- Criada `can_save_inventory_preview()` em `gui_helpers.py`, reutilizada por botões, navegação e validação antes da confirmação; mudança de pasta e início de tarefa desabilitam salvamento enquanto a prévia não é válida.
+- Adicionados **5 testes puros** em `tests/test_home_catalog.py` e **3 testes estruturais** à suíte da GUI; **166 testes esperados** (152 homologados anteriormente + 6 da navegação pós-catalogação + 8 desta etapa). A navegação anterior recebeu aprovação **visual** do usuário, mas não foi informada execução explícita da suíte de 158 testes.
+- Mudança somente no fluxo visual e gravação **consentida do catálogo SQLite**, que já existia. Nenhuma alteração em mídias, nenhuma movimentação/cópia pelo Ollama e nenhum uso do executor experimental da área `tests/.runtime`.
+- **Pendente:** rodar os 166 testes no Windows e conferir visualmente os novos botões do Início, inclusive prévia válida/inválida, mudança de pasta e confirmação de gravação.
+
 ## Próxima etapa
 
-Executar no Windows `git pull origin main` e `python -m unittest discover -s tests -v` (**158 testes esperados**). Se aprovados, validar visualmente o fluxo `Avançado → Inventário → Examinar pasta → Salvar inventário` e confirmar abertura automática da **Biblioteca** com seleção do **ID do novo snapshot**, limpeza de filtros e listagem. Não utilizar o executor de movimentação nem habilitar o Ollama para alterar arquivos.
+No Windows, atualizar `main` e executar `python -m unittest discover -s tests -v` (**166 testes esperados**, 1 historicamente ignorado). Depois, abrir `archivia-gui` e testar exclusivamente o novo fluxo `Início → Examinar pasta para catalogar → Conferir prévia → Salvar no catálogo SQLite`. Confirmar que a prévia inválida impede salvamento e que o snapshot salvo abre na Biblioteca. Não utilizar a ferramenta experimental de movimentação em arquivos reais.
 
 ## Referências
 
