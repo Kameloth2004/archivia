@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .catalog import DEFAULT_DB
-from .move_executor import APPROVAL_PHRASE, move_one_approved
+from .move_executor import APPROVAL_PHRASE, MoveSkippedError, move_one_approved
 
 MAX_BATCH_FILES = 20
 
@@ -52,14 +52,17 @@ def move_batch_approved(
                 approval=approval,
             )
             row["file"] = name
-        except (OSError, ValueError, RuntimeError) as exc:
+        except MoveSkippedError as exc:
             row = {"file": name, "status": "bloqueado",
+                   "detail": str(exc), "files_modified": False}
+        except (OSError, ValueError, RuntimeError) as exc:
+            row = {"file": name, "status": "erro",
                    "detail": str(exc), "files_modified": False}
         rows.append(row)
         if progress is not None:
             progress({"processed": len(rows), "total": len(files),
                       "file": name, "status": row["status"]})
-        if row["status"] != "movido":
+        if row["status"] not in ("movido", "bloqueado"):
             stopped = True
             break
     moved = sum(r["status"] == "movido" for r in rows)
@@ -68,11 +71,14 @@ def move_batch_approved(
         "requested": len(files),
         "processed": len(rows),
         "moved": moved,
+        "blocked": sum(r["status"] == "bloqueado" for r in rows),
+        "errors": sum(r["status"] == "erro" for r in rows),
         "stopped": stopped,
         "pending": len(files) - len(rows),
         "results": rows,
         "files_modified": moved > 0 or any(
             r["status"] == "copiado_origem_preservada" for r in rows
         ),
-        "note": "Lote não é transacional. Arquivos movidos não são revertidos.",
+        "note": ("Bloqueios seguros não interrompem o lote. Falhas críticas interrompem. "
+                 "O lote não é transacional e arquivos movidos não são revertidos."),
     }
