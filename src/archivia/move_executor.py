@@ -16,7 +16,7 @@ from typing import Any
 
 from .catalog import DEFAULT_DB
 from .duplicates import (
-    MAX_FILE_BYTES, CHUNK_BYTES, _candidate_path, _is_symlink_component,
+    CHUNK_BYTES, _candidate_path, _is_symlink_component,
     _sha256_checked,
 )
 from .recursive_plan import propose_recursive_consolidation
@@ -24,6 +24,15 @@ from .conflict_hash import verify_plan_conflict
 from .conflict_report import _suggest_unused_name
 
 APPROVAL_PHRASE = "MOVER UM ARQUIVO"
+
+
+class MoveSkippedError(ValueError):
+    """Bloqueio identificado antes de publicar arquivo no destino.
+
+    Apenas estes erros são seguros para registrar e seguir ao próximo item.
+    Falhas imprevistas interrompem o lote para preservar integridade.
+    """
+
 
 
 def preview_conflict_move(
@@ -124,9 +133,9 @@ def move_one_approved(
         raise ValueError("Nome-base ambíguo entre arquivos do plano.")
     if not resolve_conflict:
         if any(p.name.casefold() == target.name.casefold() for p in destination.iterdir()):
-            raise ValueError("Nome de destino já ocupado.")
+            raise MoveSkippedError("Nome de destino já ocupado.")
         if _is_symlink_component(target) or target.exists():
-            raise ValueError("Destino não está livre.")
+            raise MoveSkippedError("Destino não está livre.")
 
     # Reexecuta a simulação contra o estado atual do destino.
     fresh = propose_recursive_consolidation(
@@ -138,7 +147,7 @@ def move_one_approved(
         raise ValueError("Plano desatualizado; gere nova prévia.")
     fresh_match = [a for a in fresh["actions"] if a.get("file") == relative_file]
     if len(fresh_match) != 1 or fresh_match[0] != action:
-        raise ValueError("Arquivo não permanece elegível no planejamento atualizado.")
+        raise MoveSkippedError("Arquivo não permanece elegível no planejamento atualizado.")
     if resolve_conflict:
         # O nome efetivo deve ser exatamente aquele mostrado na confirmação.
         preview = preview_conflict_move(
@@ -161,14 +170,17 @@ def move_one_approved(
     if scan is None or Path(scan["root"]).absolute() != root or record is None:
         raise ValueError("Arquivo não pertence ao snapshot selecionado.")
     size, modified = record["size_bytes"], record["modified_utc"]
-    if not isinstance(size, int) or size < 0 or size > MAX_FILE_BYTES:
-        raise ValueError("Limite por arquivo de 16 MiB excedido.")
+    if not isinstance(size, int) or size < 0:
+        raise MoveSkippedError("Tamanho do arquivo inválido no inventário.")
 
     original_stat = source.stat(follow_symlinks=False)
     expected_timestamp = datetime.fromisoformat(modified).timestamp()
     if original_stat.st_size != size or abs(original_stat.st_mtime - expected_timestamp) > .001:
-        raise ValueError("Origem mudou desde o inventário.")
-    source_hash = _sha256_checked(source, size, modified)
+        raise MoveSkippedError("Origem mudou desde o inventário.")
+    try:
+        source_hash = _sha256_checked(source, size, modified)
+    except (OSError, ValueError) as exc:
+        raise MoveSkippedError(f"Origem indisponível ou modificada: {exc}") from exc
     stage: Path | None = None
     published = False
     try:
@@ -218,7 +230,10 @@ def move_one_approved(
             raise ValueError("Destino ficou ocupado durante a cópia.")
         # Hardlink temporário -> definitivo, NO MESMO volume. os.link falha se
         # o destino já existir: publicação atômica sem overwrite.
-        os.link(stage, target)
+        try:
+            os.link(stage, target)
+        except FileExistsError as exc:
+            raise MoveSkippedError("Nome de destino ocupado durante a cópia.") from exc
         published = True
         # Uma alteração concorrente na origem deve impedir sua remoção.
         try:
