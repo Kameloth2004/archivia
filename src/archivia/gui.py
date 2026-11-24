@@ -1337,9 +1337,15 @@ class ArchivIAWindow(QMainWindow):
         if self._worker is not None:
             return
         session = self._folder_session
+        had_plan = session is not None and session._last_recursive_plan is not None
         if session is not None:
             session._last_recursive_plan = None
         self._update_move_choices()
+        if had_plan:
+            self.home_result.setPlainText(
+                "A origem, o destino ou o tipo de arquivo foi alterado. "
+                "Clique em Preparar organização para atualizar a prévia."
+            )
 
     def _prepare_home_organization(self) -> None:
         """Planeja a organização em um clique, sem Ollama e sem mover arquivos."""
