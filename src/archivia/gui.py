@@ -651,11 +651,11 @@ class ArchivIAWindow(QMainWindow):
         home_layout.addWidget(home_destination_box)
 
         self.home_prompt = QLineEdit()
-        self.home_prompt.setPlaceholderText("Ex.: Organize minhas imagens nesta pasta")
+        self.home_prompt.setPlaceholderText("Pergunte algo à IA (opcional), por exemplo: quantas imagens tenho?")
         self.home_prompt.returnPressed.connect(self._home_ask)
         home_layout.addWidget(self.home_prompt)
         home_actions = QHBoxLayout()
-        self.home_ask_button = QPushButton("Analisar com IA")
+        self.home_ask_button = QPushButton("Pedir ajuda à IA (opcional)")
         self.home_ask_button.clicked.connect(self._home_ask)
         home_actions.addWidget(self.home_ask_button)
         self.home_refresh_button = QPushButton("Atualizar análise da pasta")
@@ -722,7 +722,7 @@ class ArchivIAWindow(QMainWindow):
             "a origem será preservada."
         )
         copy_row.addWidget(self.manual_copy_button)
-        home_layout.addLayout(copy_row)
+        agent_page_layout.addLayout(copy_row)
 
         self.home_result = QPlainTextEdit()
         self.home_result.setReadOnly(True)
@@ -1559,10 +1559,14 @@ class ArchivIAWindow(QMainWindow):
         self.hash_total_limit_spin.setEnabled(not busy)
         self.ask_button.setEnabled(not busy)
         self.move_choice.setEnabled(not busy)
-        self.move_button.setEnabled(not busy and self.move_choice.count() > 1)
-        self.advanced_batch_button.setEnabled(not busy and self.move_choice.count() > 1)
-        self.home_batch_button.setEnabled(not busy and self.move_choice.count() > 1)
         plan = self._folder_session._last_recursive_plan if self._folder_session is not None else None
+        valid_proposals = (
+            not busy and isinstance(plan, dict) and plan.get("complete") is True
+            and plan.get("pending") == 0 and self.move_choice.count() > 1
+        )
+        self.move_button.setEnabled(valid_proposals)
+        self.advanced_batch_button.setEnabled(valid_proposals)
+        self.home_batch_button.setEnabled(valid_proposals)
         self.home_conflict_button.setEnabled(
             not busy and isinstance(plan, dict)
             and plan.get("complete") is True and plan.get("pending") == 0
@@ -1631,14 +1635,14 @@ class ArchivIAWindow(QMainWindow):
                 "Organização preparada — nada foi movido.\n"
                 f"Arquivos encontrados ({self.home_organize_category.currentText()}): "
                 f"{result['total_matches']}\n"
-                f"Prontas para mover: {result['proposed']}\n"
+                f"Prontos para mover: {result['proposed']}\n"
                 f"Com nomes repetidos ou outros bloqueios: {result['blocked']}\n"
                 f"Faltam examinar: {result['pending']}\n"
             )
             if result["complete"]:
                 summary += (
-                    "\nEscolha Revisar e mover arquivos selecionados "
-                    "ou Resolver arquivos com o mesmo nome."
+                    "\nAgora escolha Revisar e mover arquivos "
+                    "ou Guardar versões com nomes repetidos."
                 )
             else:
                 summary += "\nA prévia é parcial. Nenhum arquivo poderá ser movido."
