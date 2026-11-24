@@ -662,21 +662,35 @@ class ArchivIAWindow(QMainWindow):
         self.home_refresh_button.clicked.connect(self._refresh_folder_session)
         home_actions.addWidget(self.home_refresh_button)
         home_layout.addLayout(home_actions)
-        home_move_box = QGroupBox("Organização real supervisionada")
+        home_move_box = QGroupBox("Organizar arquivos — 3 etapas")
         home_move_layout = QVBoxLayout(home_move_box)
+        category_row = QHBoxLayout()
+        category_row.addWidget(QLabel("1. Tipo de arquivo:"))
+        self.home_organize_category = QComboBox()
+        self.home_organize_category.addItem("Imagens", "imagem")
+        self.home_organize_category.addItem("Vídeos", "video")
+        self.home_organize_category.addItem("Áudios", "audio")
+        category_row.addWidget(self.home_organize_category, 1)
+        home_move_layout.addLayout(category_row)
+        self.home_recursive_hint = QLabel(
+            "Inclui automaticamente todas as subpastas. "
+            "Nesta etapa, os arquivos são reunidos em uma única pasta de destino."
+        )
+        self.home_recursive_hint.setWordWrap(True)
+        home_move_layout.addWidget(self.home_recursive_hint)
         self.home_move_info = QLabel(
-            "Peça ao agente um planejamento recursivo completo; depois selecione os arquivos a mover."
+            "2. Prepare uma prévia. Nenhum arquivo será movido sem confirmação."
         )
         self.home_move_info.setWordWrap(True)
         home_move_layout.addWidget(self.home_move_info)
-        self.home_prepare_button = QPushButton("Preparar organização das imagens")
+        self.home_prepare_button = QPushButton("2. Preparar organização")
         self.home_prepare_button.clicked.connect(self._prepare_home_organization)
         home_move_layout.addWidget(self.home_prepare_button)
-        self.home_batch_button = QPushButton("Revisar e mover arquivos selecionados...")
+        self.home_batch_button = QPushButton("3. Revisar e mover arquivos...")
         self.home_batch_button.clicked.connect(self._approve_batch_move)
         self.home_batch_button.setEnabled(False)
         home_move_layout.addWidget(self.home_batch_button)
-        self.home_conflict_button = QPushButton("Resolver arquivos com o mesmo nome...")
+        self.home_conflict_button = QPushButton("Guardar versões com nomes repetidos...")
         self.home_conflict_button.clicked.connect(self._approve_conflict_move)
         self.home_conflict_button.setEnabled(False)
         home_move_layout.addWidget(self.home_conflict_button)
@@ -722,6 +736,12 @@ class ArchivIAWindow(QMainWindow):
         home_safety.setWordWrap(True)
         home_layout.addWidget(home_safety)
 
+        # Mudou origem, destino ou tipo? Exigir novo planejamento e aprovação.
+        self.home_folder.textChanged.connect(self._invalidate_home_organization)
+        self.home_destination.textChanged.connect(self._invalidate_home_organization)
+        self.home_organize_category.currentIndexChanged.connect(
+            self._invalidate_home_organization
+        )
         self._refresh_date_placeholders()
 
         self.status = QLabel("Pronto. Escrita em mídias somente com autorização explícita.")
@@ -1274,7 +1294,7 @@ class ArchivIAWindow(QMainWindow):
             )
         else:
             self.home_move_info.setText(
-                "Peça ao agente um planejamento recursivo completo para habilitar a execução."
+                "Escolha o tipo e clique em Preparar organização para continuar."
             )
 
     def _approve_one_move(self) -> None:
@@ -1312,6 +1332,15 @@ class ArchivIAWindow(QMainWindow):
             move_approval=APPROVAL_PHRASE,
         )
 
+    def _invalidate_home_organization(self, *_args) -> None:
+        """Novos parâmetros exigem novo planejamento e nova aprovação."""
+        if self._worker is not None:
+            return
+        session = self._folder_session
+        if session is not None:
+            session._last_recursive_plan = None
+        self._update_move_choices()
+
     def _prepare_home_organization(self) -> None:
         """Planeja a organização em um clique, sem Ollama e sem mover arquivos."""
         if self._worker is not None:
@@ -1331,7 +1360,8 @@ class ArchivIAWindow(QMainWindow):
             return
         self._start_worker(
             "prepare_organization", DEFAULT_DB,
-            destination=str(target), category="imagem",
+            destination=str(target),
+            category=self.home_organize_category.currentData(),
             folder_session=session,
         )
 
@@ -1541,6 +1571,7 @@ class ArchivIAWindow(QMainWindow):
                     for a in plan.get("actions", []))
         )
         self.home_prepare_button.setEnabled(not busy)
+        self.home_organize_category.setEnabled(not busy)
         self.home_ask_button.setEnabled(not busy)
         self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
@@ -1598,7 +1629,8 @@ class ArchivIAWindow(QMainWindow):
             self._update_move_choices()
             summary = (
                 "Organização preparada — nada foi movido.\n"
-                f"Imagens encontradas: {result['total_matches']}\n"
+                f"Arquivos encontrados ({self.home_organize_category.currentText()}): "
+                f"{result['total_matches']}\n"
                 f"Prontas para mover: {result['proposed']}\n"
                 f"Com nomes repetidos ou outros bloqueios: {result['blocked']}\n"
                 f"Faltam examinar: {result['pending']}\n"
