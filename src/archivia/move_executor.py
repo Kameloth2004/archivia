@@ -19,7 +19,6 @@ from .duplicates import (
     CHUNK_BYTES, _candidate_path, _is_symlink_component,
     _sha256_checked,
 )
-from .recursive_plan import propose_recursive_consolidation
 from .conflict_hash import verify_plan_conflict
 from .conflict_report import _suggest_unused_name
 
@@ -137,17 +136,9 @@ def move_one_approved(
         if _is_symlink_component(target) or target.exists():
             raise MoveSkippedError("Destino não está livre.")
 
-    # Reexecuta a simulação contra o estado atual do destino.
-    fresh = propose_recursive_consolidation(
-        destination, plan["category"], db_path=db_path, scan_id=scan_id,
-        limit=len(actions),
-    )
-    if (fresh["root"] != plan["root"] or fresh["destination"] != plan["destination"]
-            or fresh["total_matches"] != plan["total_matches"]):
-        raise ValueError("Plano desatualizado; gere nova prévia.")
-    fresh_match = [a for a in fresh["actions"] if a.get("file") == relative_file]
-    if len(fresh_match) != 1 or fresh_match[0] != action:
-        raise MoveSkippedError("Arquivo não permanece elegível no planejamento atualizado.")
+    # Não reconstruímos TODA a prévia por arquivo: em uma fila com milhares
+    # de itens isso seria O(n²). Os vínculos e metadados do item são
+    # revalidados imediatamente antes da cópia e o destino é rechecado na publicação.
     if resolve_conflict:
         # O nome efetivo deve ser exatamente aquele mostrado na confirmação.
         preview = preview_conflict_move(
@@ -164,8 +155,8 @@ def move_one_approved(
         scan = conn.execute("SELECT root FROM scans WHERE id=?", (scan_id,)).fetchone()
         record = conn.execute(
             "SELECT size_bytes, modified_utc FROM media "
-            "WHERE scan_id=? AND relative_path=?",
-            (scan_id, relative_file),
+            "WHERE scan_id=? AND relative_path=? AND category=?",
+            (scan_id, relative_file, plan["category"]),
         ).fetchone()
     if scan is None or Path(scan["root"]).absolute() != root or record is None:
         raise ValueError("Arquivo não pertence ao snapshot selecionado.")
