@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 _REQUIRED: dict[str, tuple[str, ...]] = {
+    "prepare_organization": ("actions", "total_matches", "proposed", "blocked", "complete", "pending"),
     "refresh_folder_session": ("root", "updated"),
     "summary": ("scan_id",),
     "inventory_preview": ("root", "summary", "errors", "files"),
