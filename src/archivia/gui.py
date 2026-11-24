@@ -2125,6 +2125,12 @@ class ArchivIAWindow(QMainWindow):
         if self._worker is not None:
             self._worker.deleteLater()
             self._worker = None
+        # Mesmo se o backend sinalizar erro depois de mover algum arquivo,
+        # não permitir reutilização de um plano potencialmente desatualizado.
+        if completed_mode in ("move_one", "move_batch", "move_queue", "move_conflict"):
+            if self._folder_session is not None:
+                self._folder_session.close()
+            self._update_move_choices()
         self._set_busy(False)
         navigation = self._saved_snapshot_navigation
         if navigation is None:
