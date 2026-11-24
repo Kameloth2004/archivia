@@ -14,12 +14,14 @@ from .catalog import DEFAULT_DB, query_catalog_page
 from .planner import ALLOWED_CATEGORIES, _contains_symlink
 
 _PAGE_SIZE = 100
-_MAX_ITEMS = 500
+# Limite defensivo de memória para planejamentos completos na interface.
+# O agente continua limitado a 500 ações por chamada.
+_MAX_ITEMS = 100_000
 
 
 def propose_recursive_consolidation(
     destination: str | Path, category: str, db_path: Path = DEFAULT_DB,
-    *, scan_id: int | None = None, limit: int = 100,
+    *, scan_id: int | None = None, limit: int | None = 100,
 ) -> dict[str, Any]:
     """Propõe juntar arquivos de todas as subpastas numa pasta existente.
 
@@ -28,8 +30,10 @@ def propose_recursive_consolidation(
     """
     if category not in ALLOWED_CATEGORIES:
         raise ValueError("Categoria inválida para planejamento recursivo.")
-    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= _MAX_ITEMS:
-        raise ValueError("Limite deve estar entre 1 e 500.")
+    if limit is not None and (
+        not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= _MAX_ITEMS
+    ):
+        raise ValueError(f"Limite deve estar entre 1 e {_MAX_ITEMS}.")
     if scan_id is not None and (
         not isinstance(scan_id, int) or isinstance(scan_id, bool) or scan_id < 1
     ):
@@ -56,7 +60,9 @@ def propose_recursive_consolidation(
     reserved: set[str] = set()
     actions: list[dict[str, Any]] = []
     by_reason: dict[str, int] = {}
-    limit_actual = min(limit, total)
+    # None solicita planejamento completo. O teto de memória é explícito e
+    # nunca é tratado como conclusão se houver mais correspondências.
+    limit_actual = min(_MAX_ITEMS if limit is None else limit, total)
 
     for page_number in range(1, (limit_actual + _PAGE_SIZE - 1) // _PAGE_SIZE + 1):
         page = first if page_number == 1 else query_catalog_page(
