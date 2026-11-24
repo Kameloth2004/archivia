@@ -42,6 +42,27 @@ class DirectPreparationTests(unittest.TestCase):
         self.assertEqual(current["total_matches"], 3)
         self.assertEqual(current["proposed"], 2)
 
+    def test_prepare_video_category_ignores_images(self):
+        (self.source / "clip.mp4").write_bytes(b"video-teste")
+        report = self.session.prepare_recursive_plan(self.destination, "video")
+        self.assertEqual(report["category"], "video")
+        self.assertEqual(report["total_matches"], 1)
+        self.assertEqual(report["proposed"], 1)
+        self.assertEqual(report["blocked"], 0)
+        self.assertTrue(report["complete"])
+        self.assertEqual([row["file"] for row in report["actions"]], ["clip.mp4"])
+        self.assertTrue((self.source / "clip.mp4").exists())
+
+    def test_prepare_audio_category_and_refresh_replaces_previous_plan(self):
+        (self.source / "musica.mp3").write_bytes(b"audio-teste")
+        images = self.session.prepare_recursive_plan(self.destination, "imagem")
+        audios = self.session.prepare_recursive_plan(self.destination, "audio")
+        self.assertEqual(images["total_matches"], 2)
+        self.assertEqual(audios["total_matches"], 1)
+        self.assertEqual(audios["category"], "audio")
+        self.assertIs(self.session._last_recursive_plan, audios)
+        self.assertFalse((self.destination / "musica.mp3").exists())
+
     def test_prepare_rejects_nonexistent_destination(self):
         with self.assertRaises(ValueError):
             self.session.prepare_recursive_plan(self.temp / "destino-ausente")
