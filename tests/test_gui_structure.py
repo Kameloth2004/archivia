@@ -161,6 +161,22 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("plan.get('complete') is True", busy)
         self.assertIn("self.home_prepare_button.setEnabled(not busy)", busy)
 
+    def test_analyze_without_destination_and_move_all_are_explicit(self):
+        init = ast.unparse(self.method("__init__"))
+        analyze = ast.unparse(self.method("_analyze_home_source"))
+        all_moves = ast.unparse(self.method("_approve_all_moves"))
+        cancel = ast.unparse(self.method("_stop_move_queue"))
+        rendered = ast.unparse(self.method("_render_result"))
+        self.assertIn("self.home_analyze_button.clicked.connect(self._analyze_home_source)", init)
+        self.assertIn("self.home_all_button.clicked.connect(self._approve_all_moves)", init)
+        self.assertIn("self.home_stop_button.clicked.connect(self._stop_move_queue)", init)
+        self.assertIn("folder_session=session", analyze)
+        self.assertNotIn("home_destination", analyze)
+        self.assertIn("QMessageBox.question", all_moves)
+        self.assertIn("self._start_worker(", all_moves)
+        self.assertIn("self._worker.requestInterruption()", cancel)
+        self.assertIn("move_queue", rendered)
+
     def test_home_understands_mova_and_renders_recursive_plan(self):
         handler = ast.unparse(self.method("_home_ask"))
         self.assertIn("'mova'", handler)
