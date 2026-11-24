@@ -63,6 +63,36 @@ class DirectPreparationTests(unittest.TestCase):
         self.assertIs(self.session._last_recursive_plan, audios)
         self.assertFalse((self.destination / "musica.mp3").exists())
 
+    def test_analyze_without_destination_is_complete_and_read_only(self):
+        (self.source / "filme.mp4").write_bytes(b"video")
+        report = self.session.analyze_source()
+        self.assertEqual(report["summary"]["indexed_files"], 3)
+        self.assertEqual(report["summary"]["by_category"]["imagem"], 2)
+        self.assertEqual(report["summary"]["by_category"]["video"], 1)
+        self.assertTrue(report["read_only"])
+        self.assertFalse(report["files_modified"])
+        self.assertIsNone(self.session._last_recursive_plan)
+
+    def test_full_preparation_over_500_keeps_cross_page_collisions(self):
+        sub_a = self.source / "subA"
+        sub_b = self.source / "subB"
+        sub_a.mkdir()
+        sub_b.mkdir()
+        for n in range(510):
+            (sub_a / f"imagem_{n:04d}.jpg").write_bytes(b"a")
+        (sub_b / "imagem_0001.jpg").write_bytes(b"diferente")
+        report = self.session.prepare_recursive_plan(self.destination, "imagem")
+        self.assertEqual(report["total_matches"], 513)
+        self.assertEqual(report["examined"], 513)
+        self.assertTrue(report["complete"])
+        self.assertEqual(report["pending"], 0)
+        self.assertEqual(report["blocked"], 2)
+        self.assertEqual(report["blocked_by_reason"]["destino_ja_existe"], 1)
+        self.assertEqual(report["blocked_by_reason"]["nome_repetido_entre_subpastas"], 1)
+        self.assertEqual(len(report["actions"]), 513)
+        self.assertTrue((sub_a / "imagem_0001.jpg").exists())
+        self.assertTrue((sub_b / "imagem_0001.jpg").exists())
+
     def test_prepare_rejects_nonexistent_destination(self):
         with self.assertRaises(ValueError):
             self.session.prepare_recursive_plan(self.temp / "destino-ausente")
