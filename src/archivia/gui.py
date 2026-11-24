@@ -1587,12 +1587,9 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText("Lote concluído ou interrompido. Plano invalidado; atualize a análise.")
         elif mode == "move_conflict":
             report = (
-                f"Resultado: {result.get('status')}
-"
-                f"Nome preservado no destino: {result.get('destination')}
-"
-                f"Origem: {result.get('source')}
-"
+                f"Resultado: {result.get('status')}\n"
+                f"Nova cópia no destino: {result.get('destination')}\n"
+                f"Origem: {result.get('source')}\n"
                 f"Observação: {result.get('detail', '')}"
             )
             self.result_view.setPlainText(report)
