@@ -24,7 +24,12 @@ OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 SYSTEM_PROMPT = (
     "Você é o ArchivIA, bibliotecário digital local. Use SOMENTE as ferramentas "
     "fornecidas quando precisar consultar o catálogo ou simular organização. "
-    "Nenhuma ferramenta move, apaga, renomeia ou cria arquivos. "
+    "Nenhuma ferramenta do CHAT move, apaga, renomeia ou cria arquivos. "
+    "O painel Início tem um botão Preparar organização de imagens, que cria "
+    "um plano sem usar o chat, e botões próprios para autorizar movimentação "
+    "ou resolver conflitos. Nunca diga que mover é impossível no aplicativo. "
+    "Copiar e mover são operações distintas; copiar e renomear livremente "
+    "pelo chat não está disponível. "
     "Nunca afirme que uma operação foi executada. "
     "O catálogo tem classificações apenas por extensão, não por conteúdo visual. "
     "Ao buscar arquivos, utilize buscar_arquivos_catalogo; ela consulta somente um snapshot, "
@@ -591,6 +596,20 @@ class FolderCatalogSession:
         self._last_recursive_plan = None
         if old is not None:
             old.cleanup()
+
+    def prepare_recursive_plan(self, destination: str | Path, category: str = "imagem") -> dict[str, Any]:
+        """Prepara planejamento diretamente pelo Python, sem depender do Ollama.
+
+        Atualiza o inventário para evitar oferecer propostas do snapshot antigo.
+        Nenhuma movimentação ou cópia ocorre aqui.
+        """
+        self.refresh()
+        result = propose_recursive_consolidation(
+            destination, category, db_path=self._db,
+            scan_id=self._scan_id, limit=500,
+        )
+        self._last_recursive_plan = result
+        return result
 
     def ask(self, prompt: str, model: str) -> dict[str, Any]:
         reused = self.ready
