@@ -93,6 +93,28 @@ class DirectPreparationTests(unittest.TestCase):
         self.assertTrue((sub_a / "imagem_0001.jpg").exists())
         self.assertTrue((sub_b / "imagem_0001.jpg").exists())
 
+    def test_realistic_library_counts_complete_all_three_categories(self):
+        for category, extension, count in (
+            ("imagem", ".jpg", 1344),
+            ("video", ".mp4", 648),
+            ("audio", ".mp3", 652),
+        ):
+            folder = self.source / category
+            folder.mkdir()
+            for index in range(count):
+                (folder / f"item_{index:04d}{extension}").write_bytes(b"x")
+        analyzed = self.session.analyze_source()
+        self.assertEqual(analyzed["summary"]["indexed_files"], 2646)
+        for category, expected in (("imagem", 1346), ("video", 648), ("audio", 652)):
+            plan = self.session.prepare_recursive_plan(self.destination, category)
+            self.assertEqual(plan["total_matches"], expected)
+            self.assertEqual(plan["examined"], expected)
+            self.assertEqual(plan["pending"], 0)
+            self.assertTrue(plan["complete"])
+            self.assertFalse(plan["truncated"])
+            self.assertFalse(plan["files_modified"])
+            self.assertEqual(len(plan["actions"]), expected)
+
     def test_prepare_rejects_nonexistent_destination(self):
         with self.assertRaises(ValueError):
             self.session.prepare_recursive_plan(self.temp / "destino-ausente")
