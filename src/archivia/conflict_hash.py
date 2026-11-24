@@ -8,7 +8,7 @@ import sqlite3
 from typing import Any
 
 from .catalog import DEFAULT_DB
-from .duplicates import MAX_FILE_BYTES, _candidate_path, _is_symlink_component, _sha256_checked
+from .duplicates import _candidate_path, _is_symlink_component, _sha256_checked
 
 
 def verify_plan_conflict(
@@ -79,9 +79,8 @@ def verify_plan_conflict(
             return inconclusive("snapshot_incompativel")
         origin_size = record["size_bytes"]
         dest_stat = target.stat(follow_symlinks=False)
-        if (origin_size < 0 or origin_size > MAX_FILE_BYTES
-                or dest_stat.st_size > MAX_FILE_BYTES):
-            return inconclusive("arquivo_acima_do_limite_de_16_mib")
+        if origin_size < 0 or dest_stat.st_size < 0:
+            return inconclusive("metadados_de_tamanho_invalidos")
         # Reutiliza a rotina consolidada, com revalidação do handle e leitura em blocos.
         source_digest = _sha256_checked(source, origin_size, record["modified_utc"])
         target_stamp = datetime.fromtimestamp(
