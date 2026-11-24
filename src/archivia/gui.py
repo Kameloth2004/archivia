@@ -623,10 +623,13 @@ class ArchivIAWindow(QMainWindow):
         self.home_choose_button.clicked.connect(self._choose_folder)
         home_source_row.addWidget(self.home_choose_button)
         home_layout.addWidget(home_source_box)
+        self.home_analyze_button = QPushButton("1. Analisar pasta de origem e subpastas")
+        self.home_analyze_button.clicked.connect(self._analyze_home_source)
+        home_layout.addWidget(self.home_analyze_button)
         self.home_folder.textChanged.connect(self.folder.setText)
         self.folder.textChanged.connect(self.home_folder.setText)
 
-        quick_box = QGroupBox("O que deseja fazer?")
+        quick_box = QGroupBox("Consultas rápidas (opcionais)")
         quick_row = QHBoxLayout(quick_box)
         for label, category in (
             ("Contar imagens", "imagem"),
@@ -648,8 +651,7 @@ class ArchivIAWindow(QMainWindow):
         self.home_destination_button = QPushButton("Escolher destino...")
         self.home_destination_button.clicked.connect(self._home_choose_destination)
         home_destination_row.addWidget(self.home_destination_button)
-        home_layout.addWidget(home_destination_box)
-
+        # O destino é escolhido depois da análise da origem.
         self.home_prompt = QLineEdit()
         self.home_prompt.setPlaceholderText("Pergunte algo à IA (opcional), por exemplo: quantas imagens tenho?")
         self.home_prompt.returnPressed.connect(self._home_ask)
@@ -662,10 +664,11 @@ class ArchivIAWindow(QMainWindow):
         self.home_refresh_button.clicked.connect(self._refresh_folder_session)
         home_actions.addWidget(self.home_refresh_button)
         home_layout.addLayout(home_actions)
-        home_move_box = QGroupBox("Organizar arquivos — 3 etapas")
+        home_layout.addWidget(home_destination_box)
+        home_move_box = QGroupBox("2. Escolher arquivos e preparar organização")
         home_move_layout = QVBoxLayout(home_move_box)
         category_row = QHBoxLayout()
-        category_row.addWidget(QLabel("1. Tipo de arquivo:"))
+        category_row.addWidget(QLabel("Tipo de arquivo:"))
         self.home_organize_category = QComboBox()
         self.home_organize_category.addItem("Imagens", "imagem")
         self.home_organize_category.addItem("Vídeos", "video")
@@ -679,11 +682,11 @@ class ArchivIAWindow(QMainWindow):
         self.home_recursive_hint.setWordWrap(True)
         home_move_layout.addWidget(self.home_recursive_hint)
         self.home_move_info = QLabel(
-            "2. Prepare uma prévia. Nenhum arquivo será movido sem confirmação."
+            "Escolha o tipo e prepare uma prévia. Nada será movido sem confirmação."
         )
         self.home_move_info.setWordWrap(True)
         home_move_layout.addWidget(self.home_move_info)
-        self.home_prepare_button = QPushButton("2. Preparar organização")
+        self.home_prepare_button = QPushButton("Preparar organização")
         self.home_prepare_button.clicked.connect(self._prepare_home_organization)
         home_move_layout.addWidget(self.home_prepare_button)
         self.home_batch_button = QPushButton("3. Revisar e mover arquivos...")
@@ -1347,6 +1350,19 @@ class ArchivIAWindow(QMainWindow):
                 "Clique em Preparar organização para atualizar a prévia."
             )
 
+    def _analyze_home_source(self) -> None:
+        """Inventaria completamente a origem, sem exigir pasta de destino."""
+        if self._worker is not None:
+            return
+        try:
+            session = self._session_for_folder()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._start_worker(
+            "analyze_source", DEFAULT_DB, folder_session=session,
+        )
+
     def _prepare_home_organization(self) -> None:
         """Planeja a organização em um clique, sem Ollama e sem mover arquivos."""
         if self._worker is not None:
@@ -1580,6 +1596,7 @@ class ArchivIAWindow(QMainWindow):
                     and a.get("reason") == "destino_ja_existe"
                     for a in plan.get("actions", []))
         )
+        self.home_analyze_button.setEnabled(not busy)
         self.home_prepare_button.setEnabled(not busy)
         self.home_organize_category.setEnabled(not busy)
         self.home_ask_button.setEnabled(not busy)
@@ -1635,7 +1652,22 @@ class ArchivIAWindow(QMainWindow):
             self._show_error(f"Resposta inválida do backend: {exc}")
 
     def _render_result(self, mode: str, result: dict) -> None:
-        if mode == "prepare_organization":
+        if mode == "analyze_source":
+            self._update_move_choices()
+            counts = result["summary"]["by_category"]
+            summary = (
+                "Análise concluída — nenhum arquivo foi alterado.\n"
+                f"Arquivos encontrados: {result['summary']['indexed_files']}\n"
+                f"Imagens: {counts.get('imagem', 0)} | "
+                f"Vídeos: {counts.get('video', 0)} | "
+                f"Áudios: {counts.get('audio', 0)}\n\n"
+                "Agora escolha o tipo de arquivo e, quando decidir organizar, "
+                "informe a pasta de destino."
+            )
+            self.home_result.setPlainText(summary)
+            self.result_view.setPlainText(summary)
+            self.status.setText("Análise completa da origem concluída.")
+        elif mode == "prepare_organization":
             self._update_move_choices()
             summary = (
                 "Organização preparada — nada foi movido.\n"
