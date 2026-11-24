@@ -55,17 +55,18 @@ class SupervisedBatchTests(unittest.TestCase):
             self.assertFalse((self.origin / name).exists())
             self.assertEqual((self.dest / name).read_bytes(), f"imagem{index}".encode())
 
-    def test_batch_stops_after_collision_preserving_remaining_files(self):
+    def test_batch_skips_collision_and_moves_remaining_files(self):
         (self.dest / "foto1.jpg").write_bytes(b"nao sobrescrever")
         result = self.run_batch(["foto0.jpg", "foto1.jpg", "foto2.jpg"])
-        self.assertEqual(result["moved"], 1)
-        self.assertEqual(result["processed"], 2)
-        self.assertEqual(result["pending"], 1)
-        self.assertTrue(result["stopped"])
-        self.assertEqual(result["results"][-1]["status"], "bloqueado")
+        self.assertEqual(result["moved"], 2)
+        self.assertEqual(result["processed"], 3)
+        self.assertEqual(result["pending"], 0)
+        self.assertFalse(result["stopped"])
+        self.assertEqual(result["blocked"], 1)
+        self.assertEqual(result["results"][1]["status"], "bloqueado")
         self.assertFalse((self.origin / "foto0.jpg").exists())
         self.assertTrue((self.origin / "foto1.jpg").exists())
-        self.assertTrue((self.origin / "foto2.jpg").exists())
+        self.assertFalse((self.origin / "foto2.jpg").exists())
         self.assertEqual((self.dest / "foto1.jpg").read_bytes(), b"nao sobrescrever")
 
     def test_missing_approval_rejects_before_writing(self):
