@@ -1517,7 +1517,8 @@ class ArchivIAWindow(QMainWindow):
             "removidos apenas depois da cópia conferida.\n"
             "Você pode interromper a fila entre arquivos. "
             "Arquivos já movidos NÃO serão revertidos.\n"
-            "A fila para no primeiro erro.\n\n"
+            "Conflitos seguros são registrados, sem impedir os demais arquivos. "
+            "A fila para em caso de erro crítico.\n\n"
             "Deseja iniciar esta movimentação REAL?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -1560,7 +1561,7 @@ class ArchivIAWindow(QMainWindow):
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel(
             f"Selecione de 1 a {MAX_BATCH_FILES} arquivos (Ctrl ou Shift). "
-            "Nenhum bloqueado será movimentado. O lote para no primeiro erro."
+            "Arquivos bloqueados são ignorados; erros críticos interrompem o lote."
         ))
         chosen = QListWidget(dialog)
         chosen.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -1589,7 +1590,8 @@ class ArchivIAWindow(QMainWindow):
             "Cada item será revalidado por SHA-256. "
             "A origem será removida APENAS depois da cópia verificada. "
             "O lote NÃO é transacional: itens já movidos não serão revertidos. "
-            "Ao primeiro bloqueio, o processamento para.\n\n"
+            "Bloqueios previsíveis são registrados e o lote continua. "
+            "Em falha de integridade ou armazenamento, a execução para.\n\n"
             "AUTORIZA a movimentação real destes arquivos?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -1744,6 +1746,7 @@ class ArchivIAWindow(QMainWindow):
                 "RESULTADO DA ORGANIZAÇÃO",
                 f"Solicitados: {result['requested']} | Movidos: {result['moved']} | "
                 f"Processados: {result['processed']} | Pendentes: {result['pending']}",
+                f"Bloqueados: {result.get('blocked', 0)} | Erros: {result.get('errors', 0)}",
                 f"Interrompido: {'sim' if result['stopped'] else 'não'}",
             ]
             for item in result["results"][-20:]:
@@ -1757,7 +1760,7 @@ class ArchivIAWindow(QMainWindow):
             self.home_result.setPlainText(report)
             self.result_view.setPlainText(report)
             self.home_queue_progress.setText(
-                f"Concluídos: {result['moved']} de {result['requested']}. "
+                f"Movidos: {result['moved']} | Bloqueados: {result.get('blocked', 0)} | "
                 f"Pendentes: {result['pending']}."
             )
             if self._folder_session is not None:
@@ -1803,7 +1806,8 @@ class ArchivIAWindow(QMainWindow):
             lines = [
                 "RESULTADO DO LOTE SUPERVISIONADO",
                 f"Solicitados: {result['requested']} | Processados: {result['processed']} | "
-                f"Movidos: {result['moved']} | Pendentes: {result['pending']}",
+                f"Movidos: {result['moved']} | Bloqueados: {result.get('blocked', 0)} | "
+                f"Erros: {result.get('errors', 0)} | Pendentes: {result['pending']}",
             ]
             for item in result["results"]:
                 lines.append(
