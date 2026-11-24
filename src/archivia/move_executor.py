@@ -119,7 +119,12 @@ def move_one_approved(
             or not root.is_dir() or not destination.is_dir()
             or destination == root or root in destination.parents):
         raise ValueError("Origem ou destino inválido, aninhado ou com link.")
-    source = _candidate_path(root, relative_file)
+    try:
+        source = _candidate_path(root, relative_file)
+    except ValueError as exc:
+        if str(exc) == "arquivo_ausente":
+            raise MoveSkippedError("Arquivo de origem não está mais disponível.") from exc
+        raise
     original_target = destination / source.name
     if (source == original_target or str(source) != action.get("source")
             or str(original_target) != action.get("destination")):
@@ -164,7 +169,10 @@ def move_one_approved(
     if not isinstance(size, int) or size < 0:
         raise MoveSkippedError("Tamanho do arquivo inválido no inventário.")
 
-    original_stat = source.stat(follow_symlinks=False)
+    try:
+        original_stat = source.stat(follow_symlinks=False)
+    except FileNotFoundError as exc:
+        raise MoveSkippedError("Arquivo de origem não está mais disponível.") from exc
     expected_timestamp = datetime.fromisoformat(modified).timestamp()
     if original_stat.st_size != size or abs(original_stat.st_mtime - expected_timestamp) > .001:
         raise MoveSkippedError("Origem mudou desde o inventário.")
