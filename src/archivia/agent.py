@@ -597,6 +597,15 @@ class FolderCatalogSession:
         if old is not None:
             old.cleanup()
 
+    def analyze_source(self) -> dict[str, Any]:
+        """Análise completa da origem, sem precisar de pasta de destino."""
+        self.refresh()
+        summary = catalog_summary(self._db, scan_id=self._scan_id)
+        return {
+            "root": str(self.source), "scan_id": self._scan_id,
+            "summary": summary, "read_only": True, "files_modified": False,
+        }
+
     def prepare_recursive_plan(self, destination: str | Path, category: str = "imagem") -> dict[str, Any]:
         """Prepara planejamento diretamente pelo Python, sem depender do Ollama.
 
@@ -606,7 +615,7 @@ class FolderCatalogSession:
         self.refresh()
         result = propose_recursive_consolidation(
             destination, category, db_path=self._db,
-            scan_id=self._scan_id, limit=500,
+            scan_id=self._scan_id, limit=None,
         )
         self._last_recursive_plan = result
         return result
