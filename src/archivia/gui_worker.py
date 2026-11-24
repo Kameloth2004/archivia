@@ -16,6 +16,7 @@ from .inventory import inventory
 from .manual_copy import copy_manual_image_verified
 from .move_executor import move_one_approved
 from .batch_move import move_batch_approved
+from .queue_move import move_queue_approved
 from .planner import propose_date_moves
 from .duplicates import verify_duplicate_hashes, verify_snapshot_duplicate_candidates
 
@@ -77,7 +78,18 @@ class QueryWorker(QThread):
 
     def run(self) -> None:
         try:
-            if self.mode == "analyze_source":
+            if self.mode == "move_queue":
+                if self.folder_session is None or not self.folder_session.ready:
+                    raise ValueError("Não há análise ativa para movimentação.")
+                result = move_queue_approved(
+                    self.move_plan, self.move_files,
+                    db_path=self.folder_session._db,
+                    scan_id=self.folder_session._scan_id,
+                    approval=self.move_approval,
+                    progress=self.progress_update.emit,
+                    interrupted=self.isInterruptionRequested,
+                )
+            elif self.mode == "analyze_source":
                 if self.folder_session is None:
                     raise ValueError("Selecione uma pasta de origem.")
                 result = self.folder_session.analyze_source()
