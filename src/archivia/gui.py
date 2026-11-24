@@ -1392,7 +1392,12 @@ class ArchivIAWindow(QMainWindow):
             return
         selected_destination = self.home_destination.text().strip()
         if not selected_destination:
-            self._show_error("Escolha a pasta de destino primeiro.")
+            QMessageBox.warning(
+                self, "Escolher destino",
+                "Selecione a pasta de destino para continuar. "
+                "Nenhum arquivo foi alterado.",
+            )
+            self._show_error("Selecione a pasta de destino para continuar.")
             return
         target = Path(selected_destination).expanduser().absolute()
         if not target.is_dir() or target.is_symlink():
