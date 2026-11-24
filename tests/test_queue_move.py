@@ -61,15 +61,18 @@ class QueueMoveTests(unittest.TestCase):
         for i in range(1, 4):
             self.assertTrue((self.source / f"img{i}.jpg").exists())
 
-    def test_first_failure_stops_and_keeps_unprocessed_files(self):
+    def test_safe_collision_is_reported_and_remaining_files_are_moved(self):
         (self.dest / "img1.jpg").write_bytes(b"ocupado")
         result = self.run_queue()
-        self.assertEqual(result["moved"], 1)
-        self.assertEqual(result["processed"], 2)
-        self.assertEqual(result["pending"], 2)
-        self.assertTrue(result["stopped"])
+        self.assertEqual(result["moved"], 3)
+        self.assertEqual(result["processed"], 4)
+        self.assertEqual(result["pending"], 0)
+        self.assertFalse(result["stopped"])
+        self.assertEqual(result["blocked"], 1)
+        self.assertEqual(result["errors"], 0)
         self.assertEqual((self.dest / "img1.jpg").read_bytes(), b"ocupado")
-        self.assertTrue((self.source / "img2.jpg").exists())
+        self.assertTrue((self.source / "img1.jpg").exists())
+        self.assertFalse((self.source / "img2.jpg").exists())
 
     def test_reject_bad_authorization_or_unplanned_files(self):
         for selection in (["img0.jpg", "img0.jpg"], ["../img0.jpg"],
