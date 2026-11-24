@@ -642,8 +642,6 @@ class ArchivIAWindow(QMainWindow):
                 lambda _checked=False, cat=category: self._home_count(cat)
             )
             quick_row.addWidget(quick_button)
-        home_layout.addWidget(quick_box)
-
         home_destination_box = QGroupBox("Pasta de destino (para organizar ou simular)")
         home_destination_row = QHBoxLayout(home_destination_box)
         self.home_destination = QLineEdit()
@@ -656,7 +654,6 @@ class ArchivIAWindow(QMainWindow):
         self.home_prompt = QLineEdit()
         self.home_prompt.setPlaceholderText("Pergunte algo à IA (opcional), por exemplo: quantas imagens tenho?")
         self.home_prompt.returnPressed.connect(self._home_ask)
-        home_layout.addWidget(self.home_prompt)
         home_actions = QHBoxLayout()
         self.home_ask_button = QPushButton("Pedir ajuda à IA (opcional)")
         self.home_ask_button.clicked.connect(self._home_ask)
@@ -664,7 +661,6 @@ class ArchivIAWindow(QMainWindow):
         self.home_refresh_button = QPushButton("Atualizar análise da pasta")
         self.home_refresh_button.clicked.connect(self._refresh_folder_session)
         home_actions.addWidget(self.home_refresh_button)
-        home_layout.addLayout(home_actions)
         home_layout.addWidget(home_destination_box)
         home_move_box = QGroupBox("2. Escolher arquivos e preparar organização")
         home_move_layout = QVBoxLayout(home_move_box)
@@ -710,6 +706,10 @@ class ArchivIAWindow(QMainWindow):
         self.home_conflict_button.setEnabled(False)
         home_move_layout.addWidget(self.home_conflict_button)
         home_layout.addWidget(home_move_box)
+        # Recursos opcionais ficam abaixo do fluxo principal de organização.
+        home_layout.addWidget(quick_box)
+        home_layout.addWidget(self.home_prompt)
+        home_layout.addLayout(home_actions)
 
         # Catalogação opcional diretamente no Início, reutilizando a mesma
         # prévia, validação e confirmação do Inventário avançado.
