@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from .agent import FolderCatalogSession
 from .move_executor import APPROVAL_PHRASE, preview_conflict_move
 from .batch_move import MAX_BATCH_FILES
+from .queue_move import MAX_QUEUE_FILES
 from .catalog import DEFAULT_DB
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .preview import preview_inventory_page
@@ -693,6 +694,17 @@ class ArchivIAWindow(QMainWindow):
         self.home_batch_button.clicked.connect(self._approve_batch_move)
         self.home_batch_button.setEnabled(False)
         home_move_layout.addWidget(self.home_batch_button)
+        self.home_all_button = QPushButton("Mover todos os arquivos prontos...")
+        self.home_all_button.clicked.connect(self._approve_all_moves)
+        self.home_all_button.setEnabled(False)
+        home_move_layout.addWidget(self.home_all_button)
+        self.home_stop_button = QPushButton("Interromper após o arquivo atual")
+        self.home_stop_button.setEnabled(False)
+        self.home_stop_button.clicked.connect(self._stop_move_queue)
+        home_move_layout.addWidget(self.home_stop_button)
+        self.home_queue_progress = QLabel("")
+        self.home_queue_progress.setWordWrap(True)
+        home_move_layout.addWidget(self.home_queue_progress)
         self.home_conflict_button = QPushButton("Guardar versões com nomes repetidos...")
         self.home_conflict_button.clicked.connect(self._approve_conflict_move)
         self.home_conflict_button.setEnabled(False)
@@ -1066,6 +1078,13 @@ class ArchivIAWindow(QMainWindow):
         )
 
     def _update_hash_progress(self, event: dict) -> None:
+        if "file" in event and "status" in event:
+            self.home_queue_progress.setText(
+                f"Processados: {event.get('processed', 0)}/{event.get('total', 0)} "
+                f"— último arquivo: {event.get('status')}"
+            )
+            self.status.setText("Movimentação supervisionada em andamento...")
+            return
         phase = event.get("phase")
         processed = event.get("processed", 0)
         total = event.get("total", 0)
@@ -1288,6 +1307,10 @@ class ArchivIAWindow(QMainWindow):
                          and plan.get("complete") is True and plan.get("pending") == 0)
         self.move_button.setEnabled(self._worker is None and has_proposals)
         self.home_batch_button.setEnabled(self._worker is None and has_proposals)
+        self.home_all_button.setEnabled(
+            self._worker is None and has_proposals
+            and self.move_choice.count() - 1 <= MAX_QUEUE_FILES
+        )
         self.advanced_batch_button.setEnabled(self._worker is None and has_proposals)
         proposed_count = self.move_choice.count() - 1
         if has_proposals or has_conflicts:
@@ -1461,6 +1484,57 @@ class ArchivIAWindow(QMainWindow):
             approved_target_name=preview["suggested_filename"],
         )
 
+    def _approve_all_moves(self) -> None:
+        """Confirma e inicia a fila completa, sem envolver o Ollama."""
+        if self._worker is not None:
+            return
+        session = self._folder_session
+        plan = session._last_recursive_plan if session is not None else None
+        if (session is None or not session.ready or plan is None
+                or plan.get("complete") is not True or plan.get("pending") != 0):
+            self._show_error("Prepare a organização completa antes de mover.")
+            return
+        files = [a["file"] for a in plan["actions"]
+                 if isinstance(a, dict) and a.get("status") == "proposto"
+                 and a.get("reason") is None]
+        if not 1 <= len(files) <= MAX_QUEUE_FILES:
+            self._show_error(
+                "Quantidade fora do limite desta versão. Use uma seleção menor."
+            )
+            return
+        answer = QMessageBox.question(
+            self, "Confirmar movimentação de todos os arquivos prontos",
+            f"Arquivos para mover: {len(files)}\n"
+            f"Origem: {plan['root']}\n"
+            f"Destino: {plan['destination']}\n\n"
+            f"Bloqueados (não serão movidos): {plan['blocked']}\n\n"
+            "Cada arquivo será validado antes de mover. Os originais serão "
+            "removidos apenas depois da cópia conferida.\n"
+            "Você pode interromper a fila entre arquivos. "
+            "Arquivos já movidos NÃO serão revertidos.\n"
+            "A fila para no primeiro erro.\n\n"
+            "Deseja iniciar esta movimentação REAL?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.home_queue_progress.setText(
+            f"Iniciando movimentação de {len(files)} arquivo(s)..."
+        )
+        self._start_worker(
+            "move_queue", DEFAULT_DB, folder_session=session,
+            move_plan=plan, move_files=files, move_approval=APPROVAL_PHRASE,
+        )
+
+    def _stop_move_queue(self) -> None:
+        if self._worker is not None and self._worker.mode == "move_queue":
+            self._worker.requestInterruption()
+            self.home_stop_button.setEnabled(False)
+            self.home_queue_progress.setText(
+                "Interrupção solicitada. O arquivo atual será concluído antes de parar."
+            )
+
     def _approve_batch_move(self) -> None:
         if self._worker is not None:
             return
@@ -1557,6 +1631,7 @@ class ArchivIAWindow(QMainWindow):
             approved_target_name,
         )
         self._worker = worker
+        self.home_stop_button.setEnabled(mode == "move_queue")
         worker.finished_result.connect(lambda result: self._show_result(mode, result))
         worker.progress_update.connect(self._update_hash_progress)
         worker.failed.connect(self._show_error)
@@ -1589,6 +1664,13 @@ class ArchivIAWindow(QMainWindow):
         self.move_button.setEnabled(valid_proposals)
         self.advanced_batch_button.setEnabled(valid_proposals)
         self.home_batch_button.setEnabled(valid_proposals)
+        self.home_all_button.setEnabled(
+            valid_proposals and self.move_choice.count() - 1 <= MAX_QUEUE_FILES
+        )
+        self.home_stop_button.setEnabled(
+            busy and self._worker is not None and self._worker.mode == "move_queue"
+            and not self._worker.isInterruptionRequested()
+        )
         self.home_conflict_button.setEnabled(
             not busy and isinstance(plan, dict)
             and plan.get("complete") is True and plan.get("pending") == 0
@@ -1652,7 +1734,32 @@ class ArchivIAWindow(QMainWindow):
             self._show_error(f"Resposta inválida do backend: {exc}")
 
     def _render_result(self, mode: str, result: dict) -> None:
-        if mode == "analyze_source":
+        if mode == "move_queue":
+            lines = [
+                "RESULTADO DA ORGANIZAÇÃO",
+                f"Solicitados: {result['requested']} | Movidos: {result['moved']} | "
+                f"Processados: {result['processed']} | Pendentes: {result['pending']}",
+                f"Interrompido: {'sim' if result['stopped'] else 'não'}",
+            ]
+            for item in result["results"][-20:]:
+                lines.append(
+                    f"{item['status'].upper()}: {item['file']} {item.get('detail', '')}"
+                )
+            if len(result["results"]) > 20:
+                lines.append("Exibidos os últimos 20 resultados.")
+            lines.append(result["note"])
+            report = "\n".join(lines)
+            self.home_result.setPlainText(report)
+            self.result_view.setPlainText(report)
+            self.home_queue_progress.setText(
+                f"Concluídos: {result['moved']} de {result['requested']}. "
+                f"Pendentes: {result['pending']}."
+            )
+            if self._folder_session is not None:
+                self._folder_session.close()
+            self._update_move_choices()
+            self.status.setText("Fila encerrada. Atualize a análise antes de continuar.")
+        elif mode == "analyze_source":
             self._update_move_choices()
             counts = result["summary"]["by_category"]
             summary = (
