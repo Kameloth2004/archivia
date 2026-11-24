@@ -143,6 +143,24 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn('mode == "manual_copy"', result.replace(chr(39), chr(34)))
         self.assertIn("A imagem original NÃO foi removida", result)
 
+    def test_home_direct_organization_is_independent_of_ollama(self):
+        init = ast.unparse(self.method("__init__"))
+        preparation = ast.unparse(self.method("_prepare_home_organization"))
+        invalidation = ast.unparse(self.method("_invalidate_home_organization"))
+        busy = ast.unparse(self.method("_set_busy"))
+        self.assertIn("self.home_prepare_button.clicked.connect(self._prepare_home_organization)", init)
+        self.assertIn("self.home_organize_category.addItem('Vídeos', 'video')", init)
+        self.assertIn("self.home_organize_category.addItem('Áudios', 'audio')", init)
+        self.assertIn("self.home_folder.textChanged.connect(self._invalidate_home_organization)", init)
+        self.assertIn("self.home_destination.textChanged.connect(self._invalidate_home_organization)", init)
+        self.assertIn("self.home_organize_category.currentIndexChanged.connect(self._invalidate_home_organization)", init)
+        self.assertIn("self._start_worker(", preparation)
+        self.assertIn("self.home_organize_category.currentData()", preparation)
+        self.assertNotIn("self._run_agent(", preparation)
+        self.assertIn("session._last_recursive_plan = None", invalidation)
+        self.assertIn("plan.get('complete') is True", busy)
+        self.assertIn("self.home_prepare_button.setEnabled(not busy)", busy)
+
     def test_home_understands_mova_and_renders_recursive_plan(self):
         handler = ast.unparse(self.method("_home_ask"))
         self.assertIn("'mova'", handler)
