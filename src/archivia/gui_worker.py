@@ -77,7 +77,13 @@ class QueryWorker(QThread):
 
     def run(self) -> None:
         try:
-            if self.mode == "move_conflict":
+            if self.mode == "prepare_organization":
+                if self.folder_session is None:
+                    raise ValueError("Selecione primeiro a pasta de origem.")
+                result = self.folder_session.prepare_recursive_plan(
+                    self.destination, self.category or "imagem",
+                )
+            elif self.mode == "move_conflict":
                 if self.folder_session is None or not self.folder_session.ready:
                     raise ValueError("Sessão de origem não disponível.")
                 result = move_one_approved(
