@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .catalog import DEFAULT_DB
-from .move_executor import APPROVAL_PHRASE, move_one_approved
+from .move_executor import APPROVAL_PHRASE, MoveSkippedError, move_one_approved
 
 MAX_QUEUE_FILES = 10_000
 
@@ -55,14 +55,21 @@ def move_queue_approved(
                 approval=approval,
             )
             row["file"] = name
-        except (ValueError, OSError, RuntimeError) as exc:
+        except MoveSkippedError as exc:
+            # Bloqueio previsível ANTES de publicar o destino:
+            # preservar origem, registrar e prosseguir.
             row = {"file": name, "status": "bloqueado",
+                   "detail": str(exc), "files_modified": False}
+        except (ValueError, OSError, RuntimeError) as exc:
+            # Estado desconhecido ou falha na cópia/publicação:
+            # não processar mais nenhum arquivo até nova análise.
+            row = {"file": name, "status": "erro",
                    "detail": str(exc), "files_modified": False}
         rows.append(row)
         if progress is not None:
             progress({"processed": len(rows), "total": len(files),
                       "file": name, "status": row["status"]})
-        if row["status"] != "movido":
+        if row["status"] not in ("movido", "bloqueado"):
             stopped_reason = row["status"]
             break
     return {
@@ -72,8 +79,11 @@ def move_queue_approved(
         "pending": len(files) - len(rows),
         "stopped": stopped_reason is not None,
         "stopped_reason": stopped_reason,
+        "blocked": sum(r["status"] == "bloqueado" for r in rows),
+        "errors": sum(r["status"] == "erro" for r in rows),
         "results": rows,
         "files_modified": any(r["status"] in ("movido", "copiado_origem_preservada")
                               for r in rows),
-        "note": "Não há reversão automática. Gere nova análise antes de continuar.",
+        "note": ("Bloqueios seguros não interrompem a fila. Falhas de integridade "
+                 "interrompem imediatamente. Não há reversão automática."),
     }
