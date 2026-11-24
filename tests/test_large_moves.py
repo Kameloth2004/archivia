@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from support import temporary_test_directory
 from archivia.agent import FolderCatalogSession
-from archivia.move_executor import APPROVAL_PHRASE, MoveSkippedError, move_one_approved
+from archivia.move_executor import APPROVAL_PHRASE, move_one_approved, preview_conflict_move
 from archivia.queue_move import move_queue_approved
 
 
@@ -77,6 +77,22 @@ class LargeFileMoveTests(unittest.TestCase):
         self.assertTrue(second.exists())
         self.assertFalse(large.exists())
         self.assertFalse(third.exists())
+
+    def test_large_video_conflict_hash_and_alternative(self):
+        source = self.large_file("repetido.mp4")
+        target = self.dest / "repetido.mp4"
+        with target.open("wb") as stream:
+            stream.truncate(LARGE_BYTES)
+            stream.write(b"outra-versao")
+        plan = self.session.prepare_recursive_plan(self.dest, "video")
+        preview = preview_conflict_move(
+            plan, "repetido.mp4", db_path=self.session._db,
+            scan_id=self.session._scan_id,
+        )
+        self.assertEqual(preview["status"], "conteudo_diferente")
+        self.assertEqual(preview["suggested_filename"], "repetido_archivia_1.mp4")
+        self.assertTrue(source.exists())
+        self.assertEqual(target.stat().st_size, LARGE_BYTES)
 
     def test_unsafe_failure_stops_queue(self):
         for n in ("a.jpg", "b.jpg", "c.jpg"):
