@@ -669,6 +669,9 @@ class ArchivIAWindow(QMainWindow):
         )
         self.home_move_info.setWordWrap(True)
         home_move_layout.addWidget(self.home_move_info)
+        self.home_prepare_button = QPushButton("Preparar organização das imagens")
+        self.home_prepare_button.clicked.connect(self._prepare_home_organization)
+        home_move_layout.addWidget(self.home_prepare_button)
         self.home_batch_button = QPushButton("Revisar e mover arquivos selecionados...")
         self.home_batch_button.clicked.connect(self._approve_batch_move)
         self.home_batch_button.setEnabled(False)
@@ -1309,6 +1312,29 @@ class ArchivIAWindow(QMainWindow):
             move_approval=APPROVAL_PHRASE,
         )
 
+    def _prepare_home_organization(self) -> None:
+        """Planeja a organização em um clique, sem Ollama e sem mover arquivos."""
+        if self._worker is not None:
+            return
+        selected_destination = self.home_destination.text().strip()
+        if not selected_destination:
+            self._show_error("Escolha a pasta de destino primeiro.")
+            return
+        target = Path(selected_destination).expanduser().absolute()
+        if not target.is_dir() or target.is_symlink():
+            self._show_error("Escolha uma pasta de destino existente e válida.")
+            return
+        try:
+            session = self._session_for_folder()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._start_worker(
+            "prepare_organization", DEFAULT_DB,
+            destination=str(target), category="imagem",
+            folder_session=session,
+        )
+
     def _approve_conflict_move(self) -> None:
         """Resolução guiada de um conflito, sem comandos técnicos ao usuário."""
         if self._worker is not None:
@@ -1514,6 +1540,7 @@ class ArchivIAWindow(QMainWindow):
                     and a.get("reason") == "destino_ja_existe"
                     for a in plan.get("actions", []))
         )
+        self.home_prepare_button.setEnabled(not busy)
         self.home_ask_button.setEnabled(not busy)
         self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
@@ -1567,7 +1594,26 @@ class ArchivIAWindow(QMainWindow):
             self._show_error(f"Resposta inválida do backend: {exc}")
 
     def _render_result(self, mode: str, result: dict) -> None:
-        if mode == "move_batch":
+        if mode == "prepare_organization":
+            self._update_move_choices()
+            summary = (
+                "Organização preparada — nada foi movido.\n"
+                f"Imagens encontradas: {result['total_matches']}\n"
+                f"Prontas para mover: {result['proposed']}\n"
+                f"Com nomes repetidos ou outros bloqueios: {result['blocked']}\n"
+                f"Faltam examinar: {result['pending']}\n"
+            )
+            if result["complete"]:
+                summary += (
+                    "\nEscolha Revisar e mover arquivos selecionados "
+                    "ou Resolver arquivos com o mesmo nome."
+                )
+            else:
+                summary += "\nA prévia é parcial. Nenhum arquivo poderá ser movido."
+            self.home_result.setPlainText(summary)
+            self.result_view.setPlainText(summary)
+            self.status.setText("Organização preparada, sem movimentar arquivos.")
+        elif mode == "move_batch":
             lines = [
                 "RESULTADO DO LOTE SUPERVISIONADO",
                 f"Solicitados: {result['requested']} | Processados: {result['processed']} | "
