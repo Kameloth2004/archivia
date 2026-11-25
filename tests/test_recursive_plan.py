@@ -59,11 +59,26 @@ class RecursivePlanningTests(unittest.TestCase):
             self.assertIn("destino_ja_existe", result["blocked_by_reason"])
             self.assertEqual((dest / "extra.png").read_bytes(), b"NAO-SOBRESCREVER")
 
-    def test_rejects_destination_within_source(self):
+    def test_nested_destination_skips_files_already_inside(self):
         with temporary_test_directory() as tmp:
             root, dest, db, scan = self.setup_case(tmp)
-            with self.assertRaisesRegex(ValueError, "dentro da origem"):
-                propose_recursive_consolidation(root / "sub1", "imagem", db, scan_id=scan)
+            # sub1 contém foto.jpg e será o destino de sub2/extra.png.
+            result = propose_recursive_consolidation(root / "sub1", "imagem", db, scan_id=scan)
+            self.assertTrue(result["destination_inside_root"])
+            self.assertEqual(result["total_matches"], 3)
+            self.assertEqual(result["pending"], 0)
+            self.assertTrue(result["complete"])
+            self.assertEqual(result["blocked_by_reason"]["ja_no_destino"], 1)
+            self.assertEqual(result["proposed"], 1)
+            self.assertEqual(result["blocked_by_reason"]["destino_ja_existe"], 1)
+            self.assertEqual((root / "sub1" / "foto.jpg").read_bytes(), b"a")
+            self.assertTrue((root / "sub2" / "extra.png").exists())
+
+    def test_same_folder_is_still_rejected(self):
+        with temporary_test_directory() as tmp:
+            root, dest, db, scan = self.setup_case(tmp)
+            with self.assertRaisesRegex(ValueError, "mesma pasta"):
+                propose_recursive_consolidation(root, "imagem", db, scan_id=scan)
 
     def test_model_tool_is_allowlisted_and_bounded(self):
         self.assertIn(
