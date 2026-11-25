@@ -6,6 +6,32 @@ Versão inicial: `2.0.0.dev0`.
 A linha estável V1 permanece preservada em `release/v1.0.0`; a `main` não deve
 receber mudanças da V2 antes da homologação.
 
+## Navegação modular (primeira etapa)
+
+A interface V2 utiliza seis abas permanentes:
+
+1. **Início**: escolha da origem, análise inicial, consulta rápida opcional
+   e atalho para Organizar.
+2. **Biblioteca**: *Acervo* (busca e filtros), *Inventário* (prévia e
+   catalogação) e *Visão geral* (origens e snapshots no SQLite).
+3. **Documentos**: atalhos para consultar documentos, planilhas e
+   apresentações por categoria ou extensão no Acervo. Esses atalhos não
+   extraem texto nem abrem o conteúdo dos arquivos.
+4. **Organizar**: *Movimentação*, *Simulação por data* e
+   *Duplicatas (SHA-256)*. Reutiliza as operações e autorizações existentes.
+5. **Agente IA**: consulta local ao Ollama e suas ferramentas de leitura
+   e simulação, sem executar movimentações.
+6. **Configurações**: seleção do modelo Ollama e preferências de data.
+
+O antigo botão *Avançado* foi substituído pela navegação permanente.
+A aba Documentos ainda não possui leitor de metadados interno,
+renomeação nem análise de conteúdo: nesta etapa, são apenas acessos
+a filtros do catálogo existente.
+
+Os resultados da organização são exibidos também em Organizar, sem
+criar uma segunda fila ou duplicar o motor de movimentação. A tela
+de Início não contém mais os botões de autorização para mover.
+
 ## Categorias organizáveis
 
 O inventário já reconhece os nove grupos abaixo. A V2 habilita a seleção
