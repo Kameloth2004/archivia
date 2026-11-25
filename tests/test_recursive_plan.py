@@ -92,11 +92,18 @@ class RecursivePlanningTests(unittest.TestCase):
             self.assertEqual(report["scan_id"], scan)
             self.assertEqual(report["total_matches"], 3)
             self.assertFalse(report["executable"])
+            documents = dispatch_tool(
+                "planejar_consolidacao_recursiva",
+                {"categoria": "documento", "destino": str(dest)}, db, scan,
+            )
+            self.assertEqual(documents["total_matches"], 1)
+            self.assertEqual(documents["proposed"], 1)
+            self.assertFalse(documents["executable"])
             for bad in (
                 {"categoria": "imagem", "destino": str(dest), "executar": True},
                 {"categoria": "imagem", "destino": str(dest), "limite": 501},
                 {"categoria": "imagem", "destino": str(dest), "limite": True},
-                {"categoria": "documento", "destino": str(dest)},
+                {"categoria": "inexistente", "destino": str(dest)},
                 {"categoria": "imagem", "destino": ""},
             ):
                 with self.subTest(bad=bad):
