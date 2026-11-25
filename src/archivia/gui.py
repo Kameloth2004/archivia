@@ -1882,8 +1882,30 @@ class ArchivIAWindow(QMainWindow):
                 f"Solicitados: {result['requested']} | Movidos: {result['moved']} | "
                 f"Processados: {result['processed']} | Pendentes: {result['pending']}",
                 f"Bloqueados: {result.get('blocked', 0)} | Erros: {result.get('errors', 0)}",
-                f"Interrompido: {'sim' if result['stopped'] else 'não'}",
+                f"Parada antecipada: {'sim' if result['stopped'] else 'não'}",
+                f"Bloqueados já no planejamento (não selecionados): {result.get('plan_blocked', 0)}",
             ]
+            reasons = result.get("plan_blocked_by_reason", {})
+            if reasons:
+                lines.append("Motivos dos bloqueios na prévia:")
+                for reason, count in sorted(reasons.items()):
+                    lines.append(f"  {reason}: {count}")
+            if result["stopped"]:
+                last = result["results"][-1] if result["results"] else None
+                if last and last.get("status") == "erro":
+                    lines.append(
+                        f"ERRO QUE INTERROMPEU: {last['file']} — {last.get('detail', '')}"
+                    )
+                elif result.get("stopped_reason") == "interrompido_pelo_usuario":
+                    lines.append("Interrompido a pedido do usuário.")
+                else:
+                    lines.append(
+                        f"Motivo da parada: {result.get('stopped_reason', 'não informado')}"
+                    )
+                lines.append(
+                    f"Arquivos ainda NÃO TENTADOS: {result['pending']}. "
+                    "Nenhum desses arquivos foi movimentado nesta fila."
+                )
             for item in result["results"][-20:]:
                 lines.append(
                     f"{item['status'].upper()}: {item['file']} {item.get('detail', '')}"
