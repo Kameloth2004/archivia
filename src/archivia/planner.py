@@ -10,8 +10,9 @@ import os
 from typing import Any
 
 from .catalog import DEFAULT_DB, query_catalog_page
+from .inventory import CATEGORIES
 
-ALLOWED_CATEGORIES = frozenset(("imagem", "video", "audio"))
+ALLOWED_CATEGORIES = frozenset(CATEGORIES)
 MAX_PLAN_ITEMS = 100
 
 
@@ -29,7 +30,7 @@ def propose_moves(
 ) -> dict[str, Any]:
     """Gera prévia de até 100 arquivos em um snapshot, sem mover ou escrever."""
     if category not in ALLOWED_CATEGORIES:
-        raise ValueError("Categoria inválida: imagem, video ou audio.")
+        raise ValueError("Categoria inválida para planejamento.")
     if not isinstance(limit, int) or isinstance(limit, bool) or not (1 <= limit <= MAX_PLAN_ITEMS):
         raise ValueError(f"Limite deve estar entre 1 e {MAX_PLAN_ITEMS}.")
 
@@ -127,7 +128,7 @@ def summarize_consolidation(
     reservados persiste entre as páginas, inclusive para detectar colisões remotas.
     """
     if category not in ALLOWED_CATEGORIES:
-        raise ValueError("Categoria inválida: imagem, video ou audio.")
+        raise ValueError("Categoria inválida para planejamento.")
     if (not isinstance(max_candidates, int) or isinstance(max_candidates, bool)
             or not 1 <= max_candidates <= 10000):
         raise ValueError("Máximo de candidatos deve estar entre 1 e 10000.")
@@ -249,7 +250,7 @@ def propose_date_moves(
     deve existir, mas os subdiretórios AAAA/MM são apenas destinos propostos.
     """
     if category not in ALLOWED_CATEGORIES:
-        raise ValueError("Categoria inválida: imagem, video ou audio.")
+        raise ValueError("Categoria inválida para planejamento.")
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= MAX_PLAN_ITEMS:
         raise ValueError(f"Limite deve estar entre 1 e {MAX_PLAN_ITEMS}.")
     dest = Path(destination).expanduser().absolute()
