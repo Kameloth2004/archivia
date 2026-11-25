@@ -65,6 +65,28 @@ movimentos preserva os bytes e os documentos existentes.
 O selo `V2 · Desenvolvimento` aparece à direita do rodapé; a janela também
 é identificada como ArchivIA V2.
 
+## Conflitos entre nomes-base no planejamento e na fila
+
+Ao reunir arquivos de diferentes subpastas em um único destino, dois
+`README.md` ou nomes equivalentes com diferenças de maiúsculas/minúsculas
+não podem ser escolhidos automaticamente. A V2 marca **todas as ocorrências
+que disputam o mesmo nome-base como bloqueadas**, antes da execução.
+
+Esses arquivos não são excluídos nem sobrescritos. Outros arquivos com
+nomes livres continuam disponíveis para mover. Se um plano anterior ou
+alterado apresentar uma proposta com nome ambíguo, o executor registra
+o item como bloqueado e a fila prossegue; erros imprevistos ou falhas de
+integridade continuam interrompendo a operação.
+
+O relatório final distingue:
+- bloqueios detectados no planejamento, que **não entram na fila**;
+- bloqueios encontrados na execução, que contam como processados;
+- erros que interrompem a fila;
+- arquivos pendentes, que **não foram tentados** na execução.
+
+Se uma movimentação anterior foi interrompida, gere nova prévia antes de
+continuar: arquivos já movidos não devem ser enviados novamente.
+
 ## Limitações intencionais
 
 - Ainda não há classificação por conteúdo, IA semântica ou extração de arquivos.
