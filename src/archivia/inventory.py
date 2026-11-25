@@ -21,6 +21,17 @@ EXTENSIONS = {
 }
 MEDIA_CATEGORIES = frozenset(("imagem", "video", "audio"))
 CATEGORIES = (*EXTENSIONS.keys(), "outro")
+CATEGORY_LABELS = {
+    "imagem": "Imagens",
+    "video": "Vídeos",
+    "audio": "Áudios",
+    "documento": "Documentos",
+    "planilha": "Planilhas",
+    "apresentacao": "Apresentações",
+    "compactado": "Compactados",
+    "codigo": "Código-fonte",
+    "outro": "Outros arquivos",
+}
 CATEGORY_BY_EXTENSION = {
     extension: category
     for category, extensions in EXTENSIONS.items()
