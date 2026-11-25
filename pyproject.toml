@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "archivia"
-version = "0.1.0"
-description = "Bibliotecário digital local, começando por inventário somente leitura"
+version = "2.0.0.dev0"
+description = "ArchivIA: bibliotecário digital local com organização supervisionada"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
