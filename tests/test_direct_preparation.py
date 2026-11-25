@@ -86,9 +86,18 @@ class DirectPreparationTests(unittest.TestCase):
         self.assertEqual(report["examined"], 513)
         self.assertTrue(report["complete"])
         self.assertEqual(report["pending"], 0)
-        self.assertEqual(report["blocked"], 2)
+        # A V2 bloqueia ambas as origens com o mesmo nome-base,
+        # mesmo quando a colisão atravessa páginas do catálogo.
+        self.assertEqual(report["blocked"], 3)
+        self.assertEqual(report["proposed"], 510)
         self.assertEqual(report["blocked_by_reason"]["destino_ja_existe"], 1)
-        self.assertEqual(report["blocked_by_reason"]["nome_repetido_entre_subpastas"], 1)
+        self.assertEqual(report["blocked_by_reason"]["nome_repetido_entre_subpastas"], 2)
+        duplicate_actions = [action for action in report["actions"]
+                             if action["file"].endswith("imagem_0001.jpg")]
+        self.assertEqual(len(duplicate_actions), 2)
+        self.assertTrue(all(action["status"] == "bloqueado"
+                            and action["reason"] == "nome_repetido_entre_subpastas"
+                            for action in duplicate_actions))
         self.assertEqual(len(report["actions"]), 513)
         self.assertTrue((sub_a / "imagem_0001.jpg").exists())
         self.assertTrue((sub_b / "imagem_0001.jpg").exists())
