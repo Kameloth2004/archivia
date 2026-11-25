@@ -22,6 +22,7 @@ _MAX_ITEMS = 100_000
 def propose_recursive_consolidation(
     destination: str | Path, category: str, db_path: Path = DEFAULT_DB,
     *, scan_id: int | None = None, limit: int | None = 100,
+    recursive: bool = True,
 ) -> dict[str, Any]:
     """Propõe juntar arquivos de todas as subpastas numa pasta existente.
 
@@ -30,6 +31,8 @@ def propose_recursive_consolidation(
     """
     if category not in ALLOWED_CATEGORIES:
         raise ValueError("Categoria inválida para planejamento recursivo.")
+    if not isinstance(recursive, bool):
+        raise ValueError("Escopo de análise inválido.")
     if limit is not None and (
         not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= _MAX_ITEMS
     ):
@@ -86,6 +89,10 @@ def propose_recursive_consolidation(
                 or "\\" in text or ":" in text
             ):
                 reason = "caminho_invalido"
+            elif not recursive and len(rel.parts) != 1:
+                # Proteção adicional: um plano de escopo local nunca pode
+                # selecionar conteúdo das subpastas, mesmo em snapshot alterado.
+                reason = "fora_do_escopo"
             else:
                 source = root.joinpath(*rel.parts)
                 target = dest / source.name
@@ -131,7 +138,7 @@ def propose_recursive_consolidation(
     return {
         "schema_version": 1, "operation": "move_recursive_consolidation",
         "mode": "simulation", "executable": False,
-        "requires_explicit_approval": True, "recursive": True,
+        "requires_explicit_approval": True, "recursive": recursive,
         "root": str(root), "destination": str(dest),
         "category": category, "scan_id": first["scan_id"],
         "destination_inside_root": nested_destination,
