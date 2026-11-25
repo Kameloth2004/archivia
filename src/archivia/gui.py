@@ -30,6 +30,7 @@ from .gui_helpers import validate_gui_result, can_save_inventory_preview
 from .gui_worker import QueryWorker
 from .gui_theme import ARCHIVIA_STYLESHEET
 from .gui_icons import icon_for
+from .gui_date_field import CalendarDateEdit
 from .gui_tables import fill_table
 from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
@@ -353,17 +354,11 @@ class ArchivIAWindow(QMainWindow):
         catalog_layout.addLayout(search_row)
         date_row = QHBoxLayout()
         date_row.addWidget(QLabel("Modificado de:"))
-        self.catalog_date_from = QLineEdit()
-        self.catalog_date_from.setInputMask(date_input_mask(self._date_format))
-        self.catalog_date_from.setPlaceholderText(DATE_FORMATS[self._date_format][1])
-        self.catalog_date_from.setMaximumWidth(112)
+        self.catalog_date_from = CalendarDateEdit(self._date_format)
         self.catalog_date_from.returnPressed.connect(self._reset_catalog_page)
         date_row.addWidget(self.catalog_date_from)
         date_row.addWidget(QLabel("até:"))
-        self.catalog_date_to = QLineEdit()
-        self.catalog_date_to.setInputMask(date_input_mask(self._date_format))
-        self.catalog_date_to.setPlaceholderText(DATE_FORMATS[self._date_format][1])
-        self.catalog_date_to.setMaximumWidth(112)
+        self.catalog_date_to = CalendarDateEdit(self._date_format)
         self.catalog_date_to.returnPressed.connect(self._reset_catalog_page)
         date_row.addWidget(self.catalog_date_to)
         date_row.addWidget(QLabel("Ordenar:"))
@@ -983,10 +978,9 @@ class ArchivIAWindow(QMainWindow):
         for widget, iso in zip(
             (self.catalog_date_from, self.catalog_date_to), saved
         ):
-            widget.clear()
-            widget.setInputMask(date_input_mask(next_format))
-            if iso:
-                widget.setText(display_date(iso, next_format))
+            widget.set_date_format(next_format)
+            # O componente preserva a mesma data ao mudar o formato.
+            # Datas incompletas ou inválidas permanecem sem filtro.
         self._settings.setValue("interface/date_format", next_format)
         self._settings.sync()
         self._refresh_date_placeholders()
