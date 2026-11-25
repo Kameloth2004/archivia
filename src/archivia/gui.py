@@ -101,7 +101,8 @@ class ArchivIAWindow(QMainWindow):
         info.setObjectName("archiviaSubtitle")
         root.addWidget(info)
 
-        # Organiza funções por contexto e evita que a área do agente saia da tela.
+        # Seis áreas permanentes. Funcionalidades existentes são reutilizadas
+        # sem duplicar os controles de execução nem criar outro backend.
         self.tabs = QTabWidget()
         overview_page = QWidget()
         overview_layout = QVBoxLayout(overview_page)
@@ -109,6 +110,20 @@ class ArchivIAWindow(QMainWindow):
         inventory_layout = QVBoxLayout(inventory_page)
         library_page = QWidget()
         library_layout = QVBoxLayout(library_page)
+        self.library_workspace = QWidget()
+        library_workspace_layout = QVBoxLayout(self.library_workspace)
+        library_workspace_layout.setContentsMargins(4, 4, 4, 4)
+        self.library_sections = QTabWidget()
+        self.library_sections.addTab(library_page, "Acervo")
+        self.library_sections.addTab(inventory_page, "Inventário")
+        self.library_sections.addTab(overview_page, "Visão geral")
+        library_workspace_layout.addWidget(self.library_sections)
+
+        documents_page = QWidget()
+        documents_layout = QVBoxLayout(documents_page)
+        documents_layout.setContentsMargins(16, 18, 16, 16)
+        documents_layout.setSpacing(12)
+
         organize_page = QWidget()
         organize_layout = QVBoxLayout(organize_page)
         agent_page = QWidget()
@@ -119,32 +134,61 @@ class ArchivIAWindow(QMainWindow):
         home_layout = QVBoxLayout(home_page)
         home_layout.setContentsMargins(8, 10, 8, 10)
         home_layout.setSpacing(8)
-        # Uma página rolável evita que o Qt comprima os grupos e corte botões
-        # em telas com DPI alto ou janela menor. A rolagem é apenas visual.
         home_scroll = QScrollArea()
         home_scroll.setWidgetResizable(True)
         home_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         home_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         home_scroll.setWidget(home_page)
+
         self.tabs.addTab(home_scroll, icon_for("home", "#075e80"), "Início")
-        self.tabs.addTab(library_page, icon_for("layers", "#075e80"), "Biblioteca")
+        self.tabs.addTab(self.library_workspace, icon_for("layers", "#075e80"), "Biblioteca")
+        self.tabs.addTab(documents_page, icon_for("file-text", "#075e80"), "Documentos")
+        self.tabs.addTab(organize_page, icon_for("folder", "#075e80"), "Organizar")
+        self.tabs.addTab(agent_page, icon_for("sparkles", "#075e80"), "Agente IA")
         self.tabs.addTab(settings_page, icon_for("settings", "#075e80"), "Configurações")
-        self.advanced_page = QWidget()
-        advanced_layout = QVBoxLayout(self.advanced_page)
-        self.advanced_tabs = QTabWidget()
-        for page, label in (
-            (overview_page, "Visão geral"), (inventory_page, "Inventário"),
-            (organize_page, "Organização"), (agent_page, "Agente IA"),
-        ):
-            self.advanced_tabs.addTab(page, label)
-        advanced_layout.addWidget(self.advanced_tabs)
         root.addWidget(self.tabs, 1)
-        self.advanced_button = QPushButton("Avançado")
-        self.advanced_button.setIcon(icon_for("settings", "#ffffff"))
-        self.advanced_button.setObjectName("archiviaAdvanced")
-        self.advanced_button.setCheckable(True)
-        self.advanced_button.toggled.connect(self._toggle_advanced)
-        root.addWidget(self.advanced_button)
+
+        # A primeira etapa mantém uma única listagem do catálogo. A área
+        # Documentos oferece atalhos para a Biblioteca já filtrada, sem ler
+        # conteúdos internos de documentos nem efetuar escritas.
+        documents_title = QLabel("Documentos e arquivos de escritório")
+        documents_title.setObjectName("archiviaSectionTitle")
+        documents_layout.addWidget(documents_title)
+        documents_explanation = QLabel(
+            "Consulte documentos, planilhas e apresentações no catálogo local. "
+            "Escolha um grupo ou extensão para abrir a Biblioteca com o filtro aplicado."
+        )
+        documents_explanation.setWordWrap(True)
+        documents_layout.addWidget(documents_explanation)
+        for heading, category, extensions in (
+            ("Documentos", "documento", ("PDF", "TXT", "DOCX", "MD")),
+            ("Planilhas", "planilha", ("XLSX", "CSV", "ODS")),
+            ("Apresentações", "apresentacao", ("PPTX", "PPT", "ODP")),
+        ):
+            group = QGroupBox(heading)
+            controls = QHBoxLayout(group)
+            all_button = QPushButton("Ver todos")
+            all_button.clicked.connect(
+                lambda _checked=False, cat=category: self._open_document_library(cat)
+            )
+            controls.addWidget(all_button)
+            for ext in extensions:
+                button = QPushButton(ext)
+                button.clicked.connect(
+                    lambda _checked=False, cat=category, suffix=ext:
+                        self._open_document_library(cat, suffix.lower())
+                )
+                controls.addWidget(button)
+            controls.addStretch(1)
+            documents_layout.addWidget(group)
+        documents_privacy = QLabel(
+            "Somente nomes, extensões e metadados já catalogados. "
+            "Esta etapa não lê o conteúdo de PDFs, planilhas ou documentos."
+        )
+        documents_privacy.setWordWrap(True)
+        documents_privacy.setObjectName("archiviaSafety")
+        documents_layout.addWidget(documents_privacy)
+        documents_layout.addStretch(1)
 
         database_box = QGroupBox("Catálogo SQLite")
         database_layout = QVBoxLayout(database_box)
@@ -355,10 +399,19 @@ class ArchivIAWindow(QMainWindow):
         library_layout.addWidget(catalog_box, 1)
 
         organization_modes = QTabWidget()
+        move_page = QWidget()
+        move_layout = QVBoxLayout(move_page)
+        move_layout.setContentsMargins(10, 9, 10, 9)
+        move_layout.setSpacing(9)
+        move_scroll = QScrollArea()
+        move_scroll.setWidgetResizable(True)
+        move_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        move_scroll.setWidget(move_page)
         plan_page = QWidget()
         plan_layout = QVBoxLayout(plan_page)
         duplicate_page = QWidget()
         duplicate_layout = QVBoxLayout(duplicate_page)
+        organization_modes.addTab(move_scroll, "Movimentação")
         organization_modes.addTab(plan_page, "Simulação por data")
         organization_modes.addTab(duplicate_page, "Duplicatas (SHA-256)")
         organize_layout.addWidget(organization_modes, 1)
@@ -607,11 +660,10 @@ class ArchivIAWindow(QMainWindow):
                            "Arquivos grandes são verificados por SHA-256 em blocos.")
         move_note.setWordWrap(True)
         move_layout.addWidget(move_note)
-        agent_layout.addWidget(move_box)
+        # A execução supervisionada também pertence à aba Organizar.
         self.advanced_batch_button = QPushButton("Movimentar lote selecionado...")
         self.advanced_batch_button.clicked.connect(self._approve_batch_move)
         self.advanced_batch_button.setEnabled(False)
-        agent_layout.addWidget(self.advanced_batch_button)
         agent_page_layout.addWidget(agent_box)
 
         result_box = QGroupBox("Resposta e ferramentas utilizadas")
@@ -689,13 +741,32 @@ class ArchivIAWindow(QMainWindow):
         self.home_destination_button.setIcon(icon_for("folder"))
         self.home_destination_button.clicked.connect(self._home_choose_destination)
         home_destination_row.addWidget(self.home_destination_button)
-        # Origem e destino lado a lado, com seleção independente.
-        folder_pair = QHBoxLayout()
-        folder_pair.setSpacing(10)
-        folder_pair.addWidget(home_source_box, 1)
-        folder_pair.addWidget(home_destination_box, 1)
-        home_layout.addLayout(folder_pair)
+        # O Início concentra a escolha e a análise da origem.
+        home_layout.addWidget(home_source_box)
         home_layout.addWidget(self.home_analyze_button)
+        open_organize = QPushButton("Abrir organização de arquivos")
+        open_organize.setIcon(icon_for("folder"))
+        open_organize.clicked.connect(
+            lambda: self.tabs.setCurrentWidget(organize_page)
+        )
+        home_layout.addWidget(open_organize)
+
+        # A mesma origem é apresentada na área Organizar, sem duplicar estado.
+        organize_source_box = QGroupBox("Pasta de origem selecionada")
+        organize_source_row = QHBoxLayout(organize_source_box)
+        self.organize_source = QLineEdit()
+        self.organize_source.setReadOnly(True)
+        self.organize_source.setPlaceholderText("Escolha uma pasta de origem")
+        self.home_folder.textChanged.connect(self.organize_source.setText)
+        organize_source_row.addWidget(self.organize_source, 1)
+        self.organize_source_button = QPushButton("Escolher origem...")
+        self.organize_source_button.clicked.connect(self._choose_folder)
+        organize_source_row.addWidget(self.organize_source_button)
+        organize_folders = QHBoxLayout()
+        organize_folders.setSpacing(10)
+        organize_folders.addWidget(organize_source_box, 1)
+        organize_folders.addWidget(home_destination_box, 1)
+        move_layout.addLayout(organize_folders)
         # O destino é escolhido depois da análise da origem.
         self.home_prompt = QLineEdit()
         self.home_prompt.setPlaceholderText("Pergunte algo à IA (opcional), por exemplo: quantas imagens tenho?")
@@ -709,7 +780,7 @@ class ArchivIAWindow(QMainWindow):
         self.home_refresh_button.setIcon(icon_for("refresh"))
         self.home_refresh_button.clicked.connect(self._refresh_folder_session)
         home_actions.addWidget(self.home_refresh_button)
-        home_move_box = QGroupBox("2. Escolher arquivos e preparar organização")
+        home_move_box = QGroupBox("Movimentar arquivos — prévia e autorização")
         home_move_layout = QVBoxLayout(home_move_box)
         home_move_layout.setSpacing(7)
         main_controls = QHBoxLayout()
@@ -790,7 +861,9 @@ class ArchivIAWindow(QMainWindow):
         self.home_conflict_button.clicked.connect(self._approve_conflict_move)
         self.home_conflict_button.setEnabled(False)
         home_move_layout.addWidget(self.home_conflict_button)
-        home_layout.addWidget(home_move_box)
+        move_layout.addWidget(home_move_box)
+        move_layout.addWidget(move_box)
+        move_layout.addWidget(self.advanced_batch_button)
         # Consultas, IA e catalogação ficam recolhidas até o usuário solicitar.
         self.home_extras_button = QPushButton("Consultas e catalogação (opcional)")
         self.home_extras_button.setIcon(icon_for("chevron"))
@@ -838,7 +911,7 @@ class ArchivIAWindow(QMainWindow):
             "a origem será preservada."
         )
         copy_row.addWidget(self.manual_copy_button)
-        agent_page_layout.addLayout(copy_row)
+        move_layout.addLayout(copy_row)
 
         self.home_result = QPlainTextEdit()
         self.home_result.setReadOnly(True)
@@ -848,6 +921,15 @@ class ArchivIAWindow(QMainWindow):
         self.home_result.setMinimumHeight(75)
         self.home_result.setMaximumHeight(105)
         home_layout.addWidget(self.home_result)
+        self.organize_result = QPlainTextEdit()
+        self.organize_result.setReadOnly(True)
+        self.organize_result.setMinimumHeight(170)
+        self.organize_result.setPlaceholderText(
+            "Os resultados de planejamento e movimentação aparecerão aqui."
+        )
+        self.home_result.textChanged.connect(self._mirror_home_report)
+        move_layout.addWidget(self.organize_result)
+        move_layout.addStretch(1)
         home_safety = QLabel(
             "A IA apenas planeja. A execução supervisionada exige revisão e confirmação."
         )
@@ -1244,15 +1326,34 @@ class ArchivIAWindow(QMainWindow):
             hash_mode=self.hash_mode_select.currentData(),
         )
 
-    def _toggle_advanced(self, checked: bool) -> None:
-        if checked:
-            self.tabs.addTab(self.advanced_page, "Avançado")
-            self.tabs.setCurrentWidget(self.advanced_page)
-        else:
-            index = self.tabs.indexOf(self.advanced_page)
-            if index >= 0:
-                self.tabs.removeTab(index)
-            self.tabs.setCurrentIndex(0)
+    def _mirror_home_report(self) -> None:
+        """Apresenta também em Organizar o relatório do mesmo worker."""
+        self.organize_result.setPlainText(self.home_result.toPlainText())
+
+    def _open_document_library(self, category: str, extension: str | None = None) -> None:
+        """Navega para a listagem existente, aplicando filtros somente de leitura."""
+        if self._worker is not None:
+            self.status.setText("Conclua a operação atual antes de filtrar a Biblioteca.")
+            return
+        if category not in ("documento", "planilha", "apresentacao"):
+            raise ValueError("Grupo de documentos desconhecido.")
+        index = self.category_filter.findData(category)
+        if index < 0:
+            raise ValueError("Categoria indisponível na Biblioteca.")
+        self.category_filter.blockSignals(True)
+        try:
+            self.category_filter.setCurrentIndex(index)
+        finally:
+            self.category_filter.blockSignals(False)
+        self.catalog_name_filter.clear()
+        self.catalog_extension_filter.setText(extension or "")
+        self.catalog_date_from.clear()
+        self.catalog_date_to.clear()
+        self.catalog_search_scope.setCurrentIndex(0)
+        self.catalog_sort.setCurrentIndex(0)
+        self.tabs.setCurrentWidget(self.library_workspace)
+        self.library_sections.setCurrentIndex(0)
+        self._reset_catalog_page()
 
     def _manual_copy_image(self) -> None:
         if self._worker is not None:
@@ -1306,9 +1407,9 @@ class ArchivIAWindow(QMainWindow):
         ):
             self._show_error("Prévia indisponível ou desatualizada. Examine a pasta novamente.")
             return
-        # A visualização completa continua única; não duplicamos a tabela.
-        self.advanced_button.setChecked(True)
-        self.advanced_tabs.setCurrentIndex(1)
+        # A prévia continua única; abrimos a seção Inventário da Biblioteca.
+        self.tabs.setCurrentWidget(self.library_workspace)
+        self.library_sections.setCurrentIndex(1)
 
     def _home_choose_destination(self) -> None:
         selected = QFileDialog.getExistingDirectory(
@@ -1831,6 +1932,7 @@ class ArchivIAWindow(QMainWindow):
         self.home_prompt.setEnabled(not busy)
         self.home_destination.setEnabled(not busy)
         self.home_destination_button.setEnabled(not busy)
+        self.organize_source_button.setEnabled(not busy)
         self.refresh_session_button.setEnabled(not busy)
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
@@ -2140,7 +2242,8 @@ class ArchivIAWindow(QMainWindow):
                     # consulta concorrente será iniciada pelos sinais.
                     self._clear_catalog_search()
                     self.category_filter.setCurrentIndex(0)
-                    self.tabs.setCurrentIndex(1)
+                    self.tabs.setCurrentWidget(self.library_workspace)
+                    self.library_sections.setCurrentIndex(0)
                     navigation["stage"] = "await_listing"
                     self.status.setText(
                         f"Snapshot #{saved_id} salvo e selecionado. Abrindo Biblioteca..."
