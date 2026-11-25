@@ -57,14 +57,15 @@ def verify_plan_conflict(
         dest = Path(plan["destination"]).expanduser().absolute()
         if (_is_symlink_component(root) or _is_symlink_component(dest)
                 or not root.is_dir() or not dest.is_dir()
-                or dest == root or root in dest.parents):
+                or dest == root):
             return inconclusive("origem_ou_destino_indisponivel")
         source = _candidate_path(root, action["file"])
         target = dest / source.name
         if (str(source) != action.get("source")
                 or str(target) != action.get("destination")
                 or _is_symlink_component(target) or not target.is_file()
-                or source == target):
+                or source == target
+                or (root in dest.parents and (source == dest or dest in source.parents))):
             return inconclusive("conflito_ou_caminho_alterado")
         db = Path(db_path).expanduser().absolute()
         with closing(sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)) as conn:
