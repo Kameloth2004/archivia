@@ -12,7 +12,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
     from PySide6.QtWidgets import QApplication
     from archivia.gui import ArchivIAWindow
-    from archivia.gui_worker import QueryWorker
 except ImportError:
     QApplication = None
 
@@ -83,7 +82,9 @@ class ActiveFolderV2Tests(unittest.TestCase):
         w = self.window
         w.folder.setText(str(self.first))
         w.catalog_source.setCurrentIndex(w.catalog_source.findData("active"))
+        w.category_filter.blockSignals(True)
         w.category_filter.setCurrentIndex(w.category_filter.findData("documento"))
+        w.category_filter.blockSignals(False)
         with patch.object(w, "_start_worker") as start:
             w._load_catalog_page()
         self.assertEqual(start.call_args.args[0], "catalog_page")
