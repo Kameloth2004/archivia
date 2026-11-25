@@ -1146,9 +1146,11 @@ class ArchivIAWindow(QMainWindow):
     def _change_catalog_source(self, *_args) -> None:
         if self._worker is not None:
             return
+        # A troca do contexto não dispara leitura implícita em disco/SQLite.
+        # O usuário consulta explicitamente em Listar catálogo.
         self._clear_catalog_table_for_session()
         self._sync_active_folder_display()
-        self._reset_catalog_page()
+        self.status.setText("Fonte de consulta alterada. Clique em Listar catálogo.")
 
     def _refresh_active_catalog(self) -> None:
         if self._worker is not None or self.catalog_source.currentData() != "active":
