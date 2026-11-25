@@ -151,8 +151,17 @@ class QueryWorker(QThread):
                 self.folder_session.refresh()
                 result = {"root": str(self.folder_session.source), "updated": True}
             elif self.mode == "catalog_page":
+                # Uma pasta ativa usa seu próprio snapshot temporário, sem
+                # consultar nem alterar o SQLite persistente da Biblioteca.
+                database = self.database
+                scan_id = self.scan_id
+                if self.folder_session is not None:
+                    if not self.folder_session.ready:
+                        self.folder_session.refresh()
+                    database = self.folder_session._db
+                    scan_id = self.folder_session._scan_id
                 result = query_catalog_page(
-                    self.database, self.category, page=self.page, scan_id=self.scan_id,
+                    database, self.category, page=self.page, scan_id=scan_id,
                     name_contains=self.name_contains, extension=self.extension,
                     search_scope=self.search_scope, date_from=self.date_from,
                     date_to=self.date_to, sort_by=self.sort_by,
