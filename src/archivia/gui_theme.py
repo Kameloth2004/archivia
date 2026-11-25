@@ -17,6 +17,12 @@ QLabel#archiviaTitle {
     border-top-left-radius: 11px;
     border-top-right-radius: 11px;
 }
+QLabel#archiviaBrand {
+    background: #ffffff;
+    border: 1px solid #c3deee;
+    border-radius: 11px;
+    padding: 3px 12px;
+}
 QLabel#archiviaSubtitle {
     background: #09688d;
     color: #eafaff;
