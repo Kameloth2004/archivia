@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
     QFileDialog, QComboBox, QTableWidget, QHeaderView, QTabWidget,
     QSpinBox, QProgressBar, QDialog, QListWidget, QAbstractItemView, QDialogButtonBox,
-    QScrollArea, QSizePolicy,
+    QScrollArea, QSizePolicy, QCheckBox,
 )
 
 from .agent import FolderCatalogSession
@@ -724,6 +724,13 @@ class ArchivIAWindow(QMainWindow):
         self.home_organize_category.addItem("Vídeos", "video")
         self.home_organize_category.addItem("Áudios", "audio")
         category_column.addWidget(self.home_organize_category)
+        self.home_include_subfolders = QCheckBox("Incluir subpastas")
+        self.home_include_subfolders.setChecked(True)
+        self.home_include_subfolders.setToolTip(
+            "Marcado: inclui arquivos de todas as subpastas. "
+            "Desmarcado: considera só os arquivos diretamente na pasta de origem."
+        )
+        category_column.addWidget(self.home_include_subfolders)
         category_column.addStretch(1)
         category_panel.setMaximumWidth(245)
         main_controls.addWidget(category_panel, 1)
@@ -732,6 +739,7 @@ class ArchivIAWindow(QMainWindow):
             "Nesta etapa, os arquivos são reunidos em uma única pasta de destino."
         )
         self.home_recursive_hint.setWordWrap(True)
+        self.home_include_subfolders.toggled.connect(self._change_home_scope)
         self.home_move_info = QLabel(
             "Escolha o tipo e prepare uma prévia. Nada será movido sem confirmação."
         )
@@ -767,7 +775,7 @@ class ArchivIAWindow(QMainWindow):
             self.home_all_button, self.home_stop_button,
         ):
             action_button.setIconSize(QSize(30, 30))
-            action_button.setMinimumHeight(92)
+            action_button.setMinimumHeight(101)
             action_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             action_button.setToolTip(action_button.text().replace("\n", " "))
         main_controls.addLayout(move_actions_row, 4)
@@ -852,6 +860,9 @@ class ArchivIAWindow(QMainWindow):
         self.home_folder.textChanged.connect(self._invalidate_home_organization)
         self.home_destination.textChanged.connect(self._invalidate_home_organization)
         self.home_organize_category.currentIndexChanged.connect(
+            self._invalidate_home_organization
+        )
+        self.home_include_subfolders.toggled.connect(
             self._invalidate_home_organization
         )
         self._refresh_date_placeholders()
@@ -1456,6 +1467,18 @@ class ArchivIAWindow(QMainWindow):
             move_approval=APPROVAL_PHRASE,
         )
 
+    def _change_home_scope(self, include: bool) -> None:
+        if include:
+            self.home_recursive_hint.setText(
+                "Inclui automaticamente todas as subpastas. "
+                "Nesta etapa, os arquivos são reunidos em uma única pasta de destino."
+            )
+        else:
+            self.home_recursive_hint.setText(
+                "Somente arquivos diretamente na pasta de origem. "
+                "Todas as subpastas e seus conteúdos são ignorados."
+            )
+
     def _invalidate_home_organization(self, *_args) -> None:
         """Novos parâmetros exigem novo planejamento e nova aprovação."""
         if self._worker is not None:
@@ -1467,7 +1490,7 @@ class ArchivIAWindow(QMainWindow):
         self._update_move_choices()
         if had_plan:
             self.home_result.setPlainText(
-                "A origem, o destino ou o tipo de arquivo foi alterado. "
+                "A origem, o destino, o tipo de arquivo ou a abrangência foi alterada. "
                 "Clique em Preparar organização para atualizar a prévia."
             )
 
@@ -1482,6 +1505,7 @@ class ArchivIAWindow(QMainWindow):
             return
         self._start_worker(
             "analyze_source", DEFAULT_DB, folder_session=session,
+            include_subfolders=self.home_include_subfolders.isChecked(),
         )
 
     def _prepare_home_organization(self) -> None:
@@ -1511,6 +1535,7 @@ class ArchivIAWindow(QMainWindow):
             destination=str(target),
             category=self.home_organize_category.currentData(),
             folder_session=session,
+            include_subfolders=self.home_include_subfolders.isChecked(),
         )
 
     def _approve_conflict_move(self) -> None:
@@ -1716,6 +1741,7 @@ class ArchivIAWindow(QMainWindow):
         move_plan: dict | None = None, move_relative: str = "",
         move_approval: str = "", move_files: list[str] | None = None,
         approved_target_name: str | None = None,
+        include_subfolders: bool = True,
     ) -> None:
         if self._worker is not None:
             return
@@ -1733,7 +1759,7 @@ class ArchivIAWindow(QMainWindow):
             source_folder, folder_session,
             manual_source, manual_folder, approved_source, approved_destination,
             move_plan, move_relative, move_approval, move_files,
-            approved_target_name,
+            approved_target_name, include_subfolders,
         )
         self._worker = worker
         self.home_stop_button.setEnabled(mode == "move_queue")
@@ -1786,6 +1812,7 @@ class ArchivIAWindow(QMainWindow):
         self.home_analyze_button.setEnabled(not busy)
         self.home_prepare_button.setEnabled(not busy)
         self.home_organize_category.setEnabled(not busy)
+        self.home_include_subfolders.setEnabled(not busy)
         self.home_ask_button.setEnabled(not busy)
         self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
@@ -1870,6 +1897,7 @@ class ArchivIAWindow(QMainWindow):
             counts = result["summary"]["by_category"]
             summary = (
                 "Análise concluída — nenhum arquivo foi alterado.\n"
+                f"Escopo: {'pasta e subpastas' if result.get('recursive', True) else 'somente pasta selecionada'}\n"
                 f"Arquivos encontrados: {result['summary']['indexed_files']}\n"
                 f"Imagens: {counts.get('imagem', 0)} | "
                 f"Vídeos: {counts.get('video', 0)} | "
@@ -1886,6 +1914,7 @@ class ArchivIAWindow(QMainWindow):
             other_blocked = result["blocked"] - already_in_destination
             summary = (
                 "Organização preparada — nada foi movido.\n"
+                f"Escopo: {'pasta e subpastas' if result.get('recursive', True) else 'somente pasta selecionada'}\n"
                 f"Arquivos encontrados ({self.home_organize_category.currentText()}): "
                 f"{result['total_matches']}\n"
                 f"Prontos para mover: {result['proposed']}\n"
