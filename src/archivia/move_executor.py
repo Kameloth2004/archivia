@@ -140,7 +140,7 @@ def move_one_approved(
     if sum(isinstance(a, dict) and isinstance(a.get("file"), str)
            and a["file"].rsplit("/", 1)[-1].casefold() == source.name.casefold()
            for a in actions) != 1:
-        raise ValueError("Nome-base ambíguo entre arquivos do plano.")
+        raise MoveSkippedError("Nome-base ambíguo entre arquivos do plano; origem preservada.")
     if not resolve_conflict:
         if any(p.name.casefold() == target.name.casefold() for p in destination.iterdir()):
             raise MoveSkippedError("Nome de destino já ocupado.")
