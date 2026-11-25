@@ -53,6 +53,27 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("date_to=self.catalog_date_to.text()", filters)
         self.assertNotIn("QDateEdit(", constructor)
 
+    def test_active_folder_and_catalog_sources_are_isolated(self):
+        constructor = ast.unparse(self.method("__init__"))
+        current = ast.unparse(self.method("_folder_changed"))
+        listing = ast.unparse(self.method("_load_catalog_page"))
+        refresh = ast.unparse(self.method("_refresh_active_catalog"))
+        finished = ast.unparse(self.method("_worker_done"))
+        worker = (GUI_FILE.parent / "gui_worker.py").read_text(encoding="utf-8")
+        self.assertIn("self.active_folder_choose.clicked.connect(self._choose_folder)", constructor)
+        self.assertIn("self.active_folder_clear.clicked.connect(self._clear_active_folder)", constructor)
+        self.assertIn("self.catalog_source.addItem('Pasta ativa (sessão)', 'active')", constructor)
+        self.assertIn("self._active_folder = active", current)
+        self.assertIn("self._folder_session.close()", current)
+        self.assertIn("self._clear_catalog_table_for_session()", current)
+        self.assertIn("folder_session=session", listing)
+        self.assertIn("scan_id=None if active_mode else self.history_select.currentData()", listing)
+        self.assertIn('self._start_worker(', refresh)
+        self.assertIn('completed_mode == "refresh_folder_session"', finished.replace(chr(39), chr(34)))
+        self.assertIn("database = self.folder_session._db", worker)
+        self.assertIn("scan_id = self.folder_session._scan_id", worker)
+        self.assertNotIn('self._settings.setValue("session/active_folder"', constructor)
+
     def test_timestamp_cell_keeps_raw_iso_in_user_role(self):
         method = self.method("_render_result")
         body = ast.unparse(method)
