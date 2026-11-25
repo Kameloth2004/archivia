@@ -105,6 +105,8 @@ def move_one_approved(
             or plan.get("pending") != 0
             or plan.get("operation") != "move_recursive_consolidation"):
         raise ValueError("Planejamento inválido ou de outro snapshot.")
+    if plan.get("recursive") is False and "/" in relative_file:
+        raise ValueError("Arquivo de subpasta fora do escopo escolhido.")
     actions = plan["actions"]
     selected = [a for a in actions if isinstance(a, dict)
                 and a.get("file") == relative_file
