@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
     QFileDialog, QComboBox, QTableWidget, QHeaderView, QTabWidget,
     QSpinBox, QProgressBar, QDialog, QListWidget, QAbstractItemView, QDialogButtonBox,
+    QScrollArea, QSizePolicy,
 )
 
 from .agent import FolderCatalogSession
@@ -96,7 +97,16 @@ class ArchivIAWindow(QMainWindow):
         settings_layout = QVBoxLayout(settings_page)
         home_page = QWidget()
         home_layout = QVBoxLayout(home_page)
-        self.tabs.addTab(home_page, "Início")
+        home_layout.setContentsMargins(8, 10, 8, 10)
+        home_layout.setSpacing(8)
+        # Uma página rolável evita que o Qt comprima os grupos e corte botões
+        # em telas com DPI alto ou janela menor. A rolagem é apenas visual.
+        home_scroll = QScrollArea()
+        home_scroll.setWidgetResizable(True)
+        home_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        home_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        home_scroll.setWidget(home_page)
+        self.tabs.addTab(home_scroll, "Início")
         self.tabs.addTab(library_page, "Biblioteca")
         self.tabs.addTab(settings_page, "Configurações")
         self.advanced_page = QWidget()
@@ -727,6 +737,7 @@ class ArchivIAWindow(QMainWindow):
         self.home_conflict_button.clicked.connect(self._approve_conflict_move)
         self.home_conflict_button.setEnabled(False)
         home_move_layout.addWidget(self.home_conflict_button)
+        home_move_box.setMinimumHeight(235)
         home_layout.addWidget(home_move_box)
         # Recursos opcionais ficam abaixo do fluxo principal de organização.
         home_layout.addWidget(quick_box)
@@ -766,7 +777,9 @@ class ArchivIAWindow(QMainWindow):
         self.home_result.setPlaceholderText(
             "A resposta e o plano aparecerão aqui. Movimentações exigem autorização na interface."
         )
-        home_layout.addWidget(self.home_result, 1)
+        self.home_result.setMinimumHeight(90)
+        self.home_result.setMaximumHeight(150)
+        home_layout.addWidget(self.home_result)
         home_safety = QLabel(
             "A IA apenas planeja. A execução supervisionada exige revisão e confirmação."
         )
