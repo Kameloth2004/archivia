@@ -78,18 +78,18 @@ class ArchivIAWindow(QMainWindow):
 
         title = QLabel("ArchivIA — Bibliotecário digital local")
         title.setObjectName("archiviaTitle")
-        # A marca aprovada é utilizada como imagem original, sem redesenhar
-        # fontes, símbolos ou cores. Se ausente, preservamos o título textual.
+        # Recorte fiel da arte aprovada, sem recriar tipografia ou símbolo.
+        # Em instalações sem a imagem, preservamos o título textual.
         brand_logo = brand_directory / "archivia_logo_horizontal.webp"
         if brand_logo.is_file():
             logo = QPixmap(str(brand_logo))
             if not logo.isNull():
                 title.setPixmap(logo.scaled(
-                    QSize(520, 110), Qt.AspectRatioMode.KeepAspectRatio,
+                    QSize(450, 84), Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 ))
                 title.setObjectName("archiviaBrand")
-                title.setFixedHeight(110)
+                title.setFixedHeight(88)
         root.addWidget(title)
 
         info = QLabel(
