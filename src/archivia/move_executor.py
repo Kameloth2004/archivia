@@ -117,14 +117,18 @@ def move_one_approved(
     destination = Path(plan["destination"]).expanduser().absolute()
     if (_is_symlink_component(root) or _is_symlink_component(destination)
             or not root.is_dir() or not destination.is_dir()
-            or destination == root or root in destination.parents):
-        raise ValueError("Origem ou destino inválido, aninhado ou com link.")
+            or destination == root):
+        raise ValueError("Origem ou destino inválido, igual ou com link.")
     try:
         source = _candidate_path(root, relative_file)
     except ValueError as exc:
         if str(exc) == "arquivo_ausente":
             raise MoveSkippedError("Arquivo de origem não está mais disponível.") from exc
         raise
+    # Destinos internos são válidos, mas arquivos já dentro deles nunca
+    # podem voltar a entrar na fila — inclusive em planos manipulados.
+    if root in destination.parents and (source == destination or destination in source.parents):
+        raise MoveSkippedError("Arquivo já está dentro da pasta de destino.")
     original_target = destination / source.name
     if (source == original_target or str(source) != action.get("source")
             or str(original_target) != action.get("destination")):
