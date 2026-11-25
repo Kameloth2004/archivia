@@ -53,7 +53,6 @@ class ArchivIAWindow(QMainWindow):
         # Identidade da pasta selecionada, independente dos snapshots do SQLite.
         # É apenas memória deste processo: nunca persistir caminhos pessoais.
         self._active_folder: Path | None = None
-        self._active_catalog_refresh_succeeded = False
         self._settings = QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope, "ArchivIA", "Standard")
         stored_format = self._settings.value("interface/date_format", "br")
         self._date_format = stored_format if stored_format in DATE_FORMATS else "br"
