@@ -1468,6 +1468,10 @@ class ArchivIAWindow(QMainWindow):
         )
 
     def _change_home_scope(self, include: bool) -> None:
+        self.home_analyze_button.setText(
+            "Analisar pasta de origem e subpastas" if include
+            else "Analisar somente a pasta selecionada"
+        )
         if include:
             self.home_recursive_hint.setText(
                 "Inclui automaticamente todas as subpastas. "
