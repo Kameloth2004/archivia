@@ -96,7 +96,8 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("self.history_select.findData(saved_id)", body)
         self.assertIn("self._clear_catalog_search()", body)
         self.assertIn("self.category_filter.setCurrentIndex(0)", body)
-        self.assertIn("self.tabs.setCurrentIndex(1)", body)
+        self.assertIn("self.tabs.setCurrentWidget(self.library_workspace)", body)
+        self.assertIn("self.library_sections.setCurrentIndex(0)", body)
 
     def test_home_catalog_buttons_reuse_existing_handlers(self):
         constructor = ast.unparse(self.method("__init__"))
@@ -106,11 +107,12 @@ class GUIStructureTests(unittest.TestCase):
         self.assertNotIn("copy_verified_test_file", constructor)
         self.assertNotIn("execute_test_move", constructor)
 
-    def test_home_preview_opens_existing_advanced_inventory(self):
+    def test_home_preview_opens_library_inventory_section(self):
         body = ast.unparse(self.method("_home_view_preview"))
         self.assertIn("can_save_inventory_preview(", body)
-        self.assertIn("self.advanced_button.setChecked(True)", body)
-        self.assertIn("self.advanced_tabs.setCurrentIndex(1)", body)
+        self.assertIn("self.tabs.setCurrentWidget(self.library_workspace)", body)
+        self.assertIn("self.library_sections.setCurrentIndex(1)", body)
+        self.assertNotIn("advanced_button", body)
 
     def test_busy_and_saved_preview_control_all_catalog_buttons(self):
         busy = ast.unparse(self.method("_set_busy"))
@@ -142,6 +144,34 @@ class GUIStructureTests(unittest.TestCase):
         result = ast.unparse(self.method("_render_result"))
         self.assertIn('mode == "manual_copy"', result.replace(chr(39), chr(34)))
         self.assertIn("A imagem original NÃO foi removida", result)
+
+    def test_six_tabs_are_permanent_and_handlers_are_reused(self):
+        constructor = ast.unparse(self.method("__init__"))
+        for tab in ("Início", "Biblioteca", "Documentos", "Organizar",
+                    "Agente IA", "Configurações"):
+            with self.subTest(tab=tab):
+                self.assertIn(repr(tab), constructor)
+        self.assertIn("self.library_sections.addTab(inventory_page, 'Inventário')", constructor)
+        self.assertIn("self.library_sections.addTab(overview_page, 'Visão geral')", constructor)
+        self.assertIn("self.home_folder.textChanged.connect(self.organize_source.setText)", constructor)
+        self.assertIn("move_layout.addWidget(self.move_choice)", constructor)
+        self.assertIn("organize_move_layout.addWidget(home_move_box)", constructor)
+        self.assertIn("organize_move_layout.addWidget(move_box)", constructor)
+        self.assertIn("organize_move_layout.addWidget(self.organize_result)", constructor)
+        self.assertNotIn("advanced_button", constructor)
+        self.assertNotIn("self.advanced_tabs", constructor)
+
+    def test_document_shortcuts_use_existing_catalog_and_do_not_move_files(self):
+        constructor = ast.unparse(self.method("__init__"))
+        handler = ast.unparse(self.method("_open_document_library"))
+        for category in ("documento", "planilha", "apresentacao"):
+            self.assertIn(repr(category), constructor)
+        self.assertIn("self.category_filter.findData(category)", handler)
+        self.assertIn("self.catalog_extension_filter.setText(extension or '')", handler)
+        self.assertIn("self.tabs.setCurrentWidget(self.library_workspace)", handler)
+        self.assertIn("self._reset_catalog_page()", handler)
+        self.assertNotIn("move_one_approved(", handler)
+        self.assertNotIn("_approve_all_moves(", handler)
 
     def test_home_direct_organization_is_independent_of_ollama(self):
         init = ast.unparse(self.method("__init__"))
