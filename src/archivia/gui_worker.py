@@ -43,7 +43,8 @@ class QueryWorker(QThread):
                  move_plan: dict | None = None, move_relative: str = "",
                  move_approval: str = "",
                  move_files: list[str] | None = None,
-                 approved_target_name: str | None = None) -> None:
+                 approved_target_name: str | None = None,
+                 include_subfolders: bool = True) -> None:
         super().__init__()
         self.mode = mode
         self.database = database
@@ -75,6 +76,7 @@ class QueryWorker(QThread):
         self.move_approval = move_approval
         self.move_files = move_files
         self.approved_target_name = approved_target_name
+        self.include_subfolders = include_subfolders
 
     def run(self) -> None:
         try:
@@ -92,12 +94,15 @@ class QueryWorker(QThread):
             elif self.mode == "analyze_source":
                 if self.folder_session is None:
                     raise ValueError("Selecione uma pasta de origem.")
-                result = self.folder_session.analyze_source()
+                result = self.folder_session.analyze_source(
+                    recursive=self.include_subfolders,
+                )
             elif self.mode == "prepare_organization":
                 if self.folder_session is None:
                     raise ValueError("Selecione primeiro a pasta de origem.")
                 result = self.folder_session.prepare_recursive_plan(
                     self.destination, self.category or "imagem",
+                    recursive=self.include_subfolders,
                 )
             elif self.mode == "move_conflict":
                 if self.folder_session is None or not self.folder_session.ready:
