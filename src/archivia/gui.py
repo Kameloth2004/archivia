@@ -400,9 +400,9 @@ class ArchivIAWindow(QMainWindow):
 
         organization_modes = QTabWidget()
         move_page = QWidget()
-        move_layout = QVBoxLayout(move_page)
-        move_layout.setContentsMargins(10, 9, 10, 9)
-        move_layout.setSpacing(9)
+        organize_move_layout = QVBoxLayout(move_page)
+        organize_move_layout.setContentsMargins(10, 9, 10, 9)
+        organize_move_layout.setSpacing(9)
         move_scroll = QScrollArea()
         move_scroll.setWidgetResizable(True)
         move_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -766,7 +766,7 @@ class ArchivIAWindow(QMainWindow):
         organize_folders.setSpacing(10)
         organize_folders.addWidget(organize_source_box, 1)
         organize_folders.addWidget(home_destination_box, 1)
-        move_layout.addLayout(organize_folders)
+        organize_move_layout.addLayout(organize_folders)
         # O destino é escolhido depois da análise da origem.
         self.home_prompt = QLineEdit()
         self.home_prompt.setPlaceholderText("Pergunte algo à IA (opcional), por exemplo: quantas imagens tenho?")
@@ -861,9 +861,9 @@ class ArchivIAWindow(QMainWindow):
         self.home_conflict_button.clicked.connect(self._approve_conflict_move)
         self.home_conflict_button.setEnabled(False)
         home_move_layout.addWidget(self.home_conflict_button)
-        move_layout.addWidget(home_move_box)
-        move_layout.addWidget(move_box)
-        move_layout.addWidget(self.advanced_batch_button)
+        organize_move_layout.addWidget(home_move_box)
+        organize_move_layout.addWidget(move_box)
+        organize_move_layout.addWidget(self.advanced_batch_button)
         # Consultas, IA e catalogação ficam recolhidas até o usuário solicitar.
         self.home_extras_button = QPushButton("Consultas e catalogação (opcional)")
         self.home_extras_button.setIcon(icon_for("chevron"))
@@ -911,7 +911,7 @@ class ArchivIAWindow(QMainWindow):
             "a origem será preservada."
         )
         copy_row.addWidget(self.manual_copy_button)
-        move_layout.addLayout(copy_row)
+        organize_move_layout.addLayout(copy_row)
 
         self.home_result = QPlainTextEdit()
         self.home_result.setReadOnly(True)
@@ -928,8 +928,8 @@ class ArchivIAWindow(QMainWindow):
             "Os resultados de planejamento e movimentação aparecerão aqui."
         )
         self.home_result.textChanged.connect(self._mirror_home_report)
-        move_layout.addWidget(self.organize_result)
-        move_layout.addStretch(1)
+        organize_move_layout.addWidget(self.organize_result)
+        organize_move_layout.addStretch(1)
         home_safety = QLabel(
             "A IA apenas planeja. A execução supervisionada exige revisão e confirmação."
         )
