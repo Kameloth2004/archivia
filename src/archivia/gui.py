@@ -639,11 +639,9 @@ class ArchivIAWindow(QMainWindow):
         self.home_choose_button = QPushButton("Escolher pasta...")
         self.home_choose_button.clicked.connect(self._choose_folder)
         home_source_row.addWidget(self.home_choose_button)
-        home_layout.addWidget(home_source_box)
         self.home_analyze_button = QPushButton("▷  Analisar pasta de origem e subpastas")
         self.home_analyze_button.setObjectName("archiviaAnalyze")
         self.home_analyze_button.clicked.connect(self._analyze_home_source)
-        home_layout.addWidget(self.home_analyze_button)
         self.home_folder.textChanged.connect(self.folder.setText)
         self.folder.textChanged.connect(self.home_folder.setText)
 
@@ -667,6 +665,13 @@ class ArchivIAWindow(QMainWindow):
         self.home_destination_button = QPushButton("Escolher destino...")
         self.home_destination_button.clicked.connect(self._home_choose_destination)
         home_destination_row.addWidget(self.home_destination_button)
+        # Origem e destino lado a lado, com seleção independente.
+        folder_pair = QHBoxLayout()
+        folder_pair.setSpacing(10)
+        folder_pair.addWidget(home_source_box, 1)
+        folder_pair.addWidget(home_destination_box, 1)
+        home_layout.addLayout(folder_pair)
+        home_layout.addWidget(self.home_analyze_button)
         # O destino é escolhido depois da análise da origem.
         self.home_prompt = QLineEdit()
         self.home_prompt.setPlaceholderText("Pergunte algo à IA (opcional), por exemplo: quantas imagens tenho?")
@@ -678,28 +683,33 @@ class ArchivIAWindow(QMainWindow):
         self.home_refresh_button = QPushButton("Atualizar análise da pasta")
         self.home_refresh_button.clicked.connect(self._refresh_folder_session)
         home_actions.addWidget(self.home_refresh_button)
-        home_layout.addWidget(home_destination_box)
         home_move_box = QGroupBox("2. Escolher arquivos e preparar organização")
         home_move_layout = QVBoxLayout(home_move_box)
-        category_row = QHBoxLayout()
-        category_row.addWidget(QLabel("Tipo de arquivo:"))
+        home_move_layout.setSpacing(7)
+        main_controls = QHBoxLayout()
+        main_controls.setSpacing(12)
+        category_panel = QWidget()
+        category_panel.setObjectName("archiviaCategoryPanel")
+        category_column = QVBoxLayout(category_panel)
+        category_column.setContentsMargins(3, 5, 7, 5)
+        category_column.addWidget(QLabel("Tipo de arquivo:"))
         self.home_organize_category = QComboBox()
         self.home_organize_category.addItem("Imagens", "imagem")
         self.home_organize_category.addItem("Vídeos", "video")
         self.home_organize_category.addItem("Áudios", "audio")
-        category_row.addWidget(self.home_organize_category, 1)
-        home_move_layout.addLayout(category_row)
+        category_column.addWidget(self.home_organize_category)
+        category_column.addStretch(1)
+        category_panel.setMaximumWidth(245)
+        main_controls.addWidget(category_panel, 1)
         self.home_recursive_hint = QLabel(
             "Inclui automaticamente todas as subpastas. "
             "Nesta etapa, os arquivos são reunidos em uma única pasta de destino."
         )
         self.home_recursive_hint.setWordWrap(True)
-        home_move_layout.addWidget(self.home_recursive_hint)
         self.home_move_info = QLabel(
             "Escolha o tipo e prepare uma prévia. Nada será movido sem confirmação."
         )
         self.home_move_info.setWordWrap(True)
-        home_move_layout.addWidget(self.home_move_info)
         # Cartões horizontais preservam os callbacks e as confirmações existentes.
         move_actions_row = QHBoxLayout()
         move_actions_row.setSpacing(9)
@@ -726,9 +736,13 @@ class ArchivIAWindow(QMainWindow):
             self.home_prepare_button, self.home_batch_button,
             self.home_all_button, self.home_stop_button,
         ):
-            action_button.setMinimumHeight(60)
+            action_button.setMinimumHeight(92)
+            action_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             action_button.setToolTip(action_button.text().replace("\n", " "))
-        home_move_layout.addLayout(move_actions_row)
+        main_controls.addLayout(move_actions_row, 4)
+        home_move_layout.addLayout(main_controls)
+        home_move_layout.addWidget(self.home_recursive_hint)
+        home_move_layout.addWidget(self.home_move_info)
         self.home_queue_progress = QLabel("")
         self.home_queue_progress.setObjectName("archiviaQueueProgress")
         self.home_queue_progress.setWordWrap(True)
@@ -737,12 +751,23 @@ class ArchivIAWindow(QMainWindow):
         self.home_conflict_button.clicked.connect(self._approve_conflict_move)
         self.home_conflict_button.setEnabled(False)
         home_move_layout.addWidget(self.home_conflict_button)
-        home_move_box.setMinimumHeight(235)
         home_layout.addWidget(home_move_box)
-        # Recursos opcionais ficam abaixo do fluxo principal de organização.
-        home_layout.addWidget(quick_box)
-        home_layout.addWidget(self.home_prompt)
-        home_layout.addLayout(home_actions)
+        # Consultas, IA e catalogação ficam recolhidas até o usuário solicitar.
+        self.home_extras_button = QPushButton("▾  Consultas e catalogação (opcional)")
+        self.home_extras_button.setCheckable(True)
+        self.home_extras_button.setChecked(False)
+        self.home_extras_button.setObjectName("archiviaExtrasToggle")
+        home_layout.addWidget(self.home_extras_button)
+        home_extras = QWidget()
+        home_extras_layout = QVBoxLayout(home_extras)
+        home_extras_layout.setContentsMargins(0, 0, 0, 0)
+        home_extras_layout.setSpacing(7)
+        home_extras_layout.addWidget(quick_box)
+        home_extras_layout.addWidget(self.home_prompt)
+        home_extras_layout.addLayout(home_actions)
+        self.home_extras_button.toggled.connect(home_extras.setVisible)
+        home_extras.setVisible(False)
+        home_layout.addWidget(home_extras)
 
         # Catalogação opcional diretamente no Início, reutilizando a mesma
         # prévia, validação e confirmação do Inventário avançado.
@@ -758,7 +783,7 @@ class ArchivIAWindow(QMainWindow):
         self.home_catalog_button.setEnabled(False)
         self.home_catalog_button.clicked.connect(self._confirm_catalog_preview)
         catalog_actions.addWidget(self.home_catalog_button)
-        home_layout.addLayout(catalog_actions)
+        home_extras_layout.addLayout(catalog_actions)
 
         # Piloto manual separado do Ollama e do pipeline TEST-ONLY.
         # A operação é apenas COPIAR; a origem não pode ser apagada.
@@ -777,8 +802,8 @@ class ArchivIAWindow(QMainWindow):
         self.home_result.setPlaceholderText(
             "A resposta e o plano aparecerão aqui. Movimentações exigem autorização na interface."
         )
-        self.home_result.setMinimumHeight(90)
-        self.home_result.setMaximumHeight(150)
+        self.home_result.setMinimumHeight(75)
+        self.home_result.setMaximumHeight(105)
         home_layout.addWidget(self.home_result)
         home_safety = QLabel(
             "A IA apenas planeja. A execução supervisionada exige revisão e confirmação."
