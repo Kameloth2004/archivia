@@ -1882,12 +1882,15 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText("Análise completa da origem concluída.")
         elif mode == "prepare_organization":
             self._update_move_choices()
+            already_in_destination = result.get("blocked_by_reason", {}).get("ja_no_destino", 0)
+            other_blocked = result["blocked"] - already_in_destination
             summary = (
                 "Organização preparada — nada foi movido.\n"
                 f"Arquivos encontrados ({self.home_organize_category.currentText()}): "
                 f"{result['total_matches']}\n"
                 f"Prontos para mover: {result['proposed']}\n"
-                f"Com nomes repetidos ou outros bloqueios: {result['blocked']}\n"
+                f"Já no destino (ignorados com segurança): {already_in_destination}\n"
+                f"Conflitos ou outros bloqueios: {other_blocked}\n"
                 f"Faltam examinar: {result['pending']}\n"
             )
             if result["complete"]:
