@@ -149,8 +149,13 @@ class GUIStructureTests(unittest.TestCase):
         invalidation = ast.unparse(self.method("_invalidate_home_organization"))
         busy = ast.unparse(self.method("_set_busy"))
         self.assertIn("self.home_prepare_button.clicked.connect(self._prepare_home_organization)", init)
-        self.assertIn("self.home_organize_category.addItem('Vídeos', 'video')", init)
-        self.assertIn("self.home_organize_category.addItem('Áudios', 'audio')", init)
+        # V2 gera as nove opções diretamente do inventário universal.
+        # Não exigir as antigas chamadas individuais da V1.
+        self.assertIn("for category in CATEGORIES:", init)
+        self.assertIn(
+            "self.home_organize_category.addItem(CATEGORY_LABELS[category], category)",
+            init,
+        )
         self.assertIn("self.home_folder.textChanged.connect(self._invalidate_home_organization)", init)
         self.assertIn("self.home_destination.textChanged.connect(self._invalidate_home_organization)", init)
         self.assertIn("self.home_organize_category.currentIndexChanged.connect(self._invalidate_home_organization)", init)
