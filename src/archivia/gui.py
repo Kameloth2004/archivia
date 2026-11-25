@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt, QSize
+from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
@@ -61,6 +62,10 @@ class ArchivIAWindow(QMainWindow):
         self._saved_snapshot_navigation: dict | None = None
         self.setWindowTitle("ArchivIA Standard — Organização supervisionada")
         self.setWindowIcon(icon_for("folder", "#0799af", 48))
+        brand_directory = Path(__file__).resolve().parents[2] / "assets" / "branding"
+        brand_icon = brand_directory / "archivia_icon.png"
+        if brand_icon.is_file():
+            self.setWindowIcon(QIcon(str(brand_icon)))
         self.resize(1160, 830)
         self.setMinimumSize(850, 600)
         self.setStyleSheet(ARCHIVIA_STYLESHEET)
@@ -73,6 +78,18 @@ class ArchivIAWindow(QMainWindow):
 
         title = QLabel("ArchivIA — Bibliotecário digital local")
         title.setObjectName("archiviaTitle")
+        # A marca aprovada é utilizada como imagem original, sem redesenhar
+        # fontes, símbolos ou cores. Se ausente, preservamos o título textual.
+        brand_logo = brand_directory / "archivia_logo_horizontal.png"
+        if brand_logo.is_file():
+            logo = QPixmap(str(brand_logo))
+            if not logo.isNull():
+                title.setPixmap(logo.scaled(
+                    QSize(520, 110), Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                ))
+                title.setObjectName("archiviaBrand")
+                title.setFixedHeight(110)
         root.addWidget(title)
 
         info = QLabel(
