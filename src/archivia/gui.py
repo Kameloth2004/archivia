@@ -50,6 +50,10 @@ class ArchivIAWindow(QMainWindow):
         super().__init__()
         self._worker: QueryWorker | None = None
         self._folder_session: FolderCatalogSession | None = None
+        # Identidade da pasta selecionada, independente dos snapshots do SQLite.
+        # É apenas memória deste processo: nunca persistir caminhos pessoais.
+        self._active_folder: Path | None = None
+        self._active_catalog_refresh_succeeded = False
         self._settings = QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope, "ArchivIA", "Standard")
         stored_format = self._settings.value("interface/date_format", "br")
         self._date_format = stored_format if stored_format in DATE_FORMATS else "br"
@@ -101,6 +105,30 @@ class ArchivIAWindow(QMainWindow):
         info.setWordWrap(True)
         info.setObjectName("archiviaSubtitle")
         root.addWidget(info)
+
+        active_row = QHBoxLayout()
+        active_row.setSpacing(8)
+        active_row.addWidget(QLabel("Pasta ativa da sessão:"))
+        self.active_folder_display = QLineEdit()
+        self.active_folder_display.setReadOnly(True)
+        self.active_folder_display.setPlaceholderText("Nenhuma pasta selecionada")
+        self.active_folder_display.setToolTip(
+            "Pasta reutilizada em Início, Biblioteca, Documentos, Organizar e Agente IA."
+        )
+        active_row.addWidget(self.active_folder_display, 1)
+        self.active_folder_choose = QPushButton("Escolher pasta...")
+        self.active_folder_choose.clicked.connect(self._choose_folder)
+        active_row.addWidget(self.active_folder_choose)
+        self.active_folder_clear = QPushButton("Limpar")
+        self.active_folder_clear.clicked.connect(self._clear_active_folder)
+        active_row.addWidget(self.active_folder_clear)
+        root.addLayout(active_row)
+        self.active_folder_state = QLabel(
+            "Nenhuma pasta ativa. A Biblioteca ainda pode consultar snapshots salvos."
+        )
+        self.active_folder_state.setObjectName("archiviaActiveFolderState")
+        self.active_folder_state.setWordWrap(True)
+        root.addWidget(self.active_folder_state)
 
         # Seis áreas permanentes. Funcionalidades existentes são reutilizadas
         # sem duplicar os controles de execução nem criar outro backend.
@@ -161,6 +189,10 @@ class ArchivIAWindow(QMainWindow):
         )
         documents_explanation.setWordWrap(True)
         documents_layout.addWidget(documents_explanation)
+        self.documents_active_folder = QLabel("Pasta ativa: nenhuma selecionada")
+        self.documents_active_folder.setObjectName("archiviaActiveFolderState")
+        self.documents_active_folder.setWordWrap(True)
+        documents_layout.addWidget(self.documents_active_folder)
         for heading, category, extensions in (
             ("Documentos", "documento", ("PDF", "TXT", "DOCX", "MD")),
             ("Planilhas", "planilha", ("XLSX", "CSV", "ODS")),
@@ -300,6 +332,23 @@ class ArchivIAWindow(QMainWindow):
 
         catalog_box = QGroupBox("Biblioteca catalogada — somente leitura")
         catalog_layout = QVBoxLayout(catalog_box)
+        catalog_source_row = QHBoxLayout()
+        catalog_source_row.addWidget(QLabel("Consultar:"))
+        self.catalog_source = QComboBox()
+        self.catalog_source.addItem("Catálogo salvo (SQLite)", "saved")
+        self.catalog_source.addItem("Pasta ativa (sessão)", "active")
+        self.catalog_source.currentIndexChanged.connect(self._change_catalog_source)
+        catalog_source_row.addWidget(self.catalog_source, 1)
+        self.catalog_refresh_active = QPushButton("Atualizar pasta ativa")
+        self.catalog_refresh_active.clicked.connect(self._refresh_active_catalog)
+        self.catalog_refresh_active.setEnabled(False)
+        catalog_source_row.addWidget(self.catalog_refresh_active)
+        catalog_layout.addLayout(catalog_source_row)
+        self.catalog_source_info = QLabel(
+            "Catálogo salvo: a seleção de uma pasta ativa não modifica os snapshots históricos."
+        )
+        self.catalog_source_info.setWordWrap(True)
+        catalog_layout.addWidget(self.catalog_source_info)
         history_row = QHBoxLayout()
         history_row.addWidget(QLabel("Histórico de snapshots:"))
         self.history_select = QComboBox()
@@ -1927,6 +1976,13 @@ class ArchivIAWindow(QMainWindow):
         self.home_destination.setEnabled(not busy)
         self.home_destination_button.setEnabled(not busy)
         self.organize_source_button.setEnabled(not busy)
+        self.active_folder_choose.setEnabled(not busy)
+        self.active_folder_clear.setEnabled(not busy and self._active_folder is not None)
+        self.catalog_source.setEnabled(not busy)
+        self.catalog_refresh_active.setEnabled(
+            not busy and self.catalog_source.currentData() == "active"
+            and self._active_folder is not None
+        )
         self.refresh_session_button.setEnabled(not busy)
         self.database.setEnabled(not busy)
         self.model.setEnabled(not busy)
@@ -1954,8 +2010,12 @@ class ArchivIAWindow(QMainWindow):
         self.catalog_date_to.setEnabled(not busy)
         self.catalog_sort.setEnabled(not busy)
         self.origins_button.setEnabled(not busy)
-        self.history_button.setEnabled(not busy)
-        self.history_select.setEnabled(not busy)
+        self.history_button.setEnabled(
+            not busy and self.catalog_source.currentData() == "saved"
+        )
+        self.history_select.setEnabled(
+            not busy and self.catalog_source.currentData() == "saved"
+        )
         self.prev_button.setEnabled(not busy and self._page > 1)
         self.next_button.setEnabled(not busy and self._page < self._pages)
 
