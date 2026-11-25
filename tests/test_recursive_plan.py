@@ -30,8 +30,14 @@ class RecursivePlanningTests(unittest.TestCase):
             result = propose_recursive_consolidation(dest, "imagem", db, scan_id=scan)
             self.assertEqual(result["total_matches"], 3)
             self.assertEqual(result["examined"], 3)
-            self.assertEqual(result["blocked"], 1)
-            self.assertEqual(result["proposed"], 2)
+            # Ambas as origens chamadas foto.jpg ficam bloqueadas:
+            # não se escolhe uma vencedora arbitrária.
+            self.assertEqual(result["blocked"], 2)
+            self.assertEqual(result["proposed"], 1)
+            ambiguous = [a for a in result["actions"]
+                         if a["file"].endswith("foto.jpg")]
+            self.assertEqual(len(ambiguous), 2)
+            self.assertTrue(all(a["status"] == "bloqueado" for a in ambiguous))
             self.assertTrue(result["complete"])
             self.assertFalse(result["truncated"])
             self.assertFalse(result["executable"])
