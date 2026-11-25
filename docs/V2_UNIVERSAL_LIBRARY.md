@@ -32,6 +32,19 @@ Os resultados da organização são exibidos também em Organizar, sem
 criar uma segunda fila ou duplicar o motor de movimentação. A tela
 de Início não contém mais os botões de autorização para mover.
 
+## Campos de data no Acervo
+
+Os filtros **Modificado de** e **até** na Biblioteca → Acervo aceitam
+digitação manual com máscara e também seleção pelo ícone de calendário.
+O menu inclui **Limpar data** para desativar o filtro, sem usar datas
+fictícias. Selecionar ou limpar uma data solicita nova consulta ao
+catálogo; nenhuma movimentação ocorre.
+
+As preferências existentes da aba Configurações continuam suportadas:
+DD/MM/AAAA, AAAA-MM-DD e MM/DD/AAAA. Uma troca de formato preserva o
+mesmo dia selecionado. O backend continua recebendo data ISO e consultando
+a data de **última modificação**, não a de criação.
+
 ## Categorias organizáveis
 
 O inventário já reconhece os nove grupos abaixo. A V2 habilita a seleção
