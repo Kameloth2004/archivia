@@ -52,8 +52,9 @@ def propose_recursive_consolidation(
     root = Path(first["root"]).expanduser().absolute()
     if _contains_symlink(root) or not root.is_dir():
         raise ValueError("Origem do snapshot indisponível ou contém link simbólico.")
-    if dest == root or root in dest.parents:
-        raise ValueError("Destino não pode estar dentro da origem.")
+    if dest == root:
+        raise ValueError("Origem e destino não podem ser a mesma pasta.")
+    nested_destination = root in dest.parents
 
     total = first["count"]
     occupied = {item.name.casefold() for item in dest.iterdir()}
@@ -89,7 +90,11 @@ def propose_recursive_consolidation(
                 source = root.joinpath(*rel.parts)
                 target = dest / source.name
                 name = source.name.casefold()
-                if _contains_symlink(source) or not source.is_file():
+                if nested_destination and (source == dest or dest in source.parents):
+                    # O snapshot pode conter arquivos que já estão no destino.
+                    # Nunca proponha movê-los para o próprio diretório ou novamente.
+                    reason = "ja_no_destino"
+                elif _contains_symlink(source) or not source.is_file():
                     reason = "origem_ausente_ou_link"
                 elif source == target:
                     reason = "mesmo_caminho"
@@ -129,6 +134,7 @@ def propose_recursive_consolidation(
         "requires_explicit_approval": True, "recursive": True,
         "root": str(root), "destination": str(dest),
         "category": category, "scan_id": first["scan_id"],
+        "destination_inside_root": nested_destination,
         "total_matches": total, "examined": len(actions),
         "proposed": len(actions) - blocked, "blocked": blocked,
         "pending": total - len(actions), "complete": len(actions) == total,
