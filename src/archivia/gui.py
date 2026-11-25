@@ -1138,7 +1138,11 @@ class ArchivIAWindow(QMainWindow):
         self._page = 1
         self._pages = 0
         self.catalog_table.setRowCount(0)
-        self.page_label.setText("Pasta ativa: clique em Listar catálogo para consultar.")
+        self.page_label.setText(
+            "Pasta ativa: clique em Listar catálogo para consultar."
+            if self.catalog_source.currentData() == "active" else
+            "Catálogo salvo: clique em Listar catálogo para consultar."
+        )
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
 
