@@ -1,5 +1,31 @@
 # ArchivIA
 
+## ArchivIA V2 — Biblioteca Digital Universal (em desenvolvimento)
+
+Esta branch `develop/v2.0.0` é independente da V1 preservada em
+`release/v1.0.0`. No canto inferior direito da interface aparece
+**V2 · Desenvolvimento**.
+
+O organizador supervisionado agora aceita todas as nove categorias:
+**Imagens, Vídeos, Áudios, Documentos, Planilhas, Apresentações,
+Compactados, Código-fonte e Outros arquivos**. É possível analisar apenas
+a pasta de origem ou incluir as subpastas. A organização continua feita
+**uma categoria por vez**, com prévia, confirmação, proteção contra
+sobrescrita e validação SHA-256.
+
+A classificação é por extensão; **Outros arquivos** inclui também
+extensões não mapeadas e arquivos sem extensão. Confira a lista antes
+de mover arquivos potencialmente importantes, como executáveis ou
+configurações de programas.
+
+Para instalar e executar a V2 no Windows, entre na pasta clonada,
+ative `.venv` e use `python -m pip install -e ".[gui]"` e
+`archivia-gui`. Detalhes e homologação:
+[ArchivIA V2 — Biblioteca Digital Universal](docs/V2_UNIVERSAL_LIBRARY.md).
+
+---
+
+
 Bibliotecário digital local em Python, planejado para catalogar, classificar, renomear e organizar arquivos com apoio do Ollama.
 
 ## Estado do projeto
