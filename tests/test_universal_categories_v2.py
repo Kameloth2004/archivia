@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unittest
+from contextlib import closing
 
 from support import temporary_test_directory
 from archivia.agent import FolderCatalogSession, TOOLS, dispatch_tool
@@ -47,7 +48,7 @@ class UniversalCategoriesV2Tests(unittest.TestCase):
                 (nested / name).write_bytes(b"preservar subpasta")
                 expected[category] = payload
 
-            with FolderCatalogSession(root) as session:
+            with closing(FolderCatalogSession(root)) as session:
                 analysis = session.analyze_source(recursive=False)
                 self.assertEqual(analysis["summary"]["indexed_files"], 9)
                 for category, filename in SAMPLES.items():
@@ -98,7 +99,7 @@ class UniversalCategoriesV2Tests(unittest.TestCase):
             root.mkdir()
             dest.mkdir()
             (root / "relatorio.pdf").write_bytes(b"synthetic pdf")
-            with FolderCatalogSession(root) as session:
+            with closing(FolderCatalogSession(root)) as session:
                 session.analyze_source()
                 for category in ("documento", "planilha", "apresentacao",
                                  "compactado", "codigo", "outro"):
@@ -132,7 +133,7 @@ class UniversalCategoriesV2Tests(unittest.TestCase):
             dest.mkdir()
             (root / "relatorio.pdf").write_bytes(b"novo pdf")
             (dest / "relatorio.pdf").write_bytes(b"pdf existente")
-            with FolderCatalogSession(root) as session:
+            with closing(FolderCatalogSession(root)) as session:
                 plan = session.prepare_recursive_plan(dest, "documento")
                 self.assertEqual(plan["proposed"], 0)
                 self.assertEqual(plan["blocked_by_reason"]["destino_ja_existe"], 1)
