@@ -25,6 +25,7 @@ from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, displa
 from .preview import preview_inventory_page
 from .gui_helpers import validate_gui_result, can_save_inventory_preview
 from .gui_worker import QueryWorker
+from .gui_theme import ARCHIVIA_STYLESHEET
 from .gui_tables import fill_table
 from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
@@ -57,15 +58,18 @@ class ArchivIAWindow(QMainWindow):
         # consultar histórico e, depois, listar o snapshot recém-salvo.
         self._saved_snapshot_navigation: dict | None = None
         self.setWindowTitle("ArchivIA Standard — Organização supervisionada")
-        self.resize(960, 760)
-        self.setMinimumSize(760, 540)
+        self.resize(1160, 830)
+        self.setMinimumSize(850, 600)
+        self.setStyleSheet(ARCHIVIA_STYLESHEET)
 
         content = QWidget(self)
+        content.setObjectName("archiviaRoot")
         root = QVBoxLayout(content)
-        root.setSpacing(12)
+        root.setContentsMargins(15, 12, 15, 10)
+        root.setSpacing(8)
 
         title = QLabel("ArchivIA — Bibliotecário digital local")
-        title.setStyleSheet("font-size: 20px; font-weight: 600;")
+        title.setObjectName("archiviaTitle")
         root.addWidget(title)
 
         info = QLabel(
@@ -73,6 +77,7 @@ class ArchivIAWindow(QMainWindow):
             "seleção e confirmação explícita no painel."
         )
         info.setWordWrap(True)
+        info.setObjectName("archiviaSubtitle")
         root.addWidget(info)
 
         # Organiza funções por contexto e evita que a área do agente saia da tela.
@@ -104,7 +109,8 @@ class ArchivIAWindow(QMainWindow):
             self.advanced_tabs.addTab(page, label)
         advanced_layout.addWidget(self.advanced_tabs)
         root.addWidget(self.tabs, 1)
-        self.advanced_button = QPushButton("Avançado")
+        self.advanced_button = QPushButton("⚙  Avançado")
+        self.advanced_button.setObjectName("archiviaAdvanced")
         self.advanced_button.setCheckable(True)
         self.advanced_button.toggled.connect(self._toggle_advanced)
         root.addWidget(self.advanced_button)
@@ -568,7 +574,7 @@ class ArchivIAWindow(QMainWindow):
         move_layout.addWidget(self.move_button)
         move_note = QLabel("Só arquivos propostos no último plano. Confirmação individual, "
                            "sem sobrescrita ou exclusão automática de duplicatas. "
-                           "Limite inicial: 16 MiB por arquivo.")
+                           "Arquivos grandes são verificados por SHA-256 em blocos.")
         move_note.setWordWrap(True)
         move_layout.addWidget(move_note)
         agent_layout.addWidget(move_box)
@@ -624,7 +630,8 @@ class ArchivIAWindow(QMainWindow):
         self.home_choose_button.clicked.connect(self._choose_folder)
         home_source_row.addWidget(self.home_choose_button)
         home_layout.addWidget(home_source_box)
-        self.home_analyze_button = QPushButton("1. Analisar pasta de origem e subpastas")
+        self.home_analyze_button = QPushButton("▷  Analisar pasta de origem e subpastas")
+        self.home_analyze_button.setObjectName("archiviaAnalyze")
         self.home_analyze_button.clicked.connect(self._analyze_home_source)
         home_layout.addWidget(self.home_analyze_button)
         self.home_folder.textChanged.connect(self.folder.setText)
@@ -683,22 +690,37 @@ class ArchivIAWindow(QMainWindow):
         )
         self.home_move_info.setWordWrap(True)
         home_move_layout.addWidget(self.home_move_info)
-        self.home_prepare_button = QPushButton("Preparar organização")
+        # Cartões horizontais preservam os callbacks e as confirmações existentes.
+        move_actions_row = QHBoxLayout()
+        move_actions_row.setSpacing(9)
+        self.home_prepare_button = QPushButton("▱  Preparar\norganização")
+        self.home_prepare_button.setObjectName("archiviaPrepare")
         self.home_prepare_button.clicked.connect(self._prepare_home_organization)
-        home_move_layout.addWidget(self.home_prepare_button)
-        self.home_batch_button = QPushButton("3. Revisar e mover arquivos...")
+        move_actions_row.addWidget(self.home_prepare_button, 1)
+        self.home_batch_button = QPushButton("⌕  Revisar e\nmover arquivos")
+        self.home_batch_button.setObjectName("archiviaReview")
         self.home_batch_button.clicked.connect(self._approve_batch_move)
         self.home_batch_button.setEnabled(False)
-        home_move_layout.addWidget(self.home_batch_button)
-        self.home_all_button = QPushButton("Mover todos os arquivos prontos...")
+        move_actions_row.addWidget(self.home_batch_button, 1)
+        self.home_all_button = QPushButton("▶  Mover todos\nos arquivos prontos")
+        self.home_all_button.setObjectName("archiviaMoveAll")
         self.home_all_button.clicked.connect(self._approve_all_moves)
         self.home_all_button.setEnabled(False)
-        home_move_layout.addWidget(self.home_all_button)
-        self.home_stop_button = QPushButton("Interromper após o arquivo atual")
+        move_actions_row.addWidget(self.home_all_button, 1)
+        self.home_stop_button = QPushButton("■  Interromper\napós o arquivo atual")
+        self.home_stop_button.setObjectName("archiviaStop")
         self.home_stop_button.setEnabled(False)
         self.home_stop_button.clicked.connect(self._stop_move_queue)
-        home_move_layout.addWidget(self.home_stop_button)
+        move_actions_row.addWidget(self.home_stop_button, 1)
+        for action_button in (
+            self.home_prepare_button, self.home_batch_button,
+            self.home_all_button, self.home_stop_button,
+        ):
+            action_button.setMinimumHeight(60)
+            action_button.setToolTip(action_button.text().replace("\n", " "))
+        home_move_layout.addLayout(move_actions_row)
         self.home_queue_progress = QLabel("")
+        self.home_queue_progress.setObjectName("archiviaQueueProgress")
         self.home_queue_progress.setWordWrap(True)
         home_move_layout.addWidget(self.home_queue_progress)
         self.home_conflict_button = QPushButton("Guardar versões com nomes repetidos...")
@@ -749,6 +771,7 @@ class ArchivIAWindow(QMainWindow):
             "A IA apenas planeja. A execução supervisionada exige revisão e confirmação."
         )
         home_safety.setWordWrap(True)
+        home_safety.setObjectName("archiviaSafety")
         home_layout.addWidget(home_safety)
 
         # Mudou origem, destino ou tipo? Exigir novo planejamento e aprovação.
@@ -760,6 +783,7 @@ class ArchivIAWindow(QMainWindow):
         self._refresh_date_placeholders()
 
         self.status = QLabel("Pronto. Escrita em mídias somente com autorização explícita.")
+        self.status.setObjectName("archiviaStatus")
         root.addWidget(self.status)
         self.setCentralWidget(content)
 
