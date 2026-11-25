@@ -25,7 +25,7 @@ SYSTEM_PROMPT = (
     "Você é o ArchivIA, bibliotecário digital local. Use SOMENTE as ferramentas "
     "fornecidas quando precisar consultar o catálogo ou simular organização. "
     "Nenhuma ferramenta do CHAT move, apaga, renomeia ou cria arquivos. "
-    "O painel Início tem um botão Preparar organização de imagens, que cria "
+    "O painel Início tem Preparar organização, que cria "
     "um plano sem usar o chat, e botões próprios para autorizar movimentação "
     "ou resolver conflitos. Nunca diga que mover é impossível no aplicativo. "
     "Copiar e mover são operações distintas; copiar e renomear livremente "
@@ -48,7 +48,7 @@ SYSTEM_PROMPT = (
     "Para datas, utilize modificação de arquivo, não data de criação; filtros estão em UTC, AAAA-MM-DD. "
     "Ordene pela data quando solicitado; não confunda ordenar resultados com movimentar arquivos. "
     "Para simular distribuição física em pastas AAAA/MM, use simular_organizacao_por_data, "
-    "somente quando o usuário pedir uma SIMULAÇÃO, fornecer categoria de mídia e caminho "
+    "somente quando o usuário pedir uma SIMULAÇÃO, fornecer categoria de arquivo e caminho "
     "de destino-base já existente. Se faltar destino ou categoria, pergunte antes de simular. "
     "A simulação seleciona no máximo 50 arquivos, pode ser parcial e NUNCA executa ações. "
     "Relate total_matches, selected, blocked, truncated e o snapshot utilizado; "
@@ -63,7 +63,7 @@ SYSTEM_PROMPT = (
     "Informe total_matches, examined, proposed, blocked, pending e complete; "
     "se pending>0, destaque que é prévia PARCIAL. "
     "Para consolidar muitos arquivos em uma pasta única, use resumir_consolidacao "
-    "se houver categoria de mídia e um destino existente informado pelo usuário. "
+    "se houver categoria de arquivo e um destino existente informado pelo usuário. "
     "Esta ferramenta retorna apenas totais, nunca ações executáveis. "
     "Informe examined, proposed, blocked, pending, complete e total_matches. "
     "Nunca chame um resultado PARCIAL de completo. "
@@ -144,14 +144,14 @@ TOOLS: list[dict[str, Any]] = [
             "description": (
                 "PLANEJAMENTO DETALHADO, NUNCA EXECUTÁVEL: varre o snapshot da "
                 "origem selecionada, incluindo subpastas, para reunir arquivos da "
-                "categoria imagem/video/audio em uma única pasta existente. "
+                "categoria de arquivo em uma única pasta existente. "
                 "Retorna até 500 ações e marca nomes duplicados e conflitos. "
                 "Se limitado, indica pending e complete=false. NÃO move arquivos."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "categoria": {"type": "string", "enum": ["imagem", "video", "audio"]},
+                    "categoria": {"type": "string", "enum": list(CATEGORIES)},
                     "destino": {"type": "string", "description": "Pasta de destino já existente"},
                     "limite": {"type": "integer", "minimum": 1, "maximum": 500},
                 },
@@ -176,7 +176,7 @@ TOOLS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "categoria": {"type": "string", "enum": ["imagem", "video", "audio"]},
+                    "categoria": {"type": "string", "enum": list(CATEGORIES)},
                     "destino": {"type": "string", "description": "Pasta de destino existente"},
                     "limite": {"type": "integer", "minimum": 1, "maximum": 100},
                 },
@@ -190,7 +190,7 @@ TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "resumir_consolidacao",
             "description": (
-                "SIMULA consolidação da categoria imagem/video/audio numa única pasta "
+                "SIMULA consolidação da categoria de arquivo numa única pasta "
                 "existente informada pelo usuário. Examina até 10000 arquivos em lotes, "
                 "identifica conflitos de nomes entre páginas e retorna somente totais. "
                 "NÃO move, renomeia, cria nem apaga. Exige categoria e destino real."
@@ -198,7 +198,7 @@ TOOLS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "categoria": {"type": "string", "enum": ["imagem", "video", "audio"]},
+                    "categoria": {"type": "string", "enum": list(CATEGORIES)},
                     "destino": {
                         "type": "string",
                         "description": "Pasta de destino já existente, explicitamente informada pelo usuário"
@@ -261,14 +261,14 @@ TOOLS: list[dict[str, Any]] = [
             "name": "simular_organizacao_por_data",
             "description": (
                 "SIMULA, sem escrita, destino AAAA/MM/nome.ext com base na data de modificação UTC. "
-                "Exige categoria imagem/video/audio e destino-base já existente informado pelo usuário. "
+                "Exige categoria de arquivo e destino-base já existente informado pelo usuário. "
                 "Pode escolher scan_id. Nunca cria pastas, move, renomeia, apaga ou executa ações. "
                 "Retorna até 50 propostas, incluindo conflitos e aviso de resultado parcial."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "categoria": {"type": "string", "enum": ["imagem", "video", "audio"]},
+                    "categoria": {"type": "string", "enum": list(CATEGORIES)},
                     "destino": {
                         "type": "string",
                         "description": "Pasta de destino-base JÁ EXISTENTE, informada pelo usuário"
@@ -332,7 +332,7 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             raise ValueError("Argumento não permitido no planejamento recursivo.")
         if not {"categoria", "destino"} <= set(arguments):
             raise ValueError("Categoria e destino são obrigatórios.")
-        if arguments["categoria"] not in ("imagem", "video", "audio"):
+        if arguments["categoria"] not in CATEGORIES:
             raise ValueError("Categoria inválida para planejamento recursivo.")
         if not isinstance(arguments["destino"], str) or not arguments["destino"].strip():
             raise ValueError("Destino deve ser uma pasta informada explicitamente.")
@@ -411,7 +411,7 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             raise ValueError("Categoria e destino-base são obrigatórios.")
         category = arguments["categoria"]
         destination = arguments["destino"]
-        if not isinstance(category, str) or category not in ("imagem", "video", "audio"):
+        if not isinstance(category, str) or category not in CATEGORIES:
             raise ValueError("Categoria inválida para simulação cronológica.")
         if not isinstance(destination, str) or not destination.strip():
             raise ValueError("Destino-base deve ser um caminho informado e não vazio.")
@@ -433,7 +433,7 @@ def dispatch_tool(name: str, arguments: dict[str, Any], db_path: Path = DEFAULT_
             raise ValueError("Argumento não permitido no resumo de consolidação.")
         if not {"categoria", "destino"} <= set(arguments):
             raise ValueError("Categoria e destino são obrigatórios.")
-        if arguments["categoria"] not in ("imagem", "video", "audio"):
+        if arguments["categoria"] not in CATEGORIES:
             raise ValueError("Categoria inválida para consolidação.")
         if not isinstance(arguments["destino"], str) or not arguments["destino"].strip():
             raise ValueError("Destino deve ser um caminho informado e não vazio.")
