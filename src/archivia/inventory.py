@@ -28,8 +28,11 @@ CATEGORY_BY_EXTENSION = {
 }
 
 
-def inventory(root: str | Path) -> dict[str, Any]:
+def inventory(root: str | Path, *, recursive: bool = True) -> dict[str, Any]:
     """Lê metadados dos arquivos, sem abrir conteúdo, ZIPs ou seguir symlinks.
+
+    Com recursive=False, inclui somente arquivos diretamente na pasta raiz.
+    Subpastas e seus conteúdos não são examinados.
 
     Erros durante a caminhada são registrados e a varredura continua.
     """
@@ -68,7 +71,8 @@ def inventory(root: str | Path) -> dict[str, Any]:
                     summary["symlinks_skipped"] += 1
                     continue
                 if entry.is_dir(follow_symlinks=False):
-                    dirs.append(path)
+                    if recursive:
+                        dirs.append(path)
                     continue
                 if not entry.is_file(follow_symlinks=False):
                     continue
