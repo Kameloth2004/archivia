@@ -45,6 +45,34 @@ DD/MM/AAAA, AAAA-MM-DD e MM/DD/AAAA. Uma troca de formato preserva o
 mesmo dia selecionado. O backend continua recebendo data ISO e consultando
 a data de **última modificação**, não a de criação.
 
+## Pasta ativa compartilhada na sessão
+
+O campo **Pasta ativa da sessão**, abaixo do cabeçalho, define a origem
+para Início, Inventário, Organizar, Documentos e Agente IA. A pasta
+continua selecionada ao alternar abas. **Limpar** encerra o contexto
+temporário. A seleção não é armazenada nas preferências do Windows,
+não é enviada ao Ollama por si só e desaparece ao fechar o programa.
+
+Em **Biblioteca → Acervo → Consultar**, escolha explicitamente:
+
+- **Catálogo salvo (SQLite)**: consulta os snapshots anteriores com histórico
+  e filtros, sem ficar automaticamente restrito à pasta ativa.
+- **Pasta ativa (sessão)**: consulta apenas o snapshot temporário dessa pasta
+  e suas subpastas. Clique em **Listar catálogo** para a primeira consulta,
+  ou **Atualizar pasta ativa** para refazer o inventário e consultar novamente.
+
+Os atalhos da aba Documentos abrem os filtros do Acervo, respeitando
+a fonte escolhida. Uma consulta da pasta ativa não grava snapshots no
+SQLite persistente. Para salvar um inventário, utilize explicitamente
+a opção de catalogação da Biblioteca → Inventário.
+
+Ao mudar ou limpar a pasta, a prévia, a seleção de movimentos e o catálogo
+temporário antigos são invalidados. Após uma movimentação, a pasta continua
+selecionada, mas a análise temporária é invalidada: uma próxima consulta
+faz novo inventário. Alterações externas realizadas fora do ArchivIA
+exigem **Atualizar pasta ativa**; a seleção de pasta não implica monitoramento
+contínuo do disco.
+
 ## Categorias organizáveis
 
 O inventário já reconhece os nove grupos abaixo. A V2 habilita a seleção
