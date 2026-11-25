@@ -122,8 +122,6 @@ def propose_recursive_consolidation(
                         reason = "metadados_indisponiveis"
                 if reason is None:
                     reserved.add(name)
-            if reason:
-                by_reason[reason] = by_reason.get(reason, 0) + 1
             actions.append({
                 "file": text,
                 "source": str(source) if source else None,
@@ -134,6 +132,30 @@ def propose_recursive_consolidation(
 
     if len(actions) != limit_actual:
         raise ValueError("Plano incompleto; não prosseguir.")
+
+    # Uma pasta única de destino não pode receber automaticamente dois
+    # arquivos com o mesmo nome-base, inclusive quando diferem só na caixa.
+    # A verificação abrange TODAS as ações examinadas e não escolhe uma
+    # origem vencedora baseada na ordenação ou na posição no snapshot.
+    basename_counts: dict[str, int] = {}
+    for action in actions:
+        if isinstance(action.get("source"), str):
+            name = Path(action["source"]).name.casefold()
+            basename_counts[name] = basename_counts.get(name, 0) + 1
+    for action in actions:
+        if action["status"] == "proposto":
+            name = Path(action["source"]).name.casefold()
+            if basename_counts.get(name, 0) > 1:
+                action["status"] = "bloqueado"
+                action["reason"] = "nome_repetido_entre_subpastas"
+
+    # Recalcular após a verificação global: ela também pode bloquear a
+    # primeira ocorrência, que antes aparecia indevidamente como proposta.
+    by_reason = {}
+    for action in actions:
+        reason = action.get("reason")
+        if reason:
+            by_reason[reason] = by_reason.get(reason, 0) + 1
     blocked = sum(a["status"] == "bloqueado" for a in actions)
     return {
         "schema_version": 1, "operation": "move_recursive_consolidation",
