@@ -40,6 +40,19 @@ class GUIStructureTests(unittest.TestCase):
                 self.assertIn("self._worker is not None", ast.unparse(first.test))
                 self.assertIsInstance(first.body[0], ast.Return)
 
+    def test_catalog_dates_use_calendar_without_changing_search_contract(self):
+        constructor = ast.unparse(self.method("__init__"))
+        date_format = ast.unparse(self.method("_change_date_format"))
+        filters = ast.unparse(self.method("_load_catalog_page"))
+        self.assertIn("self.catalog_date_from = CalendarDateEdit(self._date_format)", constructor)
+        self.assertIn("self.catalog_date_to = CalendarDateEdit(self._date_format)", constructor)
+        self.assertIn("self.catalog_date_from.returnPressed.connect(self._reset_catalog_page)", constructor)
+        self.assertIn("self.catalog_date_to.returnPressed.connect(self._reset_catalog_page)", constructor)
+        self.assertIn("widget.set_date_format(next_format)", date_format)
+        self.assertIn("date_from=self.catalog_date_from.text()", filters)
+        self.assertIn("date_to=self.catalog_date_to.text()", filters)
+        self.assertNotIn("QDateEdit(", constructor)
+
     def test_timestamp_cell_keeps_raw_iso_in_user_role(self):
         method = self.method("_render_result")
         body = ast.unparse(method)
