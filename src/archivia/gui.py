@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, Qt, QSize
 from PySide6.QtWidgets import (
     QApplication, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
@@ -27,6 +27,7 @@ from .preview import preview_inventory_page
 from .gui_helpers import validate_gui_result, can_save_inventory_preview
 from .gui_worker import QueryWorker
 from .gui_theme import ARCHIVIA_STYLESHEET
+from .gui_icons import icon_for
 from .gui_tables import fill_table
 from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
@@ -59,6 +60,7 @@ class ArchivIAWindow(QMainWindow):
         # consultar histórico e, depois, listar o snapshot recém-salvo.
         self._saved_snapshot_navigation: dict | None = None
         self.setWindowTitle("ArchivIA Standard — Organização supervisionada")
+        self.setWindowIcon(icon_for("folder", "#0799af", 48))
         self.resize(1160, 830)
         self.setMinimumSize(850, 600)
         self.setStyleSheet(ARCHIVIA_STYLESHEET)
@@ -106,9 +108,9 @@ class ArchivIAWindow(QMainWindow):
         home_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         home_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         home_scroll.setWidget(home_page)
-        self.tabs.addTab(home_scroll, "Início")
-        self.tabs.addTab(library_page, "Biblioteca")
-        self.tabs.addTab(settings_page, "Configurações")
+        self.tabs.addTab(home_scroll, icon_for("home", "#075e80"), "Início")
+        self.tabs.addTab(library_page, icon_for("layers", "#075e80"), "Biblioteca")
+        self.tabs.addTab(settings_page, icon_for("settings", "#075e80"), "Configurações")
         self.advanced_page = QWidget()
         advanced_layout = QVBoxLayout(self.advanced_page)
         self.advanced_tabs = QTabWidget()
@@ -119,7 +121,8 @@ class ArchivIAWindow(QMainWindow):
             self.advanced_tabs.addTab(page, label)
         advanced_layout.addWidget(self.advanced_tabs)
         root.addWidget(self.tabs, 1)
-        self.advanced_button = QPushButton("⚙  Avançado")
+        self.advanced_button = QPushButton("Avançado")
+        self.advanced_button.setIcon(icon_for("settings", "#ffffff"))
         self.advanced_button.setObjectName("archiviaAdvanced")
         self.advanced_button.setCheckable(True)
         self.advanced_button.toggled.connect(self._toggle_advanced)
@@ -637,9 +640,11 @@ class ArchivIAWindow(QMainWindow):
         self.home_folder.setPlaceholderText("Escolha a pasta com os arquivos")
         home_source_row.addWidget(self.home_folder, 1)
         self.home_choose_button = QPushButton("Escolher pasta...")
+        self.home_choose_button.setIcon(icon_for("folder"))
         self.home_choose_button.clicked.connect(self._choose_folder)
         home_source_row.addWidget(self.home_choose_button)
-        self.home_analyze_button = QPushButton("▷  Analisar pasta de origem e subpastas")
+        self.home_analyze_button = QPushButton("Analisar pasta de origem e subpastas")
+        self.home_analyze_button.setIcon(icon_for("play", "#ffffff"))
         self.home_analyze_button.setObjectName("archiviaAnalyze")
         self.home_analyze_button.clicked.connect(self._analyze_home_source)
         self.home_folder.textChanged.connect(self.folder.setText)
@@ -653,6 +658,7 @@ class ArchivIAWindow(QMainWindow):
             ("Contar áudios", "audio"),
         ):
             quick_button = QPushButton(label)
+            quick_button.setIcon(icon_for({"imagem": "image", "video": "video", "audio": "music"}[category]))
             quick_button.clicked.connect(
                 lambda _checked=False, cat=category: self._home_count(cat)
             )
@@ -663,6 +669,7 @@ class ArchivIAWindow(QMainWindow):
         self.home_destination.setPlaceholderText("Selecione uma pasta de destino já existente")
         home_destination_row.addWidget(self.home_destination, 1)
         self.home_destination_button = QPushButton("Escolher destino...")
+        self.home_destination_button.setIcon(icon_for("folder"))
         self.home_destination_button.clicked.connect(self._home_choose_destination)
         home_destination_row.addWidget(self.home_destination_button)
         # Origem e destino lado a lado, com seleção independente.
@@ -678,9 +685,11 @@ class ArchivIAWindow(QMainWindow):
         self.home_prompt.returnPressed.connect(self._home_ask)
         home_actions = QHBoxLayout()
         self.home_ask_button = QPushButton("Pedir ajuda à IA (opcional)")
+        self.home_ask_button.setIcon(icon_for("sparkles"))
         self.home_ask_button.clicked.connect(self._home_ask)
         home_actions.addWidget(self.home_ask_button)
         self.home_refresh_button = QPushButton("Atualizar análise da pasta")
+        self.home_refresh_button.setIcon(icon_for("refresh"))
         self.home_refresh_button.clicked.connect(self._refresh_folder_session)
         home_actions.addWidget(self.home_refresh_button)
         home_move_box = QGroupBox("2. Escolher arquivos e preparar organização")
@@ -713,21 +722,25 @@ class ArchivIAWindow(QMainWindow):
         # Cartões horizontais preservam os callbacks e as confirmações existentes.
         move_actions_row = QHBoxLayout()
         move_actions_row.setSpacing(9)
-        self.home_prepare_button = QPushButton("▱  Preparar\norganização")
+        self.home_prepare_button = QPushButton("Preparar\norganização")
+        self.home_prepare_button.setIcon(icon_for("layers", "#ffffff", 42))
         self.home_prepare_button.setObjectName("archiviaPrepare")
         self.home_prepare_button.clicked.connect(self._prepare_home_organization)
         move_actions_row.addWidget(self.home_prepare_button, 1)
-        self.home_batch_button = QPushButton("⌕  Revisar e\nmover arquivos")
+        self.home_batch_button = QPushButton("Revisar e\nmover arquivos")
+        self.home_batch_button.setIcon(icon_for("search", "#ffffff", 42))
         self.home_batch_button.setObjectName("archiviaReview")
         self.home_batch_button.clicked.connect(self._approve_batch_move)
         self.home_batch_button.setEnabled(False)
         move_actions_row.addWidget(self.home_batch_button, 1)
-        self.home_all_button = QPushButton("▶  Mover todos\nos arquivos prontos")
+        self.home_all_button = QPushButton("Mover todos\nos arquivos prontos")
+        self.home_all_button.setIcon(icon_for("play", "#ffffff", 42))
         self.home_all_button.setObjectName("archiviaMoveAll")
         self.home_all_button.clicked.connect(self._approve_all_moves)
         self.home_all_button.setEnabled(False)
         move_actions_row.addWidget(self.home_all_button, 1)
-        self.home_stop_button = QPushButton("■  Interromper\napós o arquivo atual")
+        self.home_stop_button = QPushButton("Interromper\napós o arquivo atual")
+        self.home_stop_button.setIcon(icon_for("stop", "#ffffff", 42))
         self.home_stop_button.setObjectName("archiviaStop")
         self.home_stop_button.setEnabled(False)
         self.home_stop_button.clicked.connect(self._stop_move_queue)
@@ -736,6 +749,7 @@ class ArchivIAWindow(QMainWindow):
             self.home_prepare_button, self.home_batch_button,
             self.home_all_button, self.home_stop_button,
         ):
+            action_button.setIconSize(QSize(30, 30))
             action_button.setMinimumHeight(92)
             action_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             action_button.setToolTip(action_button.text().replace("\n", " "))
@@ -748,12 +762,14 @@ class ArchivIAWindow(QMainWindow):
         self.home_queue_progress.setWordWrap(True)
         home_move_layout.addWidget(self.home_queue_progress)
         self.home_conflict_button = QPushButton("Guardar versões com nomes repetidos...")
+        self.home_conflict_button.setIcon(icon_for("save"))
         self.home_conflict_button.clicked.connect(self._approve_conflict_move)
         self.home_conflict_button.setEnabled(False)
         home_move_layout.addWidget(self.home_conflict_button)
         home_layout.addWidget(home_move_box)
         # Consultas, IA e catalogação ficam recolhidas até o usuário solicitar.
-        self.home_extras_button = QPushButton("▾  Consultas e catalogação (opcional)")
+        self.home_extras_button = QPushButton("Consultas e catalogação (opcional)")
+        self.home_extras_button.setIcon(icon_for("chevron"))
         self.home_extras_button.setCheckable(True)
         self.home_extras_button.setChecked(False)
         self.home_extras_button.setObjectName("archiviaExtrasToggle")
@@ -773,13 +789,16 @@ class ArchivIAWindow(QMainWindow):
         # prévia, validação e confirmação do Inventário avançado.
         catalog_actions = QHBoxLayout()
         self.home_inventory_button = QPushButton("Examinar pasta para catalogar")
+        self.home_inventory_button.setIcon(icon_for("folder"))
         self.home_inventory_button.clicked.connect(self._run_inventory_preview)
         catalog_actions.addWidget(self.home_inventory_button)
         self.home_preview_button = QPushButton("Conferir arquivos da prévia")
+        self.home_preview_button.setIcon(icon_for("search"))
         self.home_preview_button.setEnabled(False)
         self.home_preview_button.clicked.connect(self._home_view_preview)
         catalog_actions.addWidget(self.home_preview_button)
         self.home_catalog_button = QPushButton("Salvar no catálogo SQLite...")
+        self.home_catalog_button.setIcon(icon_for("database"))
         self.home_catalog_button.setEnabled(False)
         self.home_catalog_button.clicked.connect(self._confirm_catalog_preview)
         catalog_actions.addWidget(self.home_catalog_button)
