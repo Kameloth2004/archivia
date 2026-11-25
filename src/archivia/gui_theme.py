@@ -128,6 +128,12 @@ QLabel#archiviaQueueProgress {
     padding: 8px;
     font-weight: 600;
 }
+QLabel#archiviaActiveFolderState {
+    background: transparent;
+    color: #245875;
+    font-size: 11px;
+    padding: 1px 4px;
+}
 QLabel#archiviaVersion {
     background: #edf8fd;
     color: #35657e;
