@@ -165,4 +165,29 @@ QProgressBar {
     text-align: center;
 }
 QProgressBar::chunk { background: #0d9aaf; border-radius: 4px; }
+/* Layout compacto aprovado: dois campos e ações quadradas na mesma linha. */
+QGroupBox { margin-top: 11px; padding: 9px 9px 7px 9px; }
+QGroupBox::title { left: 12px; }
+QPushButton#archiviaPrepare,
+QPushButton#archiviaReview,
+QPushButton#archiviaMoveAll,
+QPushButton#archiviaStop {
+    border-radius: 13px;
+    padding: 7px 6px;
+    font-size: 13px;
+    font-weight: 700;
+}
+QWidget#archiviaCategoryPanel { background: transparent; }
+QPushButton#archiviaExtrasToggle {
+    background: #edf8ff;
+    color: #14416d;
+    border: 1px solid #bad9e8;
+    text-align: left;
+    padding: 7px 14px;
+}
+QLabel#archiviaQueueProgress:empty {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
 """
