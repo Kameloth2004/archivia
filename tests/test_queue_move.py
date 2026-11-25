@@ -57,6 +57,8 @@ class QueueMoveTests(unittest.TestCase):
         self.assertEqual(result["moved"], 1)
         self.assertEqual(result["pending"], 3)
         self.assertEqual(result["stopped_reason"], "interrompido_pelo_usuario")
+        self.assertEqual(result["unattempted_files"], ["img1.jpg", "img2.jpg", "img3.jpg"])
+        self.assertEqual(result["plan_blocked"], 0)
         self.assertFalse((self.source / "img0.jpg").exists())
         for i in range(1, 4):
             self.assertTrue((self.source / f"img{i}.jpg").exists())
