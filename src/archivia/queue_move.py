@@ -81,6 +81,11 @@ def move_queue_approved(
         "stopped_reason": stopped_reason,
         "blocked": sum(r["status"] == "bloqueado" for r in rows),
         "errors": sum(r["status"] == "erro" for r in rows),
+        # Bloqueios já identificados na prévia não foram selecionados para
+        # execução; devem aparecer separadamente no relatório final.
+        "plan_blocked": plan.get("blocked", 0),
+        "plan_blocked_by_reason": dict(plan.get("blocked_by_reason", {})),
+        "unattempted_files": files[len(rows):],
         "results": rows,
         "files_modified": any(r["status"] in ("movido", "copiado_origem_preservada")
                               for r in rows),
