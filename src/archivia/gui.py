@@ -23,6 +23,7 @@ from .move_executor import APPROVAL_PHRASE, preview_conflict_move
 from .batch_move import MAX_BATCH_FILES
 from .queue_move import MAX_QUEUE_FILES
 from .catalog import DEFAULT_DB
+from .inventory import CATEGORIES, CATEGORY_LABELS
 from .date_formats import DATE_FORMATS, date_input_mask, parse_user_date, display_date, display_timestamp
 from .preview import preview_inventory_page
 from .gui_helpers import validate_gui_result, can_save_inventory_preview
@@ -60,7 +61,7 @@ class ArchivIAWindow(QMainWindow):
         # Navegação pós-catalogação: espera o término do worker antes de
         # consultar histórico e, depois, listar o snapshot recém-salvo.
         self._saved_snapshot_navigation: dict | None = None
-        self.setWindowTitle("ArchivIA Standard — Organização supervisionada")
+        self.setWindowTitle("ArchivIA V2 — Organização supervisionada")
         self.setWindowIcon(icon_for("folder", "#0799af", 48))
         brand_directory = Path(__file__).resolve().parents[2] / "assets" / "branding"
         brand_icon = brand_directory / "archivia_icon.webp"
@@ -383,9 +384,8 @@ class ArchivIAWindow(QMainWindow):
         plan_options = QHBoxLayout()
         plan_options.addWidget(QLabel("Categoria:"))
         self.plan_category = QComboBox()
-        self.plan_category.addItem("Imagens", "imagem")
-        self.plan_category.addItem("Vídeos", "video")
-        self.plan_category.addItem("Áudios", "audio")
+        for category in CATEGORIES:
+            self.plan_category.addItem(CATEGORY_LABELS[category], category)
         plan_options.addWidget(self.plan_category)
         plan_options.addWidget(QLabel("Snapshot:"))
         self.plan_snapshot = QComboBox()
@@ -720,9 +720,8 @@ class ArchivIAWindow(QMainWindow):
         category_column.setContentsMargins(3, 5, 7, 5)
         category_column.addWidget(QLabel("Tipo de arquivo:"))
         self.home_organize_category = QComboBox()
-        self.home_organize_category.addItem("Imagens", "imagem")
-        self.home_organize_category.addItem("Vídeos", "video")
-        self.home_organize_category.addItem("Áudios", "audio")
+        for category in CATEGORIES:
+            self.home_organize_category.addItem(CATEGORY_LABELS[category], category)
         category_column.addWidget(self.home_organize_category)
         self.home_include_subfolders = QCheckBox("Incluir subpastas")
         self.home_include_subfolders.setChecked(True)
@@ -867,9 +866,16 @@ class ArchivIAWindow(QMainWindow):
         )
         self._refresh_date_placeholders()
 
-        self.status = QLabel("Pronto. Escrita em mídias somente com autorização explícita.")
+        self.status = QLabel("Pronto. Movimentações somente com autorização explícita.")
         self.status.setObjectName("archiviaStatus")
-        root.addWidget(self.status)
+        footer = QHBoxLayout()
+        footer.setSpacing(8)
+        footer.addWidget(self.status, 1)
+        self.version_label = QLabel("V2 · Desenvolvimento")
+        self.version_label.setObjectName("archiviaVersion")
+        self.version_label.setToolTip("ArchivIA 2.0.0.dev0 — branch develop/v2.0.0")
+        footer.addWidget(self.version_label)
+        root.addLayout(footer)
         self.setCentralWidget(content)
 
     def _refresh_date_placeholders(self) -> None:
@@ -1903,9 +1909,10 @@ class ArchivIAWindow(QMainWindow):
                 "Análise concluída — nenhum arquivo foi alterado.\n"
                 f"Escopo: {'pasta e subpastas' if result.get('recursive', True) else 'somente pasta selecionada'}\n"
                 f"Arquivos encontrados: {result['summary']['indexed_files']}\n"
-                f"Imagens: {counts.get('imagem', 0)} | "
-                f"Vídeos: {counts.get('video', 0)} | "
-                f"Áudios: {counts.get('audio', 0)}\n\n"
+                + " | ".join(
+                    f"{CATEGORY_LABELS[category]}: {counts.get(category, 0)}"
+                    for category in CATEGORIES
+                ) + "\n\n"
                 "Agora escolha o tipo de arquivo e, quando decidir organizar, "
                 "informe a pasta de destino."
             )
