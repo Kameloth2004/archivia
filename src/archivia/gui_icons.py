@@ -79,6 +79,14 @@ def icon_for(name: str, color: str = "#0b577d", size: int = 28) -> QIcon:
         line(10, 21, 10, 14)
         line(10, 14, 14, 14)
         line(14, 14, 14, 21)
+    elif name == "calendar":
+        painter.drawRoundedRect(QRectF(3, 5, 18, 16), 2, 2)
+        line(3, 10, 21, 10)
+        line(8, 2.5, 8, 7)
+        line(16, 2.5, 16, 7)
+        line(8, 14, 10, 14)
+        line(14, 14, 16, 14)
+        line(8, 18, 10, 18)
     elif name == "file-text":
         path = QPainterPath()
         path.moveTo(5, 2.5)
