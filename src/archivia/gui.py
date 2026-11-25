@@ -991,6 +991,7 @@ class ArchivIAWindow(QMainWindow):
             self._invalidate_home_organization
         )
         self._refresh_date_placeholders()
+        self._sync_active_folder_display()
 
         self.status = QLabel("Pronto. Movimentações somente com autorização explícita.")
         self.status.setObjectName("archiviaStatus")
@@ -1056,24 +1057,111 @@ class ArchivIAWindow(QMainWindow):
         return Path(value)
 
     def _choose_folder(self) -> None:
+        if self._worker is not None:
+            return
         chosen = QFileDialog.getExistingDirectory(
-            self, "Selecionar pasta para examinar", self.folder.text().strip() or str(Path.home())
+            self, "Selecionar pasta ativa", self.folder.text().strip() or str(Path.home())
         )
         if chosen:
-            self.folder.setText(chosen)
-            self._clear_preview()
+            self.folder.setText(str(Path(chosen).expanduser().absolute()))
+
+    def _clear_active_folder(self) -> None:
+        """Descarta o contexto temporário; não apaga o catálogo SQLite salvo."""
+        if self._worker is not None:
+            return
+        self.folder.clear()
+
+    def _sync_active_folder_display(self) -> None:
+        """Apresenta uma única origem comum a todas as abas."""
+        active = self._active_folder
+        text = str(active) if active is not None else ""
+        self.active_folder_display.setText(text)
+        self.documents_active_folder.setText(
+            f"Pasta ativa: {text}" if text else "Pasta ativa: nenhuma selecionada"
+        )
+        self.active_folder_clear.setEnabled(active is not None)
+        if active is None:
+            message = (
+                "Nenhuma pasta ativa. Selecione uma pasta para pesquisar, "
+                "organizar ou consultar com o agente."
+            )
+        elif self._folder_session is not None and self._folder_session.ready:
+            message = (
+                "Pasta ativa selecionada; análise temporária disponível. "
+                "Alterações externas exigem Atualizar pasta ativa."
+            )
+        else:
+            message = (
+                "Pasta ativa selecionada; análise ainda não realizada ou desatualizada. "
+                "Os arquivos serão examinados antes de uma nova consulta."
+            )
+        self.active_folder_state.setText(message)
+        active_mode = self.catalog_source.currentData() == "active"
+        self.catalog_refresh_active.setEnabled(active is not None and active_mode
+                                               and self._worker is None)
+        self.history_select.setEnabled(not active_mode and self._worker is None)
+        self.history_button.setEnabled(not active_mode and self._worker is None)
+        self.catalog_source_info.setText(
+            f"Pasta ativa: {text}. Catálogo temporário, não gravado no histórico."
+            if active is not None and active_mode else
+            "Selecione uma pasta ativa para consultar seus arquivos nesta sessão."
+            if active_mode else
+            "Catálogo salvo: snapshots SQLite independentes da pasta ativa."
+        )
 
     def _folder_changed(self, *_args) -> None:
+        """Troca de origem invalida análises, sem apagar snapshots persistentes."""
+        # Os controles ficam desabilitados durante trabalho assíncrono.
+        if self._worker is not None:
+            return
+        selected = self.folder.text().strip()
+        candidate = Path(selected).expanduser().absolute() if selected else None
+        active = (candidate if candidate is not None
+                  and candidate.is_dir() and not candidate.is_symlink() else None)
+        if active == self._active_folder:
+            return
+        self._active_folder = active
         if self._folder_session is not None:
             self._folder_session.close()
             self._folder_session = None
-        if self._preview_result is not None:
-            self._clear_preview()
-            self.inventory_view.setText("Pasta alterada. Examine novamente antes de catalogar.")
-            self.home_result.setPlainText(
-                "Pasta de origem alterada. A prévia anterior foi descartada. "
-                "Examine a nova pasta antes de salvar no catálogo."
-            )
+        self._update_move_choices()
+        self._clear_preview()
+        self.inventory_view.setText("Pasta alterada. Examine novamente antes de catalogar.")
+        self.home_result.setPlainText(
+            "Pasta ativa alterada. Análises e planos anteriores foram invalidados."
+        )
+        self._sync_active_folder_display()
+        if self.catalog_source.currentData() == "active":
+            self._clear_catalog_table_for_session()
+
+    def _clear_catalog_table_for_session(self) -> None:
+        """Nunca mostrar linhas do snapshot anterior como dados da nova pasta."""
+        self._page = 1
+        self._pages = 0
+        self.catalog_table.setRowCount(0)
+        self.page_label.setText("Pasta ativa: clique em Listar catálogo para consultar.")
+        self.prev_button.setEnabled(False)
+        self.next_button.setEnabled(False)
+
+    def _change_catalog_source(self, *_args) -> None:
+        if self._worker is not None:
+            return
+        self._clear_catalog_table_for_session()
+        self._sync_active_folder_display()
+        self._reset_catalog_page()
+
+    def _refresh_active_catalog(self) -> None:
+        if self._worker is not None or self.catalog_source.currentData() != "active":
+            return
+        try:
+            session = self._session_for_folder()
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._clear_catalog_table_for_session()
+        self._start_worker(
+            "refresh_folder_session", DEFAULT_DB, folder_session=session,
+        )
 
     def _confirm_catalog_preview(self) -> None:
         if self._worker is not None or self._preview_result is None:
@@ -1207,15 +1295,26 @@ class ArchivIAWindow(QMainWindow):
     def _load_catalog_page(self) -> None:
         if self._worker is not None:
             return
-        try:
-            database = self._database_path()
-        except ValueError as exc:
-            self._show_error(str(exc))
-            return
+        active_mode = self.catalog_source.currentData() == "active"
+        session = None
+        if active_mode:
+            try:
+                session = self._session_for_folder()
+            except ValueError:
+                self._clear_catalog_table_for_session()
+                self.status.setText("Selecione uma pasta ativa válida para consultar.")
+                return
+            database = DEFAULT_DB  # O worker usa exclusivamente o catálogo da sessão.
+        else:
+            try:
+                database = self._database_path()
+            except ValueError as exc:
+                self._show_error(str(exc))
+                return
         try:
             filters = catalog_filters(
                 category=self.category_filter.currentData(),
-                scan_id=self.history_select.currentData(),
+                scan_id=None if active_mode else self.history_select.currentData(),
                 name=self.catalog_name_filter.text(),
                 extension=self.catalog_extension_filter.text(),
                 scope=self.catalog_search_scope.currentData(),
@@ -1227,7 +1326,10 @@ class ArchivIAWindow(QMainWindow):
         except ValueError as exc:
             self._show_error(str(exc))
             return
-        self._start_worker("catalog_page", database, page=self._page, **filters)
+        self._start_worker(
+            "catalog_page", database, page=self._page,
+            folder_session=session, **filters,
+        )
 
     def _previous_page(self) -> None:
         if self._page > 1:
@@ -1498,7 +1600,7 @@ class ArchivIAWindow(QMainWindow):
     def _session_for_folder(self) -> FolderCatalogSession:
         selected = self.folder.text().strip()
         if not selected:
-            raise ValueError("Selecione a pasta de origem em Inventário.")
+            raise ValueError("Selecione uma pasta ativa de origem.")
         source = Path(selected).expanduser().absolute()
         if self._folder_session is None or self._folder_session.source != source:
             if self._folder_session is not None:
@@ -1540,7 +1642,7 @@ class ArchivIAWindow(QMainWindow):
         # Sem origem explícita, não consultar silenciosamente o catálogo histórico.
         # A mensagem do usuário pode mencionar uma pasta que NÃO está selecionada.
         self._show_error(
-            "Selecione a pasta de origem na aba Inventário antes de perguntar ao agente."
+            "Selecione uma pasta ativa antes de perguntar ao agente."
         )
 
     def _update_move_choices(self) -> None:
@@ -2169,7 +2271,8 @@ class ArchivIAWindow(QMainWindow):
             self.status.setText("Movimentação finalizada; plano antigo invalidado.")
         elif mode == "refresh_folder_session":
             self._update_move_choices()
-            self.status.setText("Catálogo temporário atualizado; nenhuma mídia modificada.")
+            self._sync_active_folder_display()
+            self.status.setText("Catálogo temporário atualizado; nenhum arquivo modificado.")
             self.home_result.setPlainText("Análise atualizada. Você já pode consultar novamente.")
         elif mode == "manual_copy":
             self.home_result.setPlainText(
@@ -2428,6 +2531,7 @@ class ArchivIAWindow(QMainWindow):
                 self._show_plan_item_detail()
             self.status.setText("Simulação concluída; nenhum arquivo modificado.")
         elif mode == "catalog_page":
+            self._sync_active_folder_display()
             self._page = result["page"]
             self._pages = result["pages"]
             items = result["files"]
@@ -2436,7 +2540,10 @@ class ArchivIAWindow(QMainWindow):
             self.page_label.setText(
                 f"Página {self._page} de {self._pages or 0} — {result['count']} arquivos encontrados"
             )
-            self.status.setText("Snapshot #{} consultado em modo somente leitura.".format(result["scan_id"]))
+            scope = "Pasta ativa" if self.catalog_source.currentData() == "active" else "Catálogo salvo"
+            self.status.setText(
+                f"{scope}: snapshot #{result['scan_id']} consultado em somente leitura."
+            )
         else:
             answer, report = agent_report(result)
             self._update_move_choices()
@@ -2460,7 +2567,14 @@ class ArchivIAWindow(QMainWindow):
             if self._folder_session is not None:
                 self._folder_session.close()
             self._update_move_choices()
+            if self.catalog_source.currentData() == "active":
+                self._clear_catalog_table_for_session()
         self._set_busy(False)
+        self._sync_active_folder_display()
+        if (completed_mode == "refresh_folder_session"
+                and self.catalog_source.currentData() == "active"):
+            self._reset_catalog_page()
+            return
         navigation = self._saved_snapshot_navigation
         if navigation is None:
             return
