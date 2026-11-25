@@ -573,14 +573,14 @@ class FolderCatalogSession:
     def ready(self) -> bool:
         return self._temporary is not None and self._db is not None
 
-    def refresh(self) -> None:
+    def refresh(self, *, recursive: bool = True) -> None:
         """Substitui o catálogo após uma nova varredura sem deixar meio estado."""
         if not self.source.is_dir() or self.source.is_symlink():
             raise ValueError("Pasta de origem não está mais disponível.")
         temp = TemporaryDirectory(prefix="archivia-session-")
         try:
             db = Path(temp.name) / "catalogo.sqlite3"
-            report = inventory(self.source)
+            report = inventory(self.source, recursive=recursive)
             if report["errors"]:
                 raise ValueError("Inventário com erros; a consulta foi cancelada.")
             scan = store_inventory(report, db)
@@ -597,25 +597,29 @@ class FolderCatalogSession:
         if old is not None:
             old.cleanup()
 
-    def analyze_source(self) -> dict[str, Any]:
-        """Análise completa da origem, sem precisar de pasta de destino."""
-        self.refresh()
+    def analyze_source(self, *, recursive: bool = True) -> dict[str, Any]:
+        """Analisa a origem no escopo escolhido, sem exigir destino."""
+        self.refresh(recursive=recursive)
         summary = catalog_summary(self._db, scan_id=self._scan_id)
         return {
             "root": str(self.source), "scan_id": self._scan_id,
             "summary": summary, "read_only": True, "files_modified": False,
+            "recursive": recursive,
         }
 
-    def prepare_recursive_plan(self, destination: str | Path, category: str = "imagem") -> dict[str, Any]:
+    def prepare_recursive_plan(
+        self, destination: str | Path, category: str = "imagem",
+        *, recursive: bool = True,
+    ) -> dict[str, Any]:
         """Prepara planejamento diretamente pelo Python, sem depender do Ollama.
 
         Atualiza o inventário para evitar oferecer propostas do snapshot antigo.
         Nenhuma movimentação ou cópia ocorre aqui.
         """
-        self.refresh()
+        self.refresh(recursive=recursive)
         result = propose_recursive_consolidation(
             destination, category, db_path=self._db,
-            scan_id=self._scan_id, limit=None,
+            scan_id=self._scan_id, limit=None, recursive=recursive,
         )
         self._last_recursive_plan = result
         return result
