@@ -10,6 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
     from PySide6.QtWidgets import QApplication
     from archivia.gui_explorer import ExplorerPanel, safe_directory, _BATCH_SIZE
     from archivia.gui import ArchivIAWindow
@@ -79,6 +80,25 @@ class ExplorerV2Tests(unittest.TestCase):
         self.panel._open_item(item)
         self.assertEqual(self.panel.current_directory, self.root.resolve())
         self.assertTrue((self.root / "documento.pdf").is_file())
+
+    def test_thumbnail_result_updates_only_current_file_generation(self):
+        self.panel.set_active_folder(self.root)
+        item = next(self.panel.files.item(i) for i in range(self.panel.files.count())
+                    if self.panel.files.item(i).text() == "imagem.jpg")
+        path = item.data(Qt.ItemDataRole.UserRole)
+        meta = item.data(Qt.ItemDataRole.UserRole + 1)
+        picture = QImage(24, 24, QImage.Format.Format_RGB32)
+        picture.fill(Qt.GlobalColor.red)
+        original_key = item.icon().cacheKey()
+        self.panel._apply_thumbnail(
+            path, meta[1], meta[2], self.panel._generation, picture
+        )
+        self.assertNotEqual(item.icon().cacheKey(), original_key)
+        updated_key = item.icon().cacheKey()
+        self.panel._apply_thumbnail(
+            path, meta[1], meta[2], self.panel._generation - 1, picture
+        )
+        self.assertEqual(item.icon().cacheKey(), updated_key)
 
     def test_navigation_denies_leaving_active_folder(self):
         self.panel.set_active_folder(self.root)
