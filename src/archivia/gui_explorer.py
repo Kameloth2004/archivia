@@ -14,6 +14,7 @@ from pathlib import Path
 from PySide6.QtCore import QDir, QFileInfo, QSize, Qt, QObject, QRunnable, QThreadPool, Signal, QTimer
 from PySide6.QtGui import QIcon, QImageReader, QPixmap, QImage
 from .metadata import read_file_metadata
+from .gui_viewer import FilePreviewDialog
 
 from PySide6.QtWidgets import (
     QFileIconProvider, QFileSystemModel, QHBoxLayout, QLabel, QLineEdit,
@@ -179,6 +180,13 @@ class ExplorerPanel(QWidget):
         self.view_button = QPushButton("Ver detalhes")
         self.view_button.clicked.connect(self._toggle_view)
         toolbar.addWidget(self.view_button)
+        self.open_preview_button = QPushButton("Ampliar arquivo")
+        self.open_preview_button.setToolTip(
+            "Abrir visualizador em tela cheia para o arquivo selecionado."
+        )
+        self.open_preview_button.setEnabled(False)
+        self.open_preview_button.clicked.connect(self._open_selected_preview)
+        toolbar.addWidget(self.open_preview_button)
         layout.addLayout(toolbar)
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -288,6 +296,7 @@ class ExplorerPanel(QWidget):
         self.up_button.setEnabled(False)
         self.refresh_button.setEnabled(False)
         self.view_button.setEnabled(False)
+        self.open_preview_button.setEnabled(False)
 
     @property
     def active_root(self) -> Path | None:
@@ -316,6 +325,7 @@ class ExplorerPanel(QWidget):
         self.files.setEnabled(enabled)
         self.refresh_button.setEnabled(enabled)
         self.view_button.setEnabled(enabled)
+        self.open_preview_button.setEnabled(False)
         self.more_button.hide()
         if not enabled:
             self.path_field.clear()
@@ -507,9 +517,40 @@ class ExplorerPanel(QWidget):
     def _open_item(self, item: QListWidgetItem) -> None:
         path_text = item.data(Qt.ItemDataRole.UserRole)
         metadata = item.data(Qt.ItemDataRole.UserRole + 1)
-        if path_text and metadata and metadata[0]:
+        if not path_text or not metadata:
+            return
+        if metadata[0]:
             self._open_directory(Path(path_text))
-        # Arquivos nunca são executados ou abertos em outros aplicativos.
+        else:
+            self._open_preview_for_item(item)
+
+    def _open_selected_preview(self) -> None:
+        selected = self.files.selectedItems()
+        if len(selected) == 1:
+            self._open_preview_for_item(selected[0])
+
+    def _open_preview_for_item(self, item: QListWidgetItem) -> None:
+        """Só uma ação explícita abre o visualizador; não executa o arquivo."""
+        if self._root is None:
+            return
+        path_text = item.data(Qt.ItemDataRole.UserRole)
+        metadata = item.data(Qt.ItemDataRole.UserRole + 1)
+        if not path_text or not metadata or metadata[0]:
+            return
+        path = Path(path_text)
+        if (safe_directory(self._root, path.parent) is None
+                or path.is_symlink() or _junction(path)):
+            return
+        self._preview_dialog = FilePreviewDialog(
+            self._root, path, (metadata[1], metadata[2]), parent=self,
+        )
+        try:
+            self._preview_dialog.showFullScreen()
+            self._preview_dialog.exec()
+        finally:
+            # O Explorer mantém a seleção, a pasta e a posição de rolagem.
+            self._preview_dialog.deleteLater()
+            self._preview_dialog = None
 
     def _reset_metadata_selection(self) -> None:
         self._metadata_generation += 1
@@ -577,6 +618,11 @@ class ExplorerPanel(QWidget):
     def _show_properties(self) -> None:
         self._reset_metadata_selection()
         items = self.files.selectedItems()
+        self.open_preview_button.setEnabled(
+            len(items) == 1 and bool(
+                items[0].data(Qt.ItemDataRole.UserRole + 1)
+            ) and not items[0].data(Qt.ItemDataRole.UserRole + 1)[0]
+        )
         if not items:
             self.properties_text.setText("Selecione um arquivo ou pasta.")
             return
