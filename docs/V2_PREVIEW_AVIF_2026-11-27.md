@@ -19,7 +19,7 @@ A versão anterior de `gui_viewer._ImageLoad.run()` confundia `QImageReader.size
 
 `PREVIEW_MAX_SOURCE_PIXELS=100_000_000` e `PREVIEW_MAX_SIDE=4096` permanecem: limitam o custo de descompressão/visualização e não correspondem à capacidade do monitor. `PREVIEW_MAX_BYTES=80 MiB` continua como teto defensivo inicial. A escolha é revisável mediante requisitos e benchmark, mas **remover todos os limites** poderia comprometer o processo com imagens malformadas, descompressão explosiva ou consumo excessivo de RAM. Nenhuma restrição foi elevada silenciosamente.
 
-O fallback atual é aplicado ao visualizador ampliado, **não** ao gerador de miniaturas no explorador; é uma etapa separada para evitar duplicação e threads extras antes da homologação.
+O fallback é compartilhado entre o visualizador ampliado e o gerador de miniaturas. Em ambos os casos o Qt é tentado primeiro; quando necessário, Pillow decodifica localmente sem modificar o original. As miniaturas mantêm os limites próprios de tamanho/pixels e a decodificação fora da thread principal.
 
 ## Instalação opcional
 
@@ -41,3 +41,13 @@ python -m unittest discover -s tests -v
 ```
 
 Abrir pela GUI uma cópia descartável do AVIF originalmente problemático e conferir a visualização, sem mover, sobrescrever ou converter o arquivo original. Se o erro persistir, registrar mensagem e checar decodificação com Pillow. **Nenhum teste Windows foi executado pelo assistente nesta branch.**
+
+## Complemento: miniaturas AVIF e formato JFIF
+
+Após homologação visual preliminar do AVIF no modo tela cheia, verificou-se que miniaturas ainda usavam `QImageReader` diretamente. A tarefa `_ThumbnailTask` em `gui_explorer.py` foi adaptada para reutilizar `decode_preview` em thread. Isso evita duplicar protocolos de leitura.
+
+JFIF (`.jfif`) é uma variante/container de JPEG, não um codec de imagem independente. A extensão foi acrescentada à categoria `imagem` do inventário e às extensões visualizáveis do Explorer e da prévia ampliada. O Qt tenta JPEG; Pillow oferece alternativa quando Qt não consegue decodificar o arquivo.
+
+Testes adicionais: miniatura AVIF real com Pillow disponível e reconhecimento/visualização de JPEG com extensão JFIF.
+
+**Pendente:** validar no Windows o PR atualizado com miniaturas AVIF/JFIF e a suíte completa. O problema original de arquivos acima de 32 milhões de pixels no gerador de miniaturas ainda pode gerar apenas ícone genérico, por limite conservador de recursos; o programa não deve declarar esse caso como ausência de codec.
