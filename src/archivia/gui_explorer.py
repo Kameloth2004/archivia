@@ -509,10 +509,14 @@ class ExplorerPanel(QWidget):
         self.verify_metadata_button.setEnabled(False)
         self.metadata_status.setText("Lendo metadados deste arquivo…")
         self.metadata_details.clear()
-        self._pool.start(_MetadataTask(
+        self._start_metadata_task(_MetadataTask(
             path_text, meta[1], meta[2],
             self._metadata_generation, self._metadata_events,
         ))
+
+    def _start_metadata_task(self, task: _MetadataTask) -> None:
+        """Ponto de envio testável, sem simular objetos internos do Qt."""
+        self._pool.start(task)
 
     def _apply_metadata(self, path: str, size: int, modified_ns: int,
                         generation: int, payload: object) -> None:
