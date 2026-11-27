@@ -25,12 +25,13 @@ def available_exiftool() -> str | None:
 def extract_exiftool(path: Path, executable: str) -> list[dict[str, Any]]:
     """Devolve grupos legíveis; a única execução externa é o leitor local.
 
-    -j: dados estruturados; -G1: origem; -a: duplicatas; -U: tags
-    desconhecidas, inclusive binárias; -s: nomes técnicos das tags;
+    -j: dados estruturados; -G1:4: grupo e instância da tag;
+    -a: duplicatas; -U: tags desconhecidas inclusive binárias;
+    -ee: metadados embutidos; -s: nomes técnicos das tags;
     -struct: preserva estruturas XMP em vez de achatá-las.
     """
     command = [
-        executable, "-j", "-G1:4", "-a", "-U", "-s", "-struct",
+        executable, "-j", "-G1:4", "-a", "-U", "-ee", "-s", "-struct",
         "--", str(path),
     ]
     try:
