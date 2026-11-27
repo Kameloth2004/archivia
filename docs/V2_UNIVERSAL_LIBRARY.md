@@ -99,6 +99,38 @@ O painel de propriedades contém nome, caminho, extensão, tamanho
 e data da última modificação. A extração de EXIF e de outros
 metadados internos é uma etapa separada.
 
+## XMP/XML interpretado e conteúdo bruto sob demanda
+
+O leitor local diferencia **metadados interpretados** e **dados brutos**.
+Quando Pillow encontra um pacote XMP/XML no cabeçalho da imagem
+(`xmp` ou `XML:com.adobe.xmp`), o módulo `metadata/xmp_reader.py`
+interpreta o XML como campos técnicos legíveis, incluindo atributos,
+data original, nomes de namespaces, listas `rdf:Alt`/`rdf:Seq`,
+origem digital IPTC e campos personalizados. A apresentação normal deixa
+de transformar o XMP conhecido em uma longa sequência hexadecimal.
+
+O pacote XML **original completo** é mantido em memória, separado da
+lista de campos apresentados. Após o usuário clicar em **Verificar
+metadados**, aparece o botão **Ver dados brutos**, tanto no Explorador
+quanto no visualizador ampliado, quando houver conteúdo bruto. Essa janela
+oferece seleção e cópia do XML, sem escrever no arquivo. Ao mudar a seleção
+ou navegar para outro arquivo, os dados anteriores são descartados.
+
+A interpretação usa XML local sem acesso à rede; DTD e declarações de
+entidades são recusadas para evitar expansão insegura. Pacotes até 2 MiB
+são suportados; estruturas malformadas ficam identificadas com aviso,
+mantendo o XML original disponível quando estiver dentro do limite. A
+quantidade e profundidade dos campos possuem limites técnicos explícitos.
+
+Se o ExifTool estiver disponível, seus campos XMP interpretados continuam
+sendo a fonte prioritária. O pacote XML bruto é recuperado pelo leitor
+Pillow quando suportado, para que o botão de inspeção ainda possa ser
+oferecido. Nem todos os formatos expõem seus dados brutos ao Pillow, e o
+programa não deve alegar que a ausência do botão significa ausência de
+metadados no arquivo.
+
+Esta etapa **não implementa edição** de tags ou do XML original.
+
 ## Metadados completos — leitores locais sem filtro por privacidade
 
 **Diretriz profissional:** a leitura é iniciada exclusivamente pelo botão
