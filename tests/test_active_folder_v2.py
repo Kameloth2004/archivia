@@ -48,6 +48,15 @@ class ActiveFolderV2Tests(unittest.TestCase):
         self.assertIsNone(w._folder_session)
         self.assertNotIn("session/active_folder", w._settings.allKeys())
 
+    def test_home_source_is_the_same_widget_as_inventory_folder(self):
+        w = self.window
+        self.assertIs(w.home_folder, w.folder)
+        w.folder.setText(str(self.first))
+        self.assertEqual(w.home_folder.text(), str(self.first))
+        self.assertEqual(w.active_folder_display.text(), str(self.first))
+        self.assertEqual(w.organize_source.text(), str(self.first))
+        self.assertEqual(w._active_folder, self.first)
+
     def test_switch_folder_discards_previous_temporary_catalog_and_plan(self):
         w = self.window
         w.folder.setText(str(self.first))
