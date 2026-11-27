@@ -30,6 +30,41 @@ QLabel#archiviaSubtitle {
     border-bottom-left-radius: 11px;
     border-bottom-right-radius: 11px;
 }
+QFrame#archiviaSidebar {
+    background: #f7fcff;
+    border: 1px solid #b7d7e8;
+    border-radius: 10px;
+}
+QLabel#archiviaNavHeading {
+    color: #49738a;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px 9px 5px;
+}
+QPushButton#archiviaNavItem {
+    text-align: left;
+    background: transparent;
+    color: #174166;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 8px 12px;
+    min-height: 24px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QPushButton#archiviaNavItem:hover {
+    background: #dbf1f9;
+    border: 1px solid #a7d2e6;
+}
+QPushButton#archiviaNavItem:checked {
+    background: #b1edf3;
+    color: #07506b;
+    border: 1px solid #3eb0c9;
+}
+QSplitter#archiviaWorkspace::handle {
+    background: #cce4ef;
+    width: 5px;
+}
 QGroupBox {
     background: #f9fdff;
     border: 1px solid #c3deee;
