@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from unittest.mock import patch
 
 from support import temporary_test_directory
 
@@ -157,11 +158,17 @@ class ExplorerV2Tests(unittest.TestCase):
         self.panel.set_active_folder(self.root)
         self.app.processEvents()
         self.assertEqual(self.panel.files.count(), _BATCH_SIZE)
-        self.panel._append_batch()
-        self.assertEqual(self.panel.files.count(), _BATCH_SIZE + 6)
-        self.app.processEvents()
-        self.assertTrue(self.panel._thumbnail_repaint_timer.isActive())
-        self.panel._repaint_thumbnail_viewport()
+        # O temporizador é one-shot: pode já ter disparado ao retornar
+        # de processEvents(). Verificamos a solicitação de redesenho,
+        # não o estado transitório isActive() após a execução.
+        with patch.object(
+            self.panel, "_schedule_viewport_repaint",
+            wraps=self.panel._schedule_viewport_repaint,
+        ) as request_repaint:
+            self.panel._append_batch()
+            self.assertEqual(self.panel.files.count(), _BATCH_SIZE + 6)
+            self.app.processEvents()
+            self.assertGreaterEqual(request_repaint.call_count, 1)
         self.assertEqual(
             self.panel.files.verticalScrollBarPolicy(),
             Qt.ScrollBarPolicy.ScrollBarAsNeeded,
