@@ -1,7 +1,6 @@
-"""Fila supervisionada de movimentação: processa seleções grandes sem liberar o Ollama.
+"""Fila supervisionada de movimentação: sem ferramenta Ollama.
 
-Não há rollback automático. Falhas/interrupções param novos arquivos, mantendo
-os já movimentados e a origem dos itens ainda não processados.
+Sem rollback automático. Interrupção cooperativa ocorre antes do próximo arquivo.
 """
 from __future__ import annotations
 
@@ -9,7 +8,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .catalog import DEFAULT_DB
-from .move_executor import APPROVAL_PHRASE, MoveSkippedError, move_one_approved
+from .move_executor import APPROVAL_PHRASE, move_one_approved
+from .move_orchestration import validate_selection, process_selection
 
 MAX_QUEUE_FILES = 10_000
 
@@ -21,57 +21,23 @@ def move_queue_approved(
     progress: Callable[[dict[str, Any]], None] | None = None,
     interrupted: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
-    """Move sequencialmente arquivos propostos, sem execução parcial silenciosa."""
-    if approval != APPROVAL_PHRASE:
-        raise ValueError("A movimentação exige confirmação explícita.")
-    if (not isinstance(plan, dict) or plan.get("mode") != "simulation"
-            or plan.get("executable") is not False
-            or plan.get("operation") != "move_recursive_consolidation"
-            or plan.get("complete") is not True or plan.get("pending") != 0
-            or not isinstance(scan_id, int) or isinstance(scan_id, bool)
-            or plan.get("scan_id") != scan_id or not isinstance(plan.get("actions"), list)):
-        raise ValueError("O plano não está completo ou pertence a outra análise.")
-    if (not isinstance(files, list) or not 1 <= len(files) <= MAX_QUEUE_FILES
-            or any(not isinstance(f, str) or not f or len(f) > 512 for f in files)
-            or len(set(files)) != len(files)):
-        raise ValueError("Seleção inválida ou acima do limite da fila.")
-    permitted = [a.get("file") for a in plan["actions"]
-                 if isinstance(a, dict) and a.get("status") == "proposto"
-                 and a.get("reason") is None and isinstance(a.get("file"), str)]
-    if len(permitted) != len(set(permitted)) or not set(files).issubset(set(permitted)):
-        raise ValueError("Há arquivos não aprováveis ou ambíguos na seleção.")
-    if (progress is not None and not callable(progress)
-            or interrupted is not None and not callable(interrupted)):
-        raise ValueError("Callbacks inválidos.")
-    rows: list[dict[str, Any]] = []
-    stopped_reason = None
-    for name in files:
-        if interrupted is not None and interrupted():
-            stopped_reason = "interrompido_pelo_usuario"
-            break
-        try:
-            row = move_one_approved(
-                plan, name, db_path=db_path, scan_id=scan_id,
-                approval=approval,
-            )
-            row["file"] = name
-        except MoveSkippedError as exc:
-            # Bloqueio previsível ANTES de publicar o destino:
-            # preservar origem, registrar e prosseguir.
-            row = {"file": name, "status": "bloqueado",
-                   "detail": str(exc), "files_modified": False}
-        except (ValueError, OSError, RuntimeError) as exc:
-            # Estado desconhecido ou falha na cópia/publicação:
-            # não processar mais nenhum arquivo até nova análise.
-            row = {"file": name, "status": "erro",
-                   "detail": str(exc), "files_modified": False}
-        rows.append(row)
-        if progress is not None:
-            progress({"processed": len(rows), "total": len(files),
-                      "file": name, "status": row["status"]})
-        if row["status"] not in ("movido", "bloqueado"):
-            stopped_reason = row["status"]
-            break
+    """Executa fila supervisionada sem execução parcial silenciosa."""
+    validate_selection(
+        plan, files, scan_id=scan_id, approval=approval,
+        limit=MAX_QUEUE_FILES, progress=progress, interrupted=interrupted,
+        reject_ambiguous_plan=True,
+        messages=(
+            "A movimentação exige confirmação explícita.",
+            "O plano não está completo ou pertence a outra análise.",
+            "Seleção inválida ou acima do limite da fila.",
+            "Há arquivos não aprováveis ou ambíguos na seleção.",
+            "Callbacks inválidos.",
+        ),
+    )
+    rows, stopped_reason = process_selection(
+        plan, files, db_path=db_path, scan_id=scan_id, approval=approval,
+        execute_one=move_one_approved, progress=progress, interrupted=interrupted,
+    )
     return {
         "operation": "approved_queue_move",
         "requested": len(files), "processed": len(rows),
