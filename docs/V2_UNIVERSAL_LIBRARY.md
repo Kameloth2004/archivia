@@ -6,6 +6,40 @@ Versão inicial: `2.0.0.dev0`.
 A linha estável V1 permanece preservada em `release/v1.0.0`; a `main` não deve
 receber mudanças da V2 antes da homologação.
 
+## Visualizador ampliado — primeira versão somente leitura
+
+No **Biblioteca → Explorador**, o botão **Ampliar arquivo** e o duplo
+clique sobre um **arquivo** abrem um diálogo modal em tela cheia.
+O botão **X** no canto superior direito e a tecla **Esc** fecham
+o diálogo e devolvem o usuário à mesma pasta, seleção e rolagem.
+Duplo clique em pasta mantém a navegação normal do Explorador.
+
+- Para imagens suportadas por QImageReader: visualização em fundo
+  escuro, **Ajustar à tela**, **1:1**, zoom de lupa **+ / −**,
+  zoom pela roda do mouse e arraste para deslocar a imagem.
+- O painel lateral apresenta propriedades comuns e o botão
+  **Verificar metadados**, que continua **explícito**, nunca disparado
+  automaticamente pela abertura do visualizador. **Editar metadados**
+  permanece desabilitado.
+- Outros arquivos regulares podem abrir o mesmo visualizador, mas
+  o painel central mostra uma mensagem de formato ainda não suportado;
+  dados básicos e o comando de metadados permanecem acessíveis.
+  Não se abre o arquivo no programa externo associado.
+- A decodificação ampliada ocorre em tarefa separada com limites
+  de 80 MiB no arquivo, 100 milhões de pixels de origem e imagem
+  de visualização limitada ao lado máximo de 4096 px. O zoom não
+  reabre o original nem remove esses limites.
+- A leitura valida que o item é arquivo regular, não é symlink/junction,
+  está dentro da pasta ativa e não foi modificado desde a listagem.
+  O diálogo descarta respostas de tarefas após ser fechado.
+- Nenhuma função do visualizador executa, move, renomeia ou grava
+  arquivos; nenhuma leitura automática de conteúdo de documentos
+  nem envio a Ollama foi introduzido.
+
+O visualizador é implementado em `gui_viewer.py`, separado do
+Explorador, para viabilizar futuras prévias de PDF, áudio, vídeo e
+outros formatos sem ampliar os mecanismos de movimentação.
+
 ## Explorador Visual — primeira versão somente leitura
 
 A Biblioteca agora abre na subaba **Explorador** (índice 0). As
