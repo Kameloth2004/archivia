@@ -99,6 +99,28 @@ O painel de propriedades contém nome, caminho, extensão, tamanho
 e data da última modificação. A extração de EXIF e de outros
 metadados internos é uma etapa separada.
 
+## EXIF interpretado sem duplicação de blocos binários
+
+As imagens JPEG podem conter um pacote EXIF binário original de dezenas de
+milhares de bytes, além dos campos já interpretados pelo Pillow. O
+ArchivIA não deve exibir esse pacote como um longo `exif: hex: ...`
+dentro de **Informações internas da imagem** se os dados já estão
+representados em **EXIF** e seus IFDs.
+
+O relatório principal apresenta apenas um resumo do bloco original
+(nome e tamanho em bytes) e as tags interpretadas, sem eliminar tags
+por critério de privacidade. O conteúdo binário completo é preservado
+na leitura e apresentado em hexadecimal com deslocamentos de 16 bytes
+por linha no botão **Ver dados brutos**, acionado pelo usuário.
+A visualização bruta possui um limite técnico de 2 MiB por seção,
+explicitamente informado caso seja atingido. A exibição não modifica
+os arquivos.
+
+Versões como `ExifVersion` e `FlashPixVersion`, armazenadas como
+bytes ASCII, são decodificadas como texto quando válidas (por exemplo,
+`0230`). Bytes não textuais de outras tags permanecem em sua forma
+original, acessíveis à análise técnica.
+
 ## XMP/XML interpretado e conteúdo bruto sob demanda
 
 O leitor local diferencia **metadados interpretados** e **dados brutos**.
