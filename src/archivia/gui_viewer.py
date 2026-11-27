@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from .metadata import read_file_metadata
 from .metadata.reader import format_metadata_report
 from .gui_metadata_raw import RawMetadataDialog
+from .image_decode import decode_preview
 
 
 IMAGE_EXTENSIONS = frozenset({
@@ -83,22 +84,12 @@ class _ImageLoad(QRunnable):
             info = verified_file(self.root, self.file, self.expected)
             if info.st_size > PREVIEW_MAX_BYTES:
                 raise ValueError("Arquivo acima do limite de 80 MiB para prévia ampliada.")
-            reader = QImageReader(str(self.file))
-            reader.setAutoTransform(True)
-            source = reader.size()
-            if (not source.isValid() or source.width() <= 0 or source.height() <= 0
-                    or source.width() * source.height() > PREVIEW_MAX_SOURCE_PIXELS):
-                raise ValueError("Dimensões indisponíveis ou acima do limite de segurança.")
-            size = source.scaled(
-                QSize(PREVIEW_MAX_SIDE, PREVIEW_MAX_SIDE),
-                Qt.AspectRatioMode.KeepAspectRatio,
+            image, original = decode_preview(
+                self.file, max_side=PREVIEW_MAX_SIDE,
+                max_source_pixels=PREVIEW_MAX_SOURCE_PIXELS,
             )
-            reader.setScaledSize(size)
-            image = reader.read()
-            if image.isNull():
-                raise ValueError("O decodificador não conseguiu abrir esta imagem.")
             verified_file(self.root, self.file, self.expected)
-            payload = {"image": image, "original": (source.width(), source.height())}
+            payload = {"image": image, "original": original}
         except Exception as exc:
             payload = {"error": f"Não foi possível visualizar: {type(exc).__name__} — {str(exc)[:160]}"}
         self.events.image_ready.emit(self.generation, payload)
