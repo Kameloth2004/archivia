@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from support import temporary_test_directory
 from archivia.metadata import read_file_metadata
+from archivia.metadata.reader import format_metadata_report
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -43,23 +44,71 @@ class MetadataReaderTests(unittest.TestCase):
                 read_file_metadata(base)
 
     @unittest.skipIf(Image is None, "Pillow opcional não instalado")
-    def test_image_dimensions_and_allowlisted_exif_without_gps(self):
+    def test_image_exposes_every_recognized_exif_including_user_comment(self):
         with temporary_test_directory() as base:
             path = base / "imagem_exif.jpg"
             image = Image.new("RGB", (48, 32), (40, 80, 120))
             exif = Image.Exif()
-            exif[271] = "Fabricante TEST-ONLY"  # Make
-            exif[272] = "Câmera de teste"      # Model
-            exif[37510] = b"private user comment test data"  # UserComment não exibido
+            exif[271] = "Fabricante TEST-ONLY"
+            exif[272] = "Câmera de teste"
+            exif[37510] = b"private user comment test data"
+            exif[65000] = "Tag profissional desconhecida"
             image.save(path, "JPEG", exif=exif)
             before = path.read_bytes()
-            info = read_file_metadata(path)
+            with patch("archivia.metadata.reader.available_exiftool", return_value=None):
+                info = read_file_metadata(path)
             fields = dict(info["fields"])
             self.assertEqual(fields["Dimensões"], "48 × 32 pixels")
-            self.assertEqual(fields["Fabricante"], "Fabricante TEST-ONLY")
-            self.assertNotIn("GPS", str(info["fields"]).upper())
-            self.assertNotIn("private user comment", str(info["fields"]).lower())
+            self.assertEqual(fields["Make"], "Fabricante TEST-ONLY")
+            self.assertEqual(fields["Tag_65000"], "Tag profissional desconhecida")
+            self.assertIn("hex:", fields["UserComment"])
+            self.assertIn("70 72 69 76 61 74 65", fields["UserComment"])
             self.assertEqual(path.read_bytes(), before)
+
+    def test_exiftool_all_tags_are_displayed_even_in_documents(self):
+        with temporary_test_directory() as base:
+            document = base / "relatorio.pdf"
+            document.write_bytes(b"PDF fixture")
+            groups = [
+                {"name": "XMP", "fields": [
+                    ("Creator", "Autor profissional"),
+                    ("GeoLatitude", "-27.5954"),
+                    ("Unknown_001", "Identificador customizado"),
+                ]},
+                {"name": "EXIF", "fields": [
+                    ("GPSLatitude", "27 deg 35 min S"),
+                    ("UserComment", "Campo privado visível"),
+                ]},
+            ]
+            with (
+                patch("archivia.metadata.reader.available_exiftool", return_value="exiftool"),
+                patch("archivia.metadata.reader.extract_exiftool", return_value=groups) as reader,
+            ):
+                info = read_file_metadata(document)
+            reader.assert_called_once_with(document, "exiftool")
+            self.assertIn("GPSLatitude", dict(info["fields"]))
+            self.assertEqual(dict(info["fields"])["UserComment"], "Campo privado visível")
+            self.assertIn("Autor profissional", format_metadata_report(info))
+            self.assertIn("── XMP ──", format_metadata_report(info))
+            self.assertIn("── EXIF ──", format_metadata_report(info))
+
+    def test_exiftool_unavailable_on_nonimage_provides_explanatory_fallback(self):
+        with temporary_test_directory() as base:
+            document = base / "arquivo.docx"
+            document.write_bytes(b"fixture")
+            with patch("archivia.metadata.reader.available_exiftool", return_value=None):
+                info = read_file_metadata(document)
+            self.assertEqual(info["source"], "Sistema de arquivos")
+            self.assertIn("ExifTool", info["note"])
+            self.assertIn("não possui leitor", info["note"])
+
+    def test_binary_values_are_described_not_hidden_by_privacy(self):
+        from archivia.metadata.reader import _display
+        raw = b"SECRET" + bytes(range(250)) * 3
+        displayed = _display(raw)
+        self.assertIn("53 45 43 52 45 54", displayed)
+        self.assertIn("truncado", displayed)
+        self.assertIn(str(len(raw)), displayed)
 
 
 @unittest.skipIf(QApplication is None, "PySide6 opcional não instalado")
