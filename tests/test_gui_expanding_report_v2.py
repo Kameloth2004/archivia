@@ -45,6 +45,30 @@ class ExpandingReportTests(unittest.TestCase):
         self.assertEqual(report.verticalScrollBar().maximum(), 0)
         report.close()
 
+    def test_report_recalculates_after_text_and_width_change(self):
+        report = ExpandingReport()
+        report.resize(520, 50)
+        report.show()
+        self.app.processEvents()
+        report.setPlainText("Linha curta")
+        short_height = report.height()
+        report.setPlainText("\n".join("Arquivo " + str(i) for i in range(40)))
+        long_height = report.height()
+        self.assertGreater(long_height, short_height)
+        self.assertGreater(long_height, 105)
+        report.setPlainText("Texto " * 200)
+        report.resize(240, report.height())
+        self.app.processEvents()
+        narrow_height = report.height()
+        report.resize(600, report.height())
+        self.app.processEvents()
+        self.assertGreaterEqual(narrow_height, report.height())
+        self.assertEqual(
+            report.verticalScrollBarPolicy(),
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        report.close()
+
     def test_home_report_stays_collapsible_and_external_scroll_exists(self):
         window = ArchivIAWindow()
         self.assertIsInstance(window.home_result, ExpandingReport)
