@@ -106,15 +106,19 @@ class ArchivIAWindow(QMainWindow):
         info.setObjectName("archiviaSubtitle")
         root.addWidget(info)
 
+        # Barra de contexto: seleção única da origem e ações compactas.
+        # O campo não deve ocupar toda a largura de monitores grandes.
         active_row = QHBoxLayout()
         active_row.setSpacing(8)
-        active_row.addWidget(QLabel("Pasta ativa da sessão:"))
+        active_row.addWidget(QLabel("Pasta ativa:"))
         self.active_folder_display = QLineEdit()
         self.active_folder_display.setReadOnly(True)
         self.active_folder_display.setPlaceholderText("Nenhuma pasta selecionada")
         self.active_folder_display.setToolTip(
-            "Pasta reutilizada em Início, Biblioteca, Documentos, Organizar e Agente IA."
+            "Pasta ativa desta sessão, compartilhada em todas as áreas do ArchivIA."
         )
+        self.active_folder_display.setMinimumWidth(175)
+        self.active_folder_display.setMaximumWidth(520)
         active_row.addWidget(self.active_folder_display, 1)
         self.active_folder_choose = QPushButton("Escolher pasta...")
         self.active_folder_choose.clicked.connect(self._choose_folder)
@@ -122,6 +126,26 @@ class ArchivIAWindow(QMainWindow):
         self.active_folder_clear = QPushButton("Limpar")
         self.active_folder_clear.clicked.connect(self._clear_active_folder)
         active_row.addWidget(self.active_folder_clear)
+
+        self.home_analyze_button = QPushButton("Analisar pasta e subpastas")
+        self.home_analyze_button.setIcon(icon_for("play", "#ffffff"))
+        self.home_analyze_button.setObjectName("archiviaAnalyze")
+        self.home_analyze_button.setToolTip(
+            "Analisar a pasta ativa e todas as subpastas, sem modificar arquivos."
+        )
+        self.home_analyze_button.clicked.connect(self._analyze_home_source)
+        active_row.addWidget(self.home_analyze_button)
+
+        self.open_organize_button = QPushButton("Organizar arquivos")
+        self.open_organize_button.setIcon(icon_for("folder"))
+        self.open_organize_button.setToolTip(
+            "Abrir organização de arquivos (prévia e confirmação obrigatórias)."
+        )
+        self.open_organize_button.clicked.connect(
+            lambda: self.tabs.setCurrentIndex(3)
+        )
+        active_row.addWidget(self.open_organize_button)
+        active_row.addStretch(1)
         root.addLayout(active_row)
         self.active_folder_state = QLabel(
             "Nenhuma pasta ativa. A Biblioteca ainda pode consultar snapshots salvos."
@@ -763,10 +787,6 @@ class ArchivIAWindow(QMainWindow):
         # barra global da sessão. Mantemos o alias para os handlers existentes
         # sem criar outro QLineEdit nem outra origem independente.
         self.home_folder = self.folder
-        self.home_analyze_button = QPushButton("Analisar pasta ativa e subpastas")
-        self.home_analyze_button.setIcon(icon_for("play", "#ffffff"))
-        self.home_analyze_button.setObjectName("archiviaAnalyze")
-        self.home_analyze_button.clicked.connect(self._analyze_home_source)
 
         quick_box = QGroupBox("Consultas rápidas (opcionais)")
         quick_row = QHBoxLayout(quick_box)
@@ -790,16 +810,8 @@ class ArchivIAWindow(QMainWindow):
         self.home_destination_button.setIcon(icon_for("folder"))
         self.home_destination_button.clicked.connect(self._home_choose_destination)
         home_destination_row.addWidget(self.home_destination_button)
-        # A seleção da origem fica exclusivamente na barra de sessão.
-        # O Início exibe apenas ações relacionadas à pasta já selecionada.
-        home_layout.addWidget(self.home_analyze_button)
-        open_organize = QPushButton("Abrir organização de arquivos")
-        open_organize.setIcon(icon_for("folder"))
-        open_organize.clicked.connect(
-            lambda: self.tabs.setCurrentWidget(organize_page)
-        )
-        home_layout.addWidget(open_organize)
-
+        # A seleção de origem, a análise e o atalho Organizar ficam
+        # na barra global. O Início passa a usar somente painéis compactos.
         # A mesma origem é apresentada na área Organizar, sem duplicar estado.
         organize_source_box = QGroupBox("Pasta de origem selecionada")
         organize_source_row = QHBoxLayout(organize_source_box)
@@ -962,6 +974,14 @@ class ArchivIAWindow(QMainWindow):
         copy_row.addWidget(self.manual_copy_button)
         organize_move_layout.addLayout(copy_row)
 
+        # O relatório não deve ocupar espaço quando não está sendo consultado.
+        # Continua disponível no Início e espelhado em Organizar.
+        self.home_analysis_toggle = QPushButton("Análise e resultados (ver detalhes)")
+        self.home_analysis_toggle.setIcon(icon_for("chevron"))
+        self.home_analysis_toggle.setCheckable(True)
+        self.home_analysis_toggle.setChecked(False)
+        self.home_analysis_toggle.setObjectName("archiviaExtrasToggle")
+        home_layout.addWidget(self.home_analysis_toggle)
         self.home_result = QPlainTextEdit()
         self.home_result.setReadOnly(True)
         self.home_result.setPlaceholderText(
@@ -970,6 +990,10 @@ class ArchivIAWindow(QMainWindow):
         self.home_result.setMinimumHeight(75)
         self.home_result.setMaximumHeight(105)
         home_layout.addWidget(self.home_result)
+        self.home_analysis_toggle.toggled.connect(self.home_result.setVisible)
+        self.home_analysis_toggle.toggled.connect(self._refresh_home_analysis_label)
+        self.home_result.textChanged.connect(self._refresh_home_analysis_label)
+        self.home_result.setVisible(False)
         self.organize_result = QPlainTextEdit()
         self.organize_result.setReadOnly(True)
         self.organize_result.setMinimumHeight(170)
@@ -1479,6 +1503,22 @@ class ArchivIAWindow(QMainWindow):
             hash_mode=self.hash_mode_select.currentData(),
         )
 
+    def _refresh_home_analysis_label(self, *_args) -> None:
+        """Resumir o resultado no cabeçalho sem abrir automaticamente o painel."""
+        report = self.home_result.toPlainText().strip()
+        if report.startswith("Análise concluída"):
+            label = "Análise concluída"
+        elif report.startswith("Erro:"):
+            label = "Erro na última operação"
+        elif report.startswith("PRÉVIA DA PASTA"):
+            label = "Prévia da pasta"
+        elif report:
+            label = "Último resultado"
+        else:
+            label = "Análise e resultados"
+        action = "ocultar detalhes" if self.home_analysis_toggle.isChecked() else "ver detalhes"
+        self.home_analysis_toggle.setText(f"{label} ({action})")
+
     def _mirror_home_report(self) -> None:
         """Apresenta também em Organizar o relatório do mesmo worker."""
         self.organize_result.setPlainText(self.home_result.toPlainText())
@@ -1729,8 +1769,8 @@ class ArchivIAWindow(QMainWindow):
 
     def _change_home_scope(self, include: bool) -> None:
         self.home_analyze_button.setText(
-            "Analisar pasta de origem e subpastas" if include
-            else "Analisar somente a pasta selecionada"
+            "Analisar pasta e subpastas" if include
+            else "Analisar só esta pasta"
         )
         if include:
             self.home_recursive_hint.setText(
