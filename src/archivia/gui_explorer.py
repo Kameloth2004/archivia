@@ -40,15 +40,22 @@ def safe_directory(root: Path, candidate: Path) -> Path | None:
             return None
         if candidate.is_symlink() or _junction(candidate) or not candidate.is_dir():
             return None
-        base = root.resolve(strict=True)
-        target = candidate.resolve(strict=True)
-        segments = target.relative_to(base).parts
+        # Verificar componentes ANTES de resolve(): resolve() ocultaria
+        # symlinks/junctions existentes nos diretórios intermediários.
+        base = root.expanduser().absolute()
+        proposed = candidate.expanduser().absolute()
+        segments = proposed.relative_to(base).parts
+        if ".." in segments:
+            return None
         current = base
         for segment in segments:
             current = current / segment
             if current.is_symlink() or _junction(current):
                 return None
-        return target
+        canonical_root = base.resolve(strict=True)
+        canonical_target = current.resolve(strict=True)
+        canonical_target.relative_to(canonical_root)
+        return canonical_target
     except (ValueError, OSError, RuntimeError):
         return None
 
@@ -322,7 +329,9 @@ class ExplorerPanel(QWidget):
             f"{self.files.count()} itens exibidos"
             + (" — existem mais itens nesta pasta." if has_more else " nesta pasta.")
         )
-        self._schedule_visible_thumbnails()
+        # Qt precisa concluir o layout dos itens antes de conhecer quais
+        # miniaturas estão visíveis na viewport.
+        QTimer.singleShot(0, self._schedule_visible_thumbnails)
 
     def _schedule_visible_thumbnails(self, *_args) -> None:
         if self._directory is None:
@@ -404,9 +413,12 @@ class ExplorerPanel(QWidget):
         if not metadata:
             return
         folder, size, modified_ns = metadata
-        formatted_date = datetime.fromtimestamp(modified_ns / 1_000_000_000).strftime(
-            "%d/%m/%Y %H:%M"
-        )
+        try:
+            formatted_date = datetime.fromtimestamp(
+                modified_ns / 1_000_000_000
+            ).strftime("%d/%m/%Y %H:%M")
+        except (OverflowError, OSError, ValueError):
+            formatted_date = "Data indisponível"
         self.properties_text.setText(
             f"Nome: {item.text()}\n"
             f"Tipo: {'Pasta' if folder else 'Arquivo'}\n"
@@ -436,6 +448,14 @@ class ExplorerPanel(QWidget):
             self.files.setGridSize(QSize(165, 147))
             self.view_button.setText("Ver detalhes")
         self._schedule_visible_thumbnails()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        QTimer.singleShot(0, self._schedule_visible_thumbnails)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._schedule_visible_thumbnails)
 
     def closeEvent(self, event) -> None:
         self._generation += 1
