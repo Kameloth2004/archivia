@@ -32,3 +32,18 @@ Se a branch local já existir, não recriá-la: ajustar o comando conforme seu e
 ## Próxima etapa
 
 Após homologação, integrar somente este PR em `develop/v2.0.0`. Depois portar cuidadosamente o motor compartilhado lote/fila da `main` para V2, preservando os campos V2 `plan_blocked`, `plan_blocked_by_reason`, `unattempted_files` e os testes de ambiguidade. Evitar merge direto entre as branches.
+
+## Correção de limpeza de teste no Windows (27/11/2026)
+
+A execução da suíte V2 relatou `Ran 343 tests ... FAILED (errors=1, skipped=2)`: `test_real_png_thumbnail_preserves_nanosecond_timestamp_in_signal` falhou **no `tearDown`**, quando `TemporaryDirectory` tentou excluir `miniatura_real.png` ainda aberta por um leitor assíncrono de miniaturas (`WinError 32`). A mudança de identidade dos arquivos não afeta o explorador; o erro é consistente com o ciclo de vida da thread do Qt.
+
+Foi ajustado somente `tests/test_gui_explorer_v2.py`: após limpar/desativar o painel, o teste aguarda o `QThreadPool` terminar usando `waitForDone(10000)` **antes** de destruir a fixture. Se a espera exceder o limite, o teste falha explicitamente. Não se usou `ignore_errors`, não se silenciaram exceções e a implementação de produção do explorador e do executor não foi alterada.
+
+**Pendente:** repetir o teste específico e, depois, toda a suíte na branch atualizada. A correção ainda não foi homologada no Windows.
+
+```bash
+git fetch origin refactor/v2-shared-file-identity-2026-11-27
+git merge --ff-only FETCH_HEAD
+python -m unittest discover -s tests -p "test_gui_explorer_v2.py" -v
+python -m unittest discover -s tests -v
+```
