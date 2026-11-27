@@ -104,13 +104,24 @@ def read_file_metadata(path: str | Path) -> dict[str, Any]:
             exif = picture.getexif()
             if exif:
                 added: set[str] = set()
-                for tag_id, value in exif.items():
-                    name = ExifTags.TAGS.get(tag_id, "")
-                    label = _EXIF_ALLOWED.get(name)
-                    if not label or label in added:
-                        continue
-                    fields.append((label, _text(value)))
-                    added.add(label)
+                # Datas da captura, ISO e lente frequentemente estão no
+                # subdiretório Exif IFD (34665), não no IFD principal.
+                # Nunca expandir o GPS IFD (34853).
+                sources = [exif]
+                try:
+                    camera_ifd = exif.get_ifd(34665)
+                    if camera_ifd:
+                        sources.append(camera_ifd)
+                except (ValueError, TypeError, KeyError, OSError):
+                    pass
+                for tags in sources:
+                    for tag_id, value in tags.items():
+                        name = ExifTags.TAGS.get(tag_id, "")
+                        label = _EXIF_ALLOWED.get(name)
+                        if not label or label in added:
+                            continue
+                        fields.append((label, _text(value)))
+                        added.add(label)
                 result["source"] = "Sistema de arquivos + EXIF"
                 result["note"] = (
                     "Somente tags EXIF selecionadas. GPS e campos privados "
