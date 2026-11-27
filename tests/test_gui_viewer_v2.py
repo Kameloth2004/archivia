@@ -47,7 +47,8 @@ class FullscreenViewerV2Tests(unittest.TestCase):
         return st.st_size, st.st_mtime_ns
 
     def test_real_image_preview_and_zoom(self):
-        dialog = FilePreviewDialog(self.root, self.image, self._expected(self.image))
+        with patch.object(FilePreviewDialog, "_submit_image"):
+            dialog = FilePreviewDialog(self.root, self.image, self._expected(self.image))
         try:
             self.assertFalse(dialog._image_loaded)
             picture = QImage(120, 80, QImage.Format.Format_RGB32)
