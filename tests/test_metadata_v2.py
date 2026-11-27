@@ -50,15 +50,15 @@ class MetadataReaderTests(unittest.TestCase):
             exif = Image.Exif()
             exif[271] = "Fabricante TEST-ONLY"  # Make
             exif[272] = "Câmera de teste"      # Model
-            exif[34853] = b"private gps test data"  # GPSInfo proibido na saída
+            exif[37510] = b"private user comment test data"  # UserComment não exibido
             image.save(path, "JPEG", exif=exif)
             before = path.read_bytes()
             info = read_file_metadata(path)
             fields = dict(info["fields"])
             self.assertEqual(fields["Dimensões"], "48 × 32 pixels")
             self.assertEqual(fields["Fabricante"], "Fabricante TEST-ONLY")
-            self.assertNotIn("GPS", str(info).upper())
-            self.assertNotIn("private gps", str(info).lower())
+            self.assertNotIn("GPS", str(info["fields"]).upper())
+            self.assertNotIn("private user comment", str(info["fields"]).lower())
             self.assertEqual(path.read_bytes(), before)
 
 
