@@ -38,6 +38,7 @@ class ExifToolAdapterTests(unittest.TestCase):
         args = execute.call_args.args[0]
         self.assertIn("-a", args)
         self.assertIn("-U", args)
+        self.assertIn("-ee", args)
         self.assertIn("-struct", args)
         self.assertIn("-j", args)
         self.assertEqual(execute.call_args.kwargs["shell"], False)
