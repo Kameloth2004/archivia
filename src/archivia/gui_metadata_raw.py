@@ -24,7 +24,7 @@ def _raw_section_text(section: dict) -> str:
             f"Prévia limitada por segurança a {_MAX_RAW_DISPLAY_BYTES:,} bytes "
             f"de um total de {len(data):,} bytes."
         )
-    return "\\n".join(lines) + f"\\nTamanho original: {len(data):,} bytes"
+    return "\n".join(lines) + f"\nTamanho original: {len(data):,} bytes"
 
 
 class RawMetadataDialog(QDialog):
