@@ -68,6 +68,49 @@ class ImageDecodeTests(unittest.TestCase):
             self.assertFalse(preview.isNull())
             self.assertLessEqual(max(preview.width(), preview.height()), 48)
 
+    def test_jfif_is_indexed_as_image_and_decoded(self):
+        from archivia.inventory import inventory
+        from archivia.gui_viewer import IMAGE_EXTENSIONS
+        from archivia.gui_explorer import _IMAGE_EXTENSIONS
+        with temporary_test_directory() as root:
+            path = root / "foto.jfif"
+            image = QImage(64, 40, QImage.Format.Format_RGB32)
+            image.fill(0xff5588aa)
+            self.assertTrue(image.save(str(path), "JPEG"))
+            self.assertIn(".jfif", IMAGE_EXTENSIONS)
+            self.assertIn(".jfif", _IMAGE_EXTENSIONS)
+            report = inventory(root)
+            self.assertEqual(report["files"][0]["category"], "imagem")
+            preview, dimensions = decode_preview(
+                path, max_side=32, max_source_pixels=100_000,
+            )
+            self.assertEqual(dimensions, (64, 40))
+            self.assertFalse(preview.isNull())
+
+    def test_avif_thumbnail_task_uses_shared_fallback(self):
+        try:
+            from PIL import Image, features
+        except ImportError:
+            self.skipTest("Pillow não instalado")
+        if not features.check("avif"):
+            self.skipTest("Pillow sem suporte AVIF")
+        from archivia.gui_explorer import _ThumbnailTask, _ThumbnailEvents
+        with temporary_test_directory() as root:
+            path = root / "thumb.avif"
+            Image.new("RGB", (88, 66), (25, 55, 90)).save(path, format="AVIF")
+            stat_info = path.stat()
+            events = _ThumbnailEvents()
+            results = []
+            events.ready.connect(lambda *items: results.append(items))
+            task = _ThumbnailTask(
+                str(path), stat_info.st_size, stat_info.st_mtime_ns, 1, events,
+            )
+            task.run()
+            self.app.processEvents()
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0][0], str(path))
+            self.assertFalse(results[0][4].isNull())
+
     def test_pillow_fallback_when_qt_reader_rejects_valid_png(self):
         try:
             from PIL import Image
