@@ -32,6 +32,7 @@ from .gui_theme import ARCHIVIA_STYLESHEET
 from .gui_icons import icon_for
 from .gui_date_field import CalendarDateEdit
 from .gui_sidebar import NavigationSidebar
+from .gui_expanding_report import ExpandingReport
 from .gui_tables import fill_table
 from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
@@ -191,6 +192,8 @@ class ArchivIAWindow(QMainWindow):
         home_scroll.setWidgetResizable(True)
         home_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         home_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # Uma única rolagem externa para relatórios maiores do que a janela.
+        home_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         home_scroll.setWidget(home_page)
 
         self.tabs.addTab(home_scroll, icon_for("home", "#075e80"), "Início")
@@ -982,13 +985,10 @@ class ArchivIAWindow(QMainWindow):
         self.home_analysis_toggle.setChecked(False)
         self.home_analysis_toggle.setObjectName("archiviaExtrasToggle")
         home_layout.addWidget(self.home_analysis_toggle)
-        self.home_result = QPlainTextEdit()
-        self.home_result.setReadOnly(True)
+        self.home_result = ExpandingReport()
         self.home_result.setPlaceholderText(
             "A resposta e o plano aparecerão aqui. Movimentações exigem autorização na interface."
         )
-        self.home_result.setMinimumHeight(75)
-        self.home_result.setMaximumHeight(105)
         home_layout.addWidget(self.home_result)
         self.home_analysis_toggle.toggled.connect(self.home_result.setVisible)
         self.home_analysis_toggle.toggled.connect(self._refresh_home_analysis_label)
