@@ -28,6 +28,7 @@ from .metadata import read_file_metadata
 from .metadata.reader import format_metadata_report
 from .gui_metadata_raw import RawMetadataDialog
 from .image_decode import decode_preview
+from .gui_video import LocalVideoPlayer, VIDEO_EXTENSIONS
 
 
 IMAGE_EXTENSIONS = frozenset({
@@ -304,6 +305,8 @@ class FilePreviewDialog(QDialog):
         self.display = QStackedWidget()
         self.display.addWidget(self.placeholder)
         self.display.addWidget(self.zoom_view)
+        self.video_player = LocalVideoPlayer(self)
+        self.display.addWidget(self.video_player)
         left_layout.addWidget(self.display, 1)
         self.hint_label = QLabel("Roda do mouse: zoom  |  Arrastar: mover  |  Esc: fechar")
         left_layout.addWidget(self.hint_label)
@@ -405,6 +408,7 @@ class FilePreviewDialog(QDialog):
         if not (0 <= new_position < len(self._sequence)):
             self._update_navigation_buttons()
             return
+        self.video_player.release()
         self._position = new_position
         self.file, self.expected = self._sequence[new_position]
         self._generation += 1
@@ -452,6 +456,18 @@ class FilePreviewDialog(QDialog):
         )
 
     def _start_preview_if_image(self) -> None:
+        if self.file.suffix.lower() in VIDEO_EXTENSIONS:
+            try:
+                verified_file(self.root, self.file, self.expected)
+                self.video_player.open_local(self.file)
+                self.display.setCurrentWidget(self.video_player)
+                self.hint_label.setText(
+                    "Reprodução manual: Play/Pause/Parar, avanço e retrocesso de 10s"
+                    "  |  ←/→: arquivo anterior/próximo  |  Esc: fechar"
+                )
+            except (OSError, ValueError, RuntimeError) as exc:
+                self.placeholder.setText(f"Vídeo não disponível: {exc}")
+            return
         if self.file.suffix.lower() not in IMAGE_EXTENSIONS:
             self.placeholder.setText(
                 "Pré-visualização de conteúdo ainda não disponível para este "
@@ -528,6 +544,7 @@ class FilePreviewDialog(QDialog):
         self.raw_metadata_button.setVisible(bool(self._raw_metadata_sections))
 
     def reject(self) -> None:
+        self.video_player.release()
         self._closed = True
         self._generation += 1
         super().reject()
