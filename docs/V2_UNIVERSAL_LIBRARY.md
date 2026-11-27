@@ -49,6 +49,26 @@ A seleção de destino permanece exclusivamente no fluxo Organizar.
 O futuro explorador de arquivos e suas miniaturas pertencerão à Biblioteca,
 sem sobrecarregar o Início.
 
+## Faixa global compacta e análise recolhível
+
+A pasta ativa tem um campo de largura limitada na faixa superior do ArchivIA.
+Na mesma linha permanecem **Escolher pasta**, **Limpar**,
+**Analisar pasta e subpastas** e **Organizar arquivos**. Esses botões
+reutilizam os handlers existentes e não criam outros estados de origem.
+Quando a opção de organização é utilizada, abre a área Organizar da
+navegação lateral, sem movimentar arquivos automaticamente.
+
+Na área Início, **Consultas e catalogação** continua opcional e recolhida
+por padrão. O relatório principal também fica recolhido inicialmente,
+sob **Análise e resultados (ver detalhes)**; após a análise, seu título
+passa a **Análise concluída (ver detalhes)**. Abrir ou recolher o painel
+não descarta o relatório, que continua espelhado na aba Organizar.
+As informações operacionais e de erro continuam disponíveis mediante
+abertura explícita do painel.
+
+O objetivo é reservar a região central para o futuro Explorador Visual
+da Biblioteca, preservando as confirmações e o isolamento do catálogo.
+
 ## Janela maximizada e navegação à esquerda
 
 A V2 inicia com `showMaximized()`, respeitando a área útil do monitor
