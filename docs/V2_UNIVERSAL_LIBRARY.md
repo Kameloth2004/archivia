@@ -32,6 +32,24 @@ Os resultados da organização são exibidos também em Organizar, sem
 criar uma segunda fila ou duplicar o motor de movimentação. A tela
 de Início não contém mais os botões de autorização para mover.
 
+## Janela maximizada e navegação à esquerda
+
+A V2 inicia com `showMaximized()`, respeitando a área útil do monitor
+e a barra de tarefas do Windows; não usa tela cheia exclusiva. As seis
+áreas principais aparecem como comandos verticais à esquerda, com ícones
+e seleção destacada. Um divisor redimensionável `QSplitter` separa
+a coluna de navegação da área de trabalho.
+
+O `QTabWidget` permanece internamente para preservar os atalhos já
+homologados que selecionam áreas por índice ou widget, enquanto a barra
+horizontal principal fica oculta. As subabas da Biblioteca e da
+Organização permanecem visíveis no conteúdo. Nenhum comando da coluna
+lateral inicia inventários ou movimentações.
+
+Esta etapa não inclui ainda o explorador de miniaturas. Homologar a
+navegação, a distribuição do espaço e o comportamento de restaurar e
+maximizar antes de acrescentar os painéis visuais.
+
 ## Campos de data no Acervo
 
 Os filtros **Modificado de** e **até** na Biblioteca → Acervo aceitam
