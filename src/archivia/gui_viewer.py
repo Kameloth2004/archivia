@@ -11,6 +11,7 @@ import mimetypes
 import os
 from pathlib import Path
 import stat
+from typing import Callable
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
@@ -145,6 +146,15 @@ class ZoomImageView(QGraphicsView):
         )
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
 
+    def clear_image(self) -> None:
+        """Libera a imagem anterior antes de navegar para outro arquivo."""
+        self._pixmap_item.setPixmap(QPixmap())
+        self._scene.setSceneRect(self._pixmap_item.boundingRect())
+        self._has_image = False
+        self._fit_mode = True
+        self._zoom_relative = 1.0
+        self.resetTransform()
+
     def set_image(self, image: QImage) -> None:
         self._pixmap_item.setPixmap(QPixmap.fromImage(image))
         self._scene.setSceneRect(self._pixmap_item.boundingRect())
@@ -202,10 +212,27 @@ class ZoomImageView(QGraphicsView):
 class FilePreviewDialog(QDialog):
     """Tela cheia fechável por X/Esc, sem interferir na seleção do Explorador."""
 
-    def __init__(self, root: Path, file: Path, expected: tuple[int, int],
-                 parent=None) -> None:
+    def __init__(
+        self, root: Path, file: Path, expected: tuple[int, int],
+        parent=None, *,
+        sequence: list[tuple[Path, tuple[int, int]]] | None = None,
+        load_more: Callable[[], list[tuple[Path, tuple[int, int]]]] | None = None,
+        has_more: Callable[[], bool] | None = None,
+    ) -> None:
         super().__init__(parent)
         self.root, self.file, self.expected = root, file, expected
+        # Respeita exatamente a ordem da lista do Explorador, sem varrer
+        # diretórios inteiros nem começar análise de metadados.
+        self._sequence = list(sequence) if sequence else [(file, expected)]
+        self._position = next(
+            (i for i, (path, info) in enumerate(self._sequence)
+             if path == file and info == expected), -1,
+        )
+        if self._position == -1:
+            self._sequence = [(file, expected)]
+            self._position = 0
+        self._load_more = load_more
+        self._has_more = has_more
         self.setWindowTitle(f"ArchivIA — {file.name}")
         self.setWindowFlags(
             Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint,
@@ -256,6 +283,16 @@ class FilePreviewDialog(QDialog):
             controls.addWidget(button)
         controls.addWidget(self.zoom_label)
         controls.addStretch(1)
+        self.prev_button = QPushButton("◀ Anterior")
+        self.prev_button.setAccessibleName("Arquivo anterior")
+        self.prev_button.clicked.connect(self._previous_file)
+        controls.addWidget(self.prev_button)
+        self.position_label = QLabel("")
+        controls.addWidget(self.position_label)
+        self.next_button = QPushButton("Próximo ▶")
+        self.next_button.setAccessibleName("Próximo arquivo")
+        self.next_button.clicked.connect(self._next_file)
+        controls.addWidget(self.next_button)
         left_layout.addLayout(controls)
         self.zoom_view = ZoomImageView()
         self.zoom_view.zoom_changed.connect(
@@ -326,6 +363,73 @@ class FilePreviewDialog(QDialog):
             }
         """)
         QShortcut(QKeySequence("Escape"), self, activated=self.reject)
+        previous_shortcut = QShortcut(
+            QKeySequence("Left"), self, activated=self._previous_file,
+        )
+        previous_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        next_shortcut = QShortcut(
+            QKeySequence("Right"), self, activated=self._next_file,
+        )
+        next_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._update_navigation_buttons()
+        self._start_preview_if_image()
+
+    def _update_navigation_buttons(self) -> None:
+        """Desabilita setas nos limites, respeitando carregamento progressivo."""
+        self.prev_button.setEnabled(self._position > 0)
+        extra = bool(self._has_more and self._has_more())
+        self.next_button.setEnabled(
+            self._position < len(self._sequence) - 1 or extra
+        )
+        self.position_label.setText(
+            f"{self._position + 1} / {len(self._sequence)}"
+            + ("+" if extra else "")
+        )
+
+    def _previous_file(self) -> None:
+        self._navigate(-1)
+
+    def _next_file(self) -> None:
+        self._navigate(1)
+
+    def _navigate(self, direction: int) -> None:
+        if self._closed or direction not in (-1, 1):
+            return
+        new_position = self._position + direction
+        if new_position >= len(self._sequence) and direction == 1:
+            if self._load_more is not None and self._has_more is not None:
+                # Um lote adicional por clique: sem leitura massiva de pasta.
+                if self._has_more():
+                    extended = self._load_more()
+                    if len(extended) > len(self._sequence):
+                        self._sequence = extended
+        if not (0 <= new_position < len(self._sequence)):
+            self._update_navigation_buttons()
+            return
+        self._position = new_position
+        self.file, self.expected = self._sequence[new_position]
+        self._generation += 1
+        self._image_loaded = False
+        self.zoom_view.clear_image()
+        self.display.setCurrentWidget(self.placeholder)
+        self.placeholder.setText("Preparando pré-visualização…")
+        self.zoom_label.setText("—")
+        for button in (
+            self.zoom_out_button, self.zoom_in_button,
+            self.fit_button, self.actual_button,
+        ):
+            button.setEnabled(False)
+        self.setWindowTitle(f"ArchivIA — {self.file.name}")
+        self.title_label.setText(f"ArchivIA  |  {self.file.name}")
+        self.properties_text.setText(self._basic_properties())
+        # Não transferir metadados de um arquivo para outro.
+        self.metadata_status.setText("Metadados internos ainda não consultados.")
+        self.metadata_text.clear()
+        self.verify_button.setEnabled(True)
+        self.hint_label.setText(
+            "Roda do mouse: zoom  |  Arrastar: mover  |  ←/→: navegar  |  Esc: fechar"
+        )
+        self._update_navigation_buttons()
         self._start_preview_if_image()
 
     def _basic_properties(self) -> str:
@@ -351,7 +455,9 @@ class FilePreviewDialog(QDialog):
                 "Pré-visualização de conteúdo ainda não disponível para este "
                 "formato. Propriedades e verificação de metadados estão acessíveis."
             )
-            self.hint_label.setText("Esc ou X para retornar ao Explorador.")
+            self.hint_label.setText(
+                "←/→: arquivo anterior/próximo  |  Esc ou X: retornar ao Explorador."
+            )
             return
         self._submit_image(_ImageLoad(
             self.root, self.file, self.expected, self._generation, self._events,
@@ -378,7 +484,7 @@ class FilePreviewDialog(QDialog):
         w, h = payload["original"]
         self.hint_label.setText(
             f"Imagem original: {w} × {h}  |  Roda do mouse: zoom  "
-            "|  Arrastar: mover  |  Esc: fechar"
+            "|  Arrastar: mover  |  ←/→: navegar  |  Esc: fechar"
         )
         QTimer.singleShot(0, self.zoom_view.fit_image)
 
