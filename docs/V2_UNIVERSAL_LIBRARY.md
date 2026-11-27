@@ -35,6 +35,12 @@ O explorador utiliza a **pasta ativa da sessão** e oferece:
 A primeira etapa **não** cria miniaturas em disco, não utiliza IA,
 não lê conteúdo de documentos, não grava novos snapshots SQLite
 e não executa operações de mover/renomear/copiar/excluir.
+**Correção de miniaturas reais:** a comunicação entre a tarefa de
+decodificação e a janela Qt preserva o timestamp `st_mtime_ns` como
+inteiro Python, sem o limite de 32 bits de `Signal(int)`. Um teste
+de regressão gera um PNG real dentro de `tests/.runtime`, decodifica-o
+e valida sua aplicação ao item visual. Nenhum arquivo pessoal é usado.
+
 Miniaturas e propriedades refletem o estado acessível no momento
 da navegação; alterações externas exigem **Atualizar**.
 
