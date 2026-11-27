@@ -31,7 +31,7 @@ from .image_decode import decode_preview
 
 
 IMAGE_EXTENSIONS = frozenset({
-    ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".avif",
+    ".jpg", ".jpeg", ".jfif", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".avif",
 })
 PREVIEW_MAX_BYTES = 80 * 1024 * 1024
 PREVIEW_MAX_SOURCE_PIXELS = 100_000_000
