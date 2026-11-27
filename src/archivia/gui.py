@@ -32,6 +32,7 @@ from .gui_theme import ARCHIVIA_STYLESHEET
 from .gui_icons import icon_for
 from .gui_date_field import CalendarDateEdit
 from .gui_sidebar import NavigationSidebar
+from .gui_explorer import ExplorerPanel
 from .gui_expanding_report import ExpandingReport
 from .gui_tables import fill_table
 from .table_rows import (
@@ -168,6 +169,8 @@ class ArchivIAWindow(QMainWindow):
         library_workspace_layout = QVBoxLayout(self.library_workspace)
         library_workspace_layout.setContentsMargins(4, 4, 4, 4)
         self.library_sections = QTabWidget()
+        self.explorer = ExplorerPanel()
+        self.library_sections.addTab(self.explorer, "Explorador")
         self.library_sections.addTab(library_page, "Acervo")
         self.library_sections.addTab(inventory_page, "Inventário")
         self.library_sections.addTab(overview_page, "Visão geral")
@@ -1147,6 +1150,9 @@ class ArchivIAWindow(QMainWindow):
         if active == self._active_folder:
             return
         self._active_folder = active
+        # Atualizar o Explorador somente quando a origem realmente mudar.
+        # A seleção não modifica arquivos nem grava snapshots.
+        self.explorer.set_active_folder(active)
         if self._folder_session is not None:
             self._folder_session.close()
             self._folder_session = None
@@ -1545,7 +1551,7 @@ class ArchivIAWindow(QMainWindow):
         self.catalog_search_scope.setCurrentIndex(0)
         self.catalog_sort.setCurrentIndex(0)
         self.tabs.setCurrentWidget(self.library_workspace)
-        self.library_sections.setCurrentIndex(0)
+        self.library_sections.setCurrentIndex(1)
         self._reset_catalog_page()
 
     def _manual_copy_image(self) -> None:
@@ -1602,7 +1608,7 @@ class ArchivIAWindow(QMainWindow):
             return
         # A prévia continua única; abrimos a seção Inventário da Biblioteca.
         self.tabs.setCurrentWidget(self.library_workspace)
-        self.library_sections.setCurrentIndex(1)
+        self.library_sections.setCurrentIndex(2)
 
     def _home_choose_destination(self) -> None:
         selected = QFileDialog.getExistingDirectory(
@@ -2447,7 +2453,7 @@ class ArchivIAWindow(QMainWindow):
                     self._clear_catalog_search()
                     self.category_filter.setCurrentIndex(0)
                     self.tabs.setCurrentWidget(self.library_workspace)
-                    self.library_sections.setCurrentIndex(0)
+                    self.library_sections.setCurrentIndex(1)
                     navigation["stage"] = "await_listing"
                     self.status.setText(
                         f"Snapshot #{saved_id} salvo e selecionado. Abrindo Biblioteca..."
