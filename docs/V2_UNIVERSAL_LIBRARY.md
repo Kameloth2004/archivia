@@ -99,6 +99,42 @@ O painel de propriedades contém nome, caminho, extensão, tamanho
 e data da última modificação. A extração de EXIF e de outros
 metadados internos é uma etapa separada.
 
+## Metadados completos — leitores locais sem filtro por privacidade
+
+**Diretriz profissional:** a leitura é iniciada exclusivamente pelo botão
+**Verificar metadados**; após o clique, o programa não oculta campos por
+julgamento de sensibilidade ou finalidade. EXIF, GPS, autoria, comentários,
+IPTC, XMP, ICC, dados de câmera e tags desconhecidas devem aparecer quando
+algum leitor conseguir reconhecê-los. Grupos e nomes técnicos são mantidos,
+para apoiar classificação, organização, SEO, GEO e futura edição. Ler não
+significa alterar nem transferir os dados para outros serviços.
+
+A implementação prioriza o **ExifTool**, quando já instalado localmente e
+disponível no PATH do Windows. Ele é executado exclusivamente para o arquivo
+escolhido, sem shell, sem download, sem recursividade e com timeout de 15 s.
+Sua saída JSON agrupada cobre um conjunto muito maior de formatos: imagens,
+vídeos, áudios, PDFs, documentos de escritório, compactados e outros,
+dependendo do formato e do suporte da ferramenta. Não há dependência de
+serviço online ou envio automático a IA.
+
+Na ausência do ExifTool, o fallback usa **Pillow opcional** para imagens,
+incluindo cabeçalhos, informações do decoder, todas as tags EXIF reconhecidas,
+IFDs de câmera, GPS, interoperabilidade e outras estruturas acessíveis ao
+Pillow. Se uma informação estiver em um padrão que Pillow não interpreta,
+o programa registra a limitação do leitor; **não** conclui que o arquivo
+não contém metadados. Arquivos não suportados continuam exibindo dados de
+sistema de arquivos.
+
+Limites de memória/tempo são **técnicos, não filtros de privacidade**:
+saída JSON do ExifTool até 12 MiB; leitura com Pillow de imagens até 80 MiB;
+até 2.000 campos no resultado apresentado e até 4.096 caracteres por valor;
+campos binários em hexadecimal até 512 bytes, sempre identificando tamanho e
+truncamento. Não se elimina uma tag por conter informações pessoais.
+
+O botão **Editar metadados** permanece desabilitado. Uma implementação
+posterior precisará de prévia, validação por formato, cópia de segurança
+e confirmação explícita antes da gravação.
+
 ## Metadados sob demanda — somente leitura (primeira etapa)
 
 No Explorador, **selecionar um arquivo** mostra apenas as propriedades
@@ -113,14 +149,12 @@ informações. O painel permite leitura de listas longas sem aumentar
 desnecessariamente a largura do Explorador. Não há gravação de tags,
 execução de macros nem envio ao Ollama.
 
-O leitor genérico, em `metadata/reader.py`, retorna informações do
-sistema de arquivos para **qualquer arquivo regular**. Leitores
-especializados serão acrescentados progressivamente. O primeiro é
-o leitor de imagens, com formato interno, dimensões e EXIF selecionado,
-utilizando **Pillow opcional**. GPS, MakerNote, UserComment e valores
-binários ficam excluídos da apresentação. Imagens acima de 40 MiB e
-formatos ainda não suportados exibem somente informações gerais, com
-mensagem explicativa. A ausência de Pillow não impede abrir o programa.
+O leitor universal, em `metadata/reader.py`, retorna informações do
+sistema de arquivos para **qualquer arquivo regular**. ExifTool local é
+preferido para metadados amplos de diferentes formatos; Pillow opcional
+é o fallback de imagens, sem lista restritiva de tags. Quando não houver
+leitor capaz de interpretar metadados internos, o programa informa a
+limitação, sem afirmar que eles não existem.
 
 Para habilitar EXIF, dentro do ambiente virtual V2:
 `python -m pip install -e ".[gui,metadata]"`.
