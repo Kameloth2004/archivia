@@ -529,6 +529,25 @@ class ExplorerPanel(QWidget):
         if len(selected) == 1:
             self._open_preview_for_item(selected[0])
 
+    def _preview_sequence(self) -> list[tuple[Path, tuple[int, int]]]:
+        """Arquivos na ordem visual, sem incluir pastas nem varrer o disco."""
+        entries: list[tuple[Path, tuple[int, int]]] = []
+        for index in range(self.files.count()):
+            item = self.files.item(index)
+            meta = item.data(Qt.ItemDataRole.UserRole + 1)
+            path_text = item.data(Qt.ItemDataRole.UserRole)
+            if (path_text and meta and len(meta) == 3 and not meta[0]
+                    and self._root is not None
+                    and safe_directory(self._root, Path(path_text).parent) is not None):
+                entries.append((Path(path_text), (meta[1], meta[2])))
+        return entries
+
+    def _preview_more(self) -> list[tuple[Path, tuple[int, int]]]:
+        """Apenas um lote de entradas por solicitação de navegação."""
+        if self._cursor is not None:
+            self._append_batch()
+        return self._preview_sequence()
+
     def _open_preview_for_item(self, item: QListWidgetItem) -> None:
         """Só uma ação explícita abre o visualizador; não executa o arquivo."""
         if self._root is None:
@@ -543,6 +562,9 @@ class ExplorerPanel(QWidget):
             return
         self._preview_dialog = FilePreviewDialog(
             self._root, path, (metadata[1], metadata[2]), parent=self,
+            sequence=self._preview_sequence(),
+            load_more=self._preview_more,
+            has_more=lambda: self._cursor is not None,
         )
         try:
             self._preview_dialog.showFullScreen()
