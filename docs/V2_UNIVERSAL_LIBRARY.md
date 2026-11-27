@@ -6,6 +6,42 @@ Versão inicial: `2.0.0.dev0`.
 A linha estável V1 permanece preservada em `release/v1.0.0`; a `main` não deve
 receber mudanças da V2 antes da homologação.
 
+## Explorador Visual — primeira versão somente leitura
+
+A Biblioteca agora abre na subaba **Explorador** (índice 0). As
+subabas anteriores continuam disponíveis: **Acervo** (índice 1),
+**Inventário** (índice 2) e **Visão geral** (índice 3). Os atalhos
+existentes de catalogação e Documentos foram ajustados para os novos
+índices, sem mudar os comandos de backend.
+
+O explorador utiliza a **pasta ativa da sessão** e oferece:
+
+- Árvore de diretórios, limitada ao caminho de origem selecionado.
+- Grade de ícones e miniaturas reais de imagens JPEG, PNG, WebP,
+  BMP, GIF, TIFF e AVIF quando suportadas pelos codecs locais do Qt.
+- Modo lista, navegação por duplo clique somente em pastas,
+  botão **Subir**, atualização manual e painel de propriedades.
+- Listagem progressiva de até 120 entradas por lote com botão
+  **Carregar mais**, sem percorrer a árvore inteira de uma vez.
+- Miniaturas sob demanda para os itens visíveis, com duas tarefas
+  simultâneas no máximo; cache de até 128 ícones em RAM, descartado
+  ao trocar a pasta ativa.
+- Limites iniciais de 40 MiB por imagem e 32 milhões de pixels
+  informados pelo decodificador. Imagens incompatíveis permanecem
+  com o ícone normal do arquivo.
+- Bloqueio de diretórios fora da pasta ativa e de links simbólicos/
+  junctions no caminho. Nenhum duplo clique executa arquivos.
+
+A primeira etapa **não** cria miniaturas em disco, não utiliza IA,
+não lê conteúdo de documentos, não grava novos snapshots SQLite
+e não executa operações de mover/renomear/copiar/excluir.
+Miniaturas e propriedades refletem o estado acessível no momento
+da navegação; alterações externas exigem **Atualizar**.
+
+O painel de propriedades contém nome, caminho, extensão, tamanho
+e data da última modificação. A extração de EXIF e de outros
+metadados internos é uma etapa separada.
+
 ## Navegação modular (primeira etapa)
 
 A interface V2 utiliza seis abas permanentes:
