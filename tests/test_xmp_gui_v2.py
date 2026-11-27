@@ -83,6 +83,22 @@ class XmpGuiTests(unittest.TestCase):
         finally:
             viewer.reject()
 
+    def test_raw_dialog_displays_complete_exif_bytes_instead_of_hex_preview(self):
+        from archivia.gui_metadata_raw import _raw_section_text
+        raw_bytes = b"Exif" + bytes(range(256)) * 4
+        section = {"name": "EXIF original", "data": raw_bytes}
+        rendered = _raw_section_text(section)
+        self.assertIn("00000000: 45 78 69 66", rendered)
+        self.assertIn("Tamanho original: 1,028 bytes", rendered)
+        self.assertNotIn("truncado", rendered)
+        self.assertIn("\\n00000010:", rendered)
+        dialog = RawMetadataDialog([section])
+        try:
+            self.assertIn("EXIF original", dialog.content.toPlainText())
+            self.assertIn("Tamanho original", dialog.content.toPlainText())
+        finally:
+            dialog.accept()
+
     def test_raw_dialog_shows_full_text_without_modifying_source_file(self):
         before = self.file.read_bytes()
         dialog = RawMetadataDialog(self.raw)
