@@ -159,7 +159,7 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("self._clear_catalog_search()", body)
         self.assertIn("self.category_filter.setCurrentIndex(0)", body)
         self.assertIn("self.tabs.setCurrentWidget(self.library_workspace)", body)
-        self.assertIn("self.library_sections.setCurrentIndex(0)", body)
+        self.assertIn("self.library_sections.setCurrentIndex(1)", body)
 
     def test_home_catalog_buttons_reuse_existing_handlers(self):
         constructor = ast.unparse(self.method("__init__"))
@@ -173,7 +173,7 @@ class GUIStructureTests(unittest.TestCase):
         body = ast.unparse(self.method("_home_view_preview"))
         self.assertIn("can_save_inventory_preview(", body)
         self.assertIn("self.tabs.setCurrentWidget(self.library_workspace)", body)
-        self.assertIn("self.library_sections.setCurrentIndex(1)", body)
+        self.assertIn("self.library_sections.setCurrentIndex(2)", body)
         self.assertNotIn("advanced_button", body)
 
     def test_busy_and_saved_preview_control_all_catalog_buttons(self):
@@ -213,6 +213,7 @@ class GUIStructureTests(unittest.TestCase):
                     "Agente IA", "Configurações"):
             with self.subTest(tab=tab):
                 self.assertIn(repr(tab), constructor)
+        self.assertIn("self.library_sections.addTab(self.explorer, 'Explorador')", constructor)
         self.assertIn("self.library_sections.addTab(inventory_page, 'Inventário')", constructor)
         self.assertIn("self.library_sections.addTab(overview_page, 'Visão geral')", constructor)
         self.assertIn("self.home_folder.textChanged.connect(self.organize_source.setText)", constructor)
