@@ -91,7 +91,7 @@ class MetadataReaderTests(unittest.TestCase):
                 if "exif" in part["name"].lower() and "data" in part
             ]
             self.assertEqual(len(exif_raw), 1)
-            self.assertTrue(exif_raw[0]["data"].startswith(b"Exif\\x00\\x00"))
+            self.assertTrue(exif_raw[0]["data"].startswith(b"Exif\x00\x00"))
             self.assertEqual(path.read_bytes(), before)
 
     def test_exiftool_all_tags_are_displayed_even_in_documents(self):
