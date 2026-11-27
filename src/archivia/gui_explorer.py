@@ -15,6 +15,7 @@ from PySide6.QtCore import QDir, QFileInfo, QSize, Qt, QObject, QRunnable, QThre
 from PySide6.QtGui import QIcon, QImageReader, QPixmap, QImage
 from .metadata import read_file_metadata
 from .metadata.reader import format_metadata_report
+from .gui_metadata_raw import RawMetadataDialog
 from .gui_viewer import FilePreviewDialog
 
 from PySide6.QtWidgets import (
@@ -289,6 +290,12 @@ class ExplorerPanel(QWidget):
         self.metadata_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.metadata_scroll.setWidget(self.metadata_details)
         properties_layout.addWidget(self.metadata_scroll, 1)
+        self._raw_metadata_sections: list[dict] = []
+        self.raw_metadata_button = QPushButton("Ver dados brutos")
+        self.raw_metadata_button.setEnabled(False)
+        self.raw_metadata_button.setVisible(False)
+        self.raw_metadata_button.clicked.connect(self._show_raw_metadata)
+        properties_layout.addWidget(self.raw_metadata_button)
         self.splitter.addWidget(properties)
         self.splitter.setSizes([240, 780, 260])
         layout.addWidget(self.splitter, 1)
@@ -582,6 +589,13 @@ class ExplorerPanel(QWidget):
             "Metadados internos não consultados. Clique em Verificar metadados."
         )
         self.metadata_details.clear()
+        self._raw_metadata_sections = []
+        self.raw_metadata_button.setEnabled(False)
+        self.raw_metadata_button.setVisible(False)
+
+    def _show_raw_metadata(self) -> None:
+        if self._raw_metadata_sections:
+            RawMetadataDialog(self._raw_metadata_sections, self).exec()
 
     def _verify_selected_metadata(self) -> None:
         """A leitura interna ocorre SOMENTE após este clique explícito."""
@@ -632,6 +646,9 @@ class ExplorerPanel(QWidget):
             return
         self.metadata_status.setText("Verificação concluída — somente leitura.")
         self.metadata_details.setText(format_metadata_report(payload))
+        self._raw_metadata_sections = list(payload.get("raw_sections") or [])
+        self.raw_metadata_button.setEnabled(bool(self._raw_metadata_sections))
+        self.raw_metadata_button.setVisible(bool(self._raw_metadata_sections))
 
     def _show_properties(self) -> None:
         self._reset_metadata_selection()
