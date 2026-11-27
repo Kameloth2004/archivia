@@ -759,21 +759,14 @@ class ArchivIAWindow(QMainWindow):
         agent_layout.removeItem(model_row)
         settings_layout.insertLayout(0, model_row)
 
-        home_source_box = QGroupBox("Pasta de origem")
-        home_source_row = QHBoxLayout(home_source_box)
-        self.home_folder = QLineEdit()
-        self.home_folder.setPlaceholderText("Escolha a pasta com os arquivos")
-        home_source_row.addWidget(self.home_folder, 1)
-        self.home_choose_button = QPushButton("Escolher pasta...")
-        self.home_choose_button.setIcon(icon_for("folder"))
-        self.home_choose_button.clicked.connect(self._choose_folder)
-        home_source_row.addWidget(self.home_choose_button)
-        self.home_analyze_button = QPushButton("Analisar pasta de origem e subpastas")
+        # A pasta de origem é o mesmo controle do Inventário, já ligado à
+        # barra global da sessão. Mantemos o alias para os handlers existentes
+        # sem criar outro QLineEdit nem outra origem independente.
+        self.home_folder = self.folder
+        self.home_analyze_button = QPushButton("Analisar pasta ativa e subpastas")
         self.home_analyze_button.setIcon(icon_for("play", "#ffffff"))
         self.home_analyze_button.setObjectName("archiviaAnalyze")
         self.home_analyze_button.clicked.connect(self._analyze_home_source)
-        self.home_folder.textChanged.connect(self.folder.setText)
-        self.folder.textChanged.connect(self.home_folder.setText)
 
         quick_box = QGroupBox("Consultas rápidas (opcionais)")
         quick_row = QHBoxLayout(quick_box)
@@ -797,8 +790,8 @@ class ArchivIAWindow(QMainWindow):
         self.home_destination_button.setIcon(icon_for("folder"))
         self.home_destination_button.clicked.connect(self._home_choose_destination)
         home_destination_row.addWidget(self.home_destination_button)
-        # O Início concentra a escolha e a análise da origem.
-        home_layout.addWidget(home_source_box)
+        # A seleção da origem fica exclusivamente na barra de sessão.
+        # O Início exibe apenas ações relacionadas à pasta já selecionada.
         home_layout.addWidget(self.home_analyze_button)
         open_organize = QPushButton("Abrir organização de arquivos")
         open_organize.setIcon(icon_for("folder"))
@@ -986,12 +979,9 @@ class ArchivIAWindow(QMainWindow):
         self.home_result.textChanged.connect(self._mirror_home_report)
         organize_move_layout.addWidget(self.organize_result)
         organize_move_layout.addStretch(1)
-        home_safety = QLabel(
-            "A IA apenas planeja. A execução supervisionada exige revisão e confirmação."
-        )
-        home_safety.setWordWrap(True)
-        home_safety.setObjectName("archiviaSafety")
-        home_layout.addWidget(home_safety)
+        # Não expandir relatórios nem caixas de aviso para preencher o
+        # monitor maximizado: o espaço livre fica após os controles.
+        home_layout.addStretch(1)
 
         # Mudou origem, destino ou tipo? Exigir novo planejamento e aprovação.
         self.home_folder.textChanged.connect(self._invalidate_home_organization)
@@ -2090,7 +2080,6 @@ class ArchivIAWindow(QMainWindow):
         self.home_ask_button.setEnabled(not busy)
         self.manual_copy_button.setEnabled(not busy)
         self.home_refresh_button.setEnabled(not busy)
-        self.home_choose_button.setEnabled(not busy)
         self.home_folder.setEnabled(not busy)
         self.home_prompt.setEnabled(not busy)
         self.home_destination.setEnabled(not busy)
