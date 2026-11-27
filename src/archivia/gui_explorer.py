@@ -13,10 +13,12 @@ from pathlib import Path
 
 from PySide6.QtCore import QDir, QFileInfo, QSize, Qt, QObject, QRunnable, QThreadPool, Signal, QTimer
 from PySide6.QtGui import QIcon, QImageReader, QPixmap, QImage
+from .metadata import read_file_metadata
+
 from PySide6.QtWidgets import (
     QFileIconProvider, QFileSystemModel, QHBoxLayout, QLabel, QLineEdit,
     QListView, QListWidget, QListWidgetItem, QPushButton, QSplitter,
-    QTreeView, QVBoxLayout, QWidget, QAbstractItemView,
+    QTreeView, QVBoxLayout, QWidget, QAbstractItemView, QScrollArea,
 )
 
 _BATCH_SIZE = 120
@@ -102,6 +104,41 @@ class _ThumbnailTask(QRunnable):
             return
 
 
+class _MetadataEvents(QObject):
+    ready = Signal(str, object, object, int, object)
+
+
+class _MetadataTask(QRunnable):
+    """Executa apenas após clique explícito; não compartilha estado com Ollama."""
+
+    def __init__(self, path: str, size: int, modified_ns: int,
+                 generation: int, events: _MetadataEvents) -> None:
+        super().__init__()
+        self.path = path
+        self.size = size
+        self.modified_ns = modified_ns
+        self.generation = generation
+        self.events = events
+
+    def run(self) -> None:
+        try:
+            candidate = Path(self.path)
+            if candidate.is_symlink() or _junction(candidate):
+                raise ValueError("Arquivo não permitido para leitura.")
+            before = candidate.stat(follow_symlinks=False)
+            if (before.st_size, before.st_mtime_ns) != (self.size, self.modified_ns):
+                raise ValueError("Arquivo modificado desde a seleção. Atualize o Explorador.")
+            payload = read_file_metadata(candidate)
+            after = candidate.stat(follow_symlinks=False)
+            if (after.st_size, after.st_mtime_ns) != (self.size, self.modified_ns):
+                raise ValueError("Arquivo modificado durante a leitura. Atualize o Explorador.")
+        except (OSError, ValueError, RuntimeError) as exc:
+            payload = {"error": str(exc)}
+        self.events.ready.emit(
+            self.path, self.size, self.modified_ns, self.generation, payload,
+        )
+
+
 class ExplorerPanel(QWidget):
     """Painel de navegação em um diretório por vez, sem modificar arquivos."""
 
@@ -121,6 +158,9 @@ class ExplorerPanel(QWidget):
         self._pool.setMaxThreadCount(2)
         self._events = _ThumbnailEvents(self)
         self._events.ready.connect(self._apply_thumbnail)
+        self._metadata_events = _MetadataEvents(self)
+        self._metadata_events.ready.connect(self._apply_metadata)
+        self._metadata_generation = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -200,7 +240,39 @@ class ExplorerPanel(QWidget):
         )
         self.properties_text.setAlignment(Qt.AlignmentFlag.AlignTop)
         properties_layout.addWidget(self.properties_text)
-        properties_layout.addStretch(1)
+
+        self.verify_metadata_button = QPushButton("Verificar metadados")
+        self.verify_metadata_button.setToolTip(
+            "Ler metadados internos somente deste arquivo, após solicitação."
+        )
+        self.verify_metadata_button.clicked.connect(self._verify_selected_metadata)
+        self.verify_metadata_button.setEnabled(False)
+        properties_layout.addWidget(self.verify_metadata_button)
+
+        self.edit_metadata_button = QPushButton("Editar metadados (futuro)")
+        self.edit_metadata_button.setToolTip(
+            "A edição exigirá prévia e confirmação explícita; ainda não implementada."
+        )
+        self.edit_metadata_button.setEnabled(False)
+        properties_layout.addWidget(self.edit_metadata_button)
+
+        self.metadata_status = QLabel(
+            "Metadados internos não consultados. Clique em Verificar metadados."
+        )
+        self.metadata_status.setWordWrap(True)
+        properties_layout.addWidget(self.metadata_status)
+        self.metadata_details = QLabel("")
+        self.metadata_details.setWordWrap(True)
+        self.metadata_details.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse,
+        )
+        self.metadata_details.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.metadata_details.setTextFormat(Qt.TextFormat.PlainText)
+        self.metadata_scroll = QScrollArea()
+        self.metadata_scroll.setWidgetResizable(True)
+        self.metadata_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.metadata_scroll.setWidget(self.metadata_details)
+        properties_layout.addWidget(self.metadata_scroll, 1)
         self.splitter.addWidget(properties)
         self.splitter.setSizes([240, 780, 260])
         layout.addWidget(self.splitter, 1)
@@ -221,6 +293,7 @@ class ExplorerPanel(QWidget):
     def set_active_folder(self, folder: Path | None) -> None:
         """Uma troca de origem descarta arquivos/miniaturas da pasta anterior."""
         self._generation += 1
+        self._metadata_generation += 1
         self._pool.clear()
         self._close_cursor()
         self._cache.clear()
@@ -228,6 +301,7 @@ class ExplorerPanel(QWidget):
         self._file_items.clear()
         self.files.clear()
         self.properties_text.setText("Selecione um arquivo ou pasta.")
+        self._reset_metadata_selection()
         self._root = safe_directory(folder, folder) if folder is not None else None
         self._directory = None
         enabled = self._root is not None
@@ -259,6 +333,7 @@ class ExplorerPanel(QWidget):
             self.count_label.setText("Pasta indisponível ou fora da origem ativa.")
             return
         self._generation += 1
+        self._metadata_generation += 1
         self._pool.clear()
         self._close_cursor()
         self._directory = verified
@@ -266,6 +341,7 @@ class ExplorerPanel(QWidget):
         self._file_items.clear()
         self.files.clear()
         self.properties_text.setText("Selecione um arquivo ou pasta.")
+        self._reset_metadata_selection()
         self.path_field.setText(str(verified))
         self.up_button.setEnabled(verified != self._root)
         self.more_button.hide()
@@ -406,7 +482,67 @@ class ExplorerPanel(QWidget):
             self._open_directory(Path(path_text))
         # Arquivos nunca são executados ou abertos em outros aplicativos.
 
+    def _reset_metadata_selection(self) -> None:
+        self._metadata_generation += 1
+        self.verify_metadata_button.setEnabled(False)
+        self.metadata_status.setText(
+            "Metadados internos não consultados. Clique em Verificar metadados."
+        )
+        self.metadata_details.clear()
+
+    def _verify_selected_metadata(self) -> None:
+        """A leitura interna ocorre SOMENTE após este clique explícito."""
+        selected = self.files.selectedItems()
+        if len(selected) != 1 or self._root is None:
+            return
+        item = selected[0]
+        path_text = item.data(Qt.ItemDataRole.UserRole)
+        meta = item.data(Qt.ItemDataRole.UserRole + 1)
+        if not path_text or not meta or meta[0]:
+            return
+        candidate = Path(path_text)
+        if (safe_directory(self._root, candidate.parent) is None
+                or candidate.is_symlink() or _junction(candidate)):
+            self.metadata_status.setText("Arquivo fora da pasta ativa ou não permitido.")
+            return
+        self._metadata_generation += 1
+        self.verify_metadata_button.setEnabled(False)
+        self.metadata_status.setText("Lendo metadados deste arquivo…")
+        self.metadata_details.clear()
+        self._pool.start(_MetadataTask(
+            path_text, meta[1], meta[2],
+            self._metadata_generation, self._metadata_events,
+        ))
+
+    def _apply_metadata(self, path: str, size: int, modified_ns: int,
+                        generation: int, payload: object) -> None:
+        """Descarta resultados de arquivos já desmarcados ou pastas trocadas."""
+        if generation != self._metadata_generation:
+            return
+        selected = self.files.selectedItems()
+        if len(selected) != 1 or selected[0].data(Qt.ItemDataRole.UserRole) != path:
+            return
+        meta = selected[0].data(Qt.ItemDataRole.UserRole + 1)
+        if not meta or meta[0] or meta[1] != size or meta[2] != modified_ns:
+            return
+        self.verify_metadata_button.setEnabled(True)
+        if not isinstance(payload, dict):
+            self.metadata_status.setText("Resposta inválida do leitor.")
+            return
+        if "error" in payload:
+            self.metadata_status.setText("Não foi possível verificar metadados.")
+            self.metadata_details.setText(str(payload["error"])[:250])
+            return
+        self.metadata_status.setText("Verificação concluída — somente leitura.")
+        fields = payload.get("fields", [])
+        self.metadata_details.setText(
+            "\n".join(f"{label}: {value}" for label, value in fields)
+            + "\n\nFonte: " + str(payload.get("source", "Não identificada"))
+            + "\n\n" + str(payload.get("note", ""))
+        )
+
     def _show_properties(self) -> None:
+        self._reset_metadata_selection()
         items = self.files.selectedItems()
         if not items:
             self.properties_text.setText("Selecione um arquivo ou pasta.")
@@ -428,6 +564,7 @@ class ExplorerPanel(QWidget):
             ).strftime("%d/%m/%Y %H:%M")
         except (OverflowError, OSError, ValueError):
             formatted_date = "Data indisponível"
+        self.verify_metadata_button.setEnabled(not folder)
         self.properties_text.setText(
             f"Nome: {item.text()}\n"
             f"Tipo: {'Pasta' if folder else 'Arquivo'}\n"
