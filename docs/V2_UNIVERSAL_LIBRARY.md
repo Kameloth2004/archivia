@@ -17,6 +17,15 @@ Duplo clique em pasta mantém a navegação normal do Explorador.
 - Para imagens suportadas por QImageReader: visualização em fundo
   escuro, **Ajustar à tela**, **1:1**, zoom de lupa **+ / −**,
   zoom pela roda do mouse e arraste para deslocar a imagem.
+- **Anterior / Próximo** e teclas **← / →** percorrem arquivos da
+  mesma listagem do Explorador, ignorando subpastas. O contador indica
+  a posição na sequência exibida; ao alcançar o final de um lote,
+  **Próximo** pode carregar o lote seguinte, sem varredura automática
+  de todo o disco.
+- A troca de arquivo redefine o zoom, atualiza título e propriedades,
+  descarta respostas assíncronas antigas e limpa os metadados exibidos.
+  A verificação de metadados continua exclusivamente por clique.
+  Fechar por **X/Esc** preserva a pasta e a seleção do Explorador.
 - O painel lateral apresenta propriedades comuns e o botão
   **Verificar metadados**, que continua **explícito**, nunca disparado
   automaticamente pela abertura do visualizador. **Editar metadados**
