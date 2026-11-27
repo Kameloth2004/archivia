@@ -73,6 +73,14 @@ class SidebarInteractionTests(unittest.TestCase):
                 self.assertEqual(
                     sum(item.isChecked() for item in w.sidebar.buttons), 1
                 )
+                # Repetir o clique na aba já selecionada não pode apagar
+                # o destaque (currentChanged só dispara ao trocar de aba).
+                button.click()
+                self.assertEqual(w.tabs.currentIndex(), index)
+                self.assertTrue(button.isChecked())
+                self.assertEqual(
+                    sum(item.isChecked() for item in w.sidebar.buttons), 1
+                )
 
     def test_existing_programmatic_navigation_updates_sidebar(self):
         w = self.window
