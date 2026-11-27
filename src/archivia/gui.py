@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget,
     QFileDialog, QComboBox, QTableWidget, QHeaderView, QTabWidget,
     QSpinBox, QProgressBar, QDialog, QListWidget, QAbstractItemView, QDialogButtonBox,
-    QScrollArea, QSizePolicy, QCheckBox,
+    QScrollArea, QSizePolicy, QCheckBox, QSplitter,
 )
 
 from .agent import FolderCatalogSession
@@ -31,6 +31,7 @@ from .gui_worker import QueryWorker
 from .gui_theme import ARCHIVIA_STYLESHEET
 from .gui_icons import icon_for
 from .gui_date_field import CalendarDateEdit
+from .gui_sidebar import NavigationSidebar
 from .gui_tables import fill_table
 from .table_rows import (
     inventory_preview_rows, origin_rows, duplicate_rows, date_plan_rows, catalog_rows,
@@ -174,7 +175,19 @@ class ArchivIAWindow(QMainWindow):
         self.tabs.addTab(organize_page, icon_for("folder", "#075e80"), "Organizar")
         self.tabs.addTab(agent_page, icon_for("sparkles", "#075e80"), "Agente IA")
         self.tabs.addTab(settings_page, icon_for("settings", "#075e80"), "Configurações")
-        root.addWidget(self.tabs, 1)
+        # Navegação vertical conserva internamente os seis índices do
+        # QTabWidget e suas chamadas já homologadas.
+        self.tabs.tabBar().hide()
+        self.workspace_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.workspace_splitter.setObjectName("archiviaWorkspace")
+        self.sidebar = NavigationSidebar(self.tabs)
+        self.workspace_splitter.addWidget(self.sidebar)
+        self.workspace_splitter.addWidget(self.tabs)
+        self.workspace_splitter.setStretchFactor(0, 0)
+        self.workspace_splitter.setStretchFactor(1, 1)
+        self.workspace_splitter.setChildrenCollapsible(False)
+        self.workspace_splitter.setSizes([205, 1150])
+        root.addWidget(self.workspace_splitter, 1)
 
         # A primeira etapa mantém uma única listagem do catálogo. A área
         # Documentos oferece atalhos para a Biblioteca já filtrada, sem ler
@@ -2610,5 +2623,5 @@ def main() -> int:
     if app is None:
         app = QApplication(sys.argv)
     window = ArchivIAWindow()
-    window.show()
+    window.showMaximized()
     return app.exec()
