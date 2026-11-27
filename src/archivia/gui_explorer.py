@@ -61,7 +61,11 @@ def safe_directory(root: Path, candidate: Path) -> Path | None:
 
 
 class _ThumbnailEvents(QObject):
-    ready = Signal(str, int, int, int, object)
+    # st_mtime_ns é um inteiro de 64 bits (em torno de 1e18).
+    # Signal(int) usa o inteiro C++ de 32 bits, truncando/falhando no
+    # transporte e impedindo a miniatura de chegar à interface.
+    # object preserva os inteiros Python, inclusive arquivos grandes.
+    ready = Signal(str, object, object, int, object)
 
 
 class _ThumbnailTask(QRunnable):
