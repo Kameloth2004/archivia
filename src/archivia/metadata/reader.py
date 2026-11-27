@@ -14,7 +14,7 @@ import stat
 from typing import Any
 
 from .exiftool_adapter import available_exiftool, extract_exiftool
-from .xmp_reader import xmp_from_image_info
+from .xmp_reader import is_xmp_key, xmp_from_image_info
 
 _IMAGE_SUFFIXES = frozenset({
     ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".avif",
@@ -78,9 +78,7 @@ def _image_groups(candidate: Path) -> list[dict[str, Any]]:
             xmp_groups, xmp_raw, warnings = xmp_from_image_info(picture.info)
             other_fields = [
                 (str(key), value) for key, value in picture.info.items()
-                if not str(key).casefold() in {
-                    "xmp", "xml:com.adobe.xmp", "xml:com.adobe.xmp\\x00",
-                }
+                if not is_xmp_key(str(key))
             ]
             if other_fields:
                 result.append({
@@ -130,6 +128,17 @@ def _image_groups(candidate: Path) -> list[dict[str, Any]]:
     return result
 
 
+def _raw_xmp_sections(candidate: Path) -> list[dict[str, str]]:
+    """Acesso ao pacote original também quando ExifTool interpreta as tags."""
+    try:
+        from PIL import Image
+        with Image.open(candidate) as picture:
+            _, raw, _ = xmp_from_image_info(picture.info)
+            return raw
+    except (ImportError, OSError, ValueError, TypeError):
+        return []
+
+
 def read_file_metadata(path: str | Path) -> dict[str, Any]:
     """Consulta explicitamente um arquivo regular, sem escrita.
 
@@ -170,6 +179,9 @@ def read_file_metadata(path: str | Path) -> dict[str, Any]:
                     "sem exclusões por privacidade. Campos binários podem ser "
                     "representados por descritores ou tamanhos pelo ExifTool."
                 )
+                if (candidate.suffix.lower() in _IMAGE_SUFFIXES
+                        and info.st_size <= _IMAGE_MAX_BYTES):
+                    result["raw_sections"] = _raw_xmp_sections(candidate)
                 return _finalize(result)
         except (ValueError, RuntimeError, OSError) as exc:
             result["note"] = (
