@@ -81,7 +81,13 @@ class ExplorerV2Tests(unittest.TestCase):
         self.panel._show_properties()
         self.assertIn("documento.pdf", self.panel.properties_text.text())
         self.assertIn("Modificado:", self.panel.properties_text.text())
-        self.panel._open_item(item)
+        # Duplo clique em arquivo agora abre diálogo modal: simular sua
+        # abertura evita bloquear a execução automatizada da suíte.
+        with patch("archivia.gui_explorer.FilePreviewDialog") as preview:
+            self.panel._open_item(item)
+        self.assertEqual(preview.call_count, 1)
+        self.assertTrue(preview.return_value.showFullScreen.called)
+        self.assertTrue(preview.return_value.exec.called)
         self.assertEqual(self.panel.current_directory, self.root.resolve())
         self.assertTrue((self.root / "documento.pdf").is_file())
 
