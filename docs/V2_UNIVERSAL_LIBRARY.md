@@ -69,6 +69,20 @@ abertura explícita do painel.
 O objetivo é reservar a região central para o futuro Explorador Visual
 da Biblioteca, preservando as confirmações e o isolamento do catálogo.
 
+## Relatório de análise sem rolagem aninhada
+
+O painel recolhível **Análise e resultados** utiliza `ExpandingReport`,
+um controle somente leitura com altura determinada pelo texto exibido.
+Ao abrir, suas linhas são apresentadas integralmente e não há barra de
+rolagem vertical própria do campo. Ao recolher, o relatório permanece
+em memória para consultas posteriores.
+
+Caso um relatório longo exceda a área disponível na janela, a rolagem
+permanece na página **Início** (`QScrollArea`), evitando o corte de dados.
+A aba **Organizar** continua com seu relatório independente; o ajuste
+é apenas de apresentação, sem efeitos sobre inventário, movimentações
+ou catálogo persistente.
+
 ## Janela maximizada e navegação à esquerda
 
 A V2 inicia com `showMaximized()`, respeitando a área útil do monitor
