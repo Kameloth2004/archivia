@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 EXTENSIONS = {
-    "imagem": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".bmp", ".tif", ".tiff", ".heic", ".heif", ".svg", ".raw", ".dng", ".cr2", ".nef", ".arw"},
+    "imagem": {".jpg", ".jpeg", ".jfif", ".png", ".gif", ".webp", ".avif", ".bmp", ".tif", ".tiff", ".heic", ".heif", ".svg", ".raw", ".dng", ".cr2", ".nef", ".arw"},
     "video": {".mp4", ".m4v", ".mov", ".avi", ".mkv", ".webm", ".wmv", ".flv", ".mpeg", ".mpg", ".3gp"},
     "audio": {".mp3", ".wav", ".flac", ".aac", ".ogg", ".opus", ".m4a", ".wma", ".aiff"},
     "documento": {".pdf", ".txt", ".doc", ".docx", ".odt", ".rtf", ".md", ".epub"},

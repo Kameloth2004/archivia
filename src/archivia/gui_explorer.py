@@ -17,6 +17,7 @@ from .metadata import read_file_metadata
 from .metadata.reader import format_metadata_report
 from .gui_metadata_raw import RawMetadataDialog
 from .gui_viewer import FilePreviewDialog
+from .image_decode import decode_preview
 
 from PySide6.QtWidgets import (
     QFileIconProvider, QFileSystemModel, QHBoxLayout, QLabel, QLineEdit,
@@ -30,7 +31,7 @@ _MAX_THUMB_PIXELS = 32_000_000
 _THUMB_SIZE = QSize(128, 104)
 _CACHE_LIMIT = 128
 _IMAGE_EXTENSIONS = frozenset(
-    (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".avif")
+    (".jpg", ".jpeg", ".jfif", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".avif")
 )
 
 
@@ -87,17 +88,12 @@ class _ThumbnailTask(QRunnable):
 
     def run(self) -> None:
         try:
-            reader = QImageReader(self.path)
-            reader.setAutoTransform(True)
-            dimensions = reader.size()
-            if (not dimensions.isValid() or dimensions.width() <= 0
-                    or dimensions.height() <= 0
-                    or dimensions.width() * dimensions.height() > _MAX_THUMB_PIXELS):
-                return
-            reader.setScaledSize(dimensions.scaled(
-                _THUMB_SIZE, Qt.AspectRatioMode.KeepAspectRatio,
-            ))
-            image = reader.read()
+            # Mesmo decodificador do visualizador: Qt primeiro, Pillow fallback.
+            # A redução é feita na thread; QPixmap permanece na interface.
+            image, _original = decode_preview(
+                self.path, max_side=max(_THUMB_SIZE.width(), _THUMB_SIZE.height()),
+                max_source_pixels=_MAX_THUMB_PIXELS,
+            )
             if not image.isNull():
                 self.events.ready.emit(
                     self.path, self.size, self.modified_ns, self.generation, image,
