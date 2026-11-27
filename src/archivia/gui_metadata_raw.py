@@ -6,8 +6,29 @@ from PySide6.QtWidgets import (
 )
 
 
+_MAX_RAW_DISPLAY_BYTES = 2 * 1024 * 1024
+
+
+def _raw_section_text(section: dict) -> str:
+    """Renderiza XML original ou hex sem abreviar blocos pequenos."""
+    if "data" not in section:
+        return str(section.get("text", ""))
+    data = bytes(section["data"])
+    visible = data[:_MAX_RAW_DISPLAY_BYTES]
+    lines = [
+        f"{offset:08X}: " + visible[offset:offset + 16].hex(" ")
+        for offset in range(0, len(visible), 16)
+    ]
+    if len(data) > len(visible):
+        lines.append(
+            f"Prévia limitada por segurança a {_MAX_RAW_DISPLAY_BYTES:,} bytes "
+            f"de um total de {len(data):,} bytes."
+        )
+    return "\\n".join(lines) + f"\\nTamanho original: {len(data):,} bytes"
+
+
 class RawMetadataDialog(QDialog):
-    """Exibe XML XMP original sem executar, editar ou salvar conteúdo."""
+    """Exibe XML e bytes originais sem executar, editar ou salvar conteúdo."""
 
     def __init__(self, sections: list[dict], parent=None) -> None:
         super().__init__(parent)
@@ -23,7 +44,7 @@ class RawMetadataDialog(QDialog):
         self.content.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.content.setPlainText("\n\n".join(
             f"── {section.get('name', 'Conteúdo bruto')} ──\n"
-            f"{section.get('text', '')}"
+            f"{_raw_section_text(section)}"
             for section in sections
         ))
         outer.addWidget(self.content, 1)
