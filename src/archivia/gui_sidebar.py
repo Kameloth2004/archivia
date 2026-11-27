@@ -37,7 +37,7 @@ class NavigationSidebar(QFrame):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setMinimumHeight(42)
             button.clicked.connect(
-                lambda _checked=False, i=index: tabs.setCurrentIndex(i)
+                lambda _checked=False, i=index: self._select_tab(i)
             )
             column.addWidget(button)
             self.buttons.append(button)
@@ -45,6 +45,13 @@ class NavigationSidebar(QFrame):
         column.addStretch(1)
         tabs.currentChanged.connect(self._sync_current_tab)
         self._sync_current_tab(tabs.currentIndex())
+
+    def _select_tab(self, index: int) -> None:
+        """Mantém o item ativo marcado mesmo ao clicar na aba já selecionada."""
+        self._tabs.setCurrentIndex(index)
+        # currentChanged não é emitido quando o índice não muda. Como o
+        # QPushButton é checkable, um clique repetido poderia desmarcá-lo.
+        self._sync_current_tab(self._tabs.currentIndex())
 
     def _sync_current_tab(self, index: int) -> None:
         """Sincroniza o destaque mesmo ao navegar por atalhos de outras abas."""
