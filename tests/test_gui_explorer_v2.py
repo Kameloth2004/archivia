@@ -151,6 +151,41 @@ class ExplorerV2Tests(unittest.TestCase):
         self.assertEqual(self.panel.files.count(), _BATCH_SIZE)
         self.assertTrue((self.root / "arquivo_0000.txt").is_file())
 
+    def test_loading_more_schedules_layout_and_viewport_repaint(self):
+        for index in range(_BATCH_SIZE + 3):
+            (self.root / f"nova_{index:04d}.png").write_bytes(b"fixture")
+        self.panel.set_active_folder(self.root)
+        self.app.processEvents()
+        self.assertEqual(self.panel.files.count(), _BATCH_SIZE)
+        self.panel._append_batch()
+        self.assertEqual(self.panel.files.count(), _BATCH_SIZE + 6)
+        self.app.processEvents()
+        self.assertTrue(self.panel._thumbnail_repaint_timer.isActive())
+        self.panel._repaint_thumbnail_viewport()
+        self.assertEqual(
+            self.panel.files.verticalScrollBarPolicy(),
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+        )
+
+    def test_icon_replacement_requests_coalesced_repaint(self):
+        self.panel.set_active_folder(self.root)
+        item = next(self.panel.files.item(i) for i in range(self.panel.files.count())
+                    if self.panel.files.item(i).text() == "imagem.jpg")
+        path = item.data(Qt.ItemDataRole.UserRole)
+        meta = item.data(Qt.ItemDataRole.UserRole + 1)
+        picture = QImage(24, 24, QImage.Format.Format_RGB32)
+        picture.fill(Qt.GlobalColor.blue)
+        self.assertFalse(self.panel._thumbnail_repaint_timer.isActive())
+        self.panel._apply_thumbnail(
+            path, meta[1], meta[2], self.panel._generation, picture,
+        )
+        self.assertTrue(self.panel._thumbnail_repaint_timer.isActive())
+        self.panel._apply_thumbnail(
+            path, meta[1], meta[2], self.panel._generation, picture,
+        )
+        self.assertTrue(self.panel._thumbnail_repaint_timer.isActive())
+        self.panel._repaint_thumbnail_viewport()
+
     def test_folder_switch_clears_previous_items_and_thumbnail_cache(self):
         other = self.tmp / "outra"
         other.mkdir()
