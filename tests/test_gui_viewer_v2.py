@@ -70,6 +70,119 @@ class FullscreenViewerV2Tests(unittest.TestCase):
         finally:
             dialog.reject()
 
+    def test_arrows_navigate_and_reset_zoom_and_metadata_without_auto_read(self):
+        second = self.root / "imagem_02.png"
+        image = QImage(60, 40, QImage.Format.Format_RGB32)
+        image.fill(Qt.GlobalColor.blue)
+        self.assertTrue(image.save(str(second), "PNG"))
+        sequence = [
+            (self.image, self._expected(self.image)),
+            (self.other, self._expected(self.other)),
+            (second, self._expected(second)),
+        ]
+        with patch.object(FilePreviewDialog, "_submit_image") as start_image:
+            dialog = FilePreviewDialog(
+                self.root, self.image, self._expected(self.image),
+                sequence=sequence,
+            )
+            try:
+                self.assertFalse(dialog.prev_button.isEnabled())
+                self.assertTrue(dialog.next_button.isEnabled())
+                self.assertEqual(dialog.position_label.text(), "1 / 3")
+                picture = QImage(120, 80, QImage.Format.Format_RGB32)
+                picture.fill(Qt.GlobalColor.cyan)
+                dialog._image_loaded_result(
+                    dialog._generation,
+                    {"image": picture, "original": (120, 80)},
+                )
+                dialog.zoom_view.actual_size()
+                dialog.zoom_in_button.click()
+                self.assertGreater(dialog.zoom_view.transform().m11(), 1)
+                dialog.metadata_text.setPlainText("Metadados anteriores")
+                with patch.object(dialog, "_submit_metadata") as get_metadata:
+                    dialog.next_button.click()
+                    self.assertEqual(dialog.file, self.other)
+                    self.assertEqual(dialog.position_label.text(), "2 / 3")
+                    self.assertFalse(dialog.zoom_in_button.isEnabled())
+                    self.assertFalse(dialog.zoom_view._has_image)
+                    self.assertEqual(dialog.metadata_text.toPlainText(), "")
+                    self.assertIn("ainda não consultados", dialog.metadata_status.text())
+                    self.assertIn("ainda não disponível", dialog.placeholder.text())
+                    self.assertIn("codigo.py", dialog.properties_text.text())
+                    dialog.next_button.click()
+                    self.assertEqual(dialog.file, second)
+                    self.assertEqual(dialog.position_label.text(), "3 / 3")
+                    self.assertFalse(dialog.next_button.isEnabled())
+                    self.assertTrue(dialog.prev_button.isEnabled())
+                    dialog._next_file()
+                    self.assertEqual(dialog.file, second)
+                    dialog.prev_button.click()
+                    self.assertEqual(dialog.file, self.other)
+                    get_metadata.assert_not_called()
+            finally:
+                dialog.reject()
+        self.assertEqual(start_image.call_count, 2)
+        self.assertTrue(self.image.exists())
+        self.assertTrue(second.exists())
+
+    def test_old_async_image_is_ignored_after_navigating(self):
+        second = self.root / "segunda.png"
+        image = QImage(50, 50, QImage.Format.Format_RGB32)
+        image.fill(Qt.GlobalColor.red)
+        self.assertTrue(image.save(str(second), "PNG"))
+        with patch.object(FilePreviewDialog, "_submit_image"):
+            dialog = FilePreviewDialog(
+                self.root, self.image, self._expected(self.image),
+                sequence=[
+                    (self.image, self._expected(self.image)),
+                    (second, self._expected(second)),
+                ],
+            )
+        try:
+            old_generation = dialog._generation
+            dialog._next_file()
+            stale = QImage(10, 10, QImage.Format.Format_RGB32)
+            stale.fill(Qt.GlobalColor.green)
+            dialog._image_loaded_result(
+                old_generation, {"image": stale, "original": (10, 10)}
+            )
+            self.assertFalse(dialog._image_loaded)
+            self.assertEqual(dialog.display.currentWidget(), dialog.placeholder)
+            self.assertIn("segunda.png", dialog.title_label.text())
+        finally:
+            dialog.reject()
+
+    def test_next_file_can_load_one_more_batch(self):
+        second = self.root / "segunda.png"
+        QImage(30, 30, QImage.Format.Format_RGB32).save(str(second), "PNG")
+        extended = [
+            (self.image, self._expected(self.image)),
+            (second, self._expected(second)),
+        ]
+        more = [True]
+        calls = []
+        def load_one():
+            calls.append(True)
+            more[0] = False
+            return extended
+
+        with patch.object(FilePreviewDialog, "_submit_image"):
+            dialog = FilePreviewDialog(
+                self.root, self.image, self._expected(self.image),
+                sequence=extended[:1], load_more=load_one,
+                has_more=lambda: more[0],
+            )
+        try:
+            self.assertTrue(dialog.next_button.isEnabled())
+            self.assertEqual(dialog.position_label.text(), "1 / 1+")
+            dialog._next_file()
+            self.assertEqual(dialog.file, second)
+            self.assertEqual(dialog.position_label.text(), "2 / 2")
+            self.assertEqual(len(calls), 1)
+            self.assertFalse(dialog.next_button.isEnabled())
+        finally:
+            dialog.reject()
+
     def test_real_decoder_task_works_without_modifying_fixture(self):
         from archivia.gui_viewer import _ViewerEvents
         events = _ViewerEvents()
