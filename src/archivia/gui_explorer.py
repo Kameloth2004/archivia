@@ -14,6 +14,7 @@ from pathlib import Path
 from PySide6.QtCore import QDir, QFileInfo, QSize, Qt, QObject, QRunnable, QThreadPool, Signal, QTimer
 from PySide6.QtGui import QIcon, QImageReader, QPixmap, QImage
 from .metadata import read_file_metadata
+from .metadata.reader import format_metadata_report
 from .gui_viewer import FilePreviewDialog
 
 from PySide6.QtWidgets import (
@@ -630,12 +631,7 @@ class ExplorerPanel(QWidget):
             self.metadata_details.setText(str(payload["error"])[:250])
             return
         self.metadata_status.setText("Verificação concluída — somente leitura.")
-        fields = payload.get("fields", [])
-        self.metadata_details.setText(
-            "\n".join(f"{label}: {value}" for label, value in fields)
-            + "\n\nFonte: " + str(payload.get("source", "Não identificada"))
-            + "\n\n" + str(payload.get("note", ""))
-        )
+        self.metadata_details.setText(format_metadata_report(payload))
 
     def _show_properties(self) -> None:
         self._reset_metadata_selection()
