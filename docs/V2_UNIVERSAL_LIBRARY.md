@@ -41,6 +41,14 @@ inteiro Python, sem o limite de 32 bits de `Signal(int)`. Um teste
 de regressão gera um PNG real dentro de `tests/.runtime`, decodifica-o
 e valida sua aplicação ao item visual. Nenhum arquivo pessoal é usado.
 
+**Correção visual após Carregar mais:** o Explorer força o recálculo
+da disposição dos itens ao terminar de inserir um lote e agrupa
+as repinturas da área visível em uma única atualização de viewport
+após a substituição dos ícones pelas miniaturas. Isso evita resíduos
+visuais do ícone genérico sem precisar movimentar a barra vertical.
+A leitura progressiva, o cache e os limites de decodificação permanecem
+inalterados.
+
 Miniaturas e propriedades refletem o estado acessível no momento
 da navegação; alterações externas exigem **Atualizar**.
 
