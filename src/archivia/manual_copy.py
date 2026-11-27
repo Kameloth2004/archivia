@@ -17,14 +17,11 @@ from typing import Any
 from uuid import uuid4
 
 from .executor import _safe_path
+from .file_identity import file_identity
 
 _ALLOWED = frozenset((".jpg", ".jpeg", ".png", ".webp", ".avif"))
 _MAX_BYTES = 32 * 1024 * 1024
 _CHUNK = 1024 * 1024
-
-
-def _identity(st: os.stat_result) -> tuple[int, int, int, int]:
-    return st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns
 
 
 def _digest(path: Path) -> tuple[str, os.stat_result]:
@@ -44,7 +41,7 @@ def _digest(path: Path) -> tuple[str, os.stat_result]:
                 h.update(block)
         after = os.fstat(fd)
         current = path.stat(follow_symlinks=False)
-        if _identity(before) != _identity(after) or _identity(after) != _identity(current):
+        if file_identity(before) != file_identity(after) or file_identity(after) != file_identity(current):
             raise ValueError("Imagem alterada durante a verificação.")
         return h.hexdigest(), before
     finally:
@@ -123,7 +120,7 @@ def copy_manual_image_verified(
                 src_flags |= os.O_NOFOLLOW
             read_fd = os.open(source, src_flags)
             try:
-                if _identity(os.fstat(read_fd)) != _identity(before):
+                if file_identity(os.fstat(read_fd)) != file_identity(before):
                     raise ValueError("Origem alterada antes da cópia.")
                 with os.fdopen(os.dup(read_fd), "rb") as input_file:
                     with os.fdopen(fd, "wb") as output_file:
@@ -132,7 +129,7 @@ def copy_manual_image_verified(
                             output_file.write(block)
                         output_file.flush()
                         os.fsync(output_file.fileno())
-                if _identity(os.fstat(read_fd)) != _identity(before):
+                if file_identity(os.fstat(read_fd)) != file_identity(before):
                     raise ValueError("Origem alterada durante a cópia.")
             finally:
                 os.close(read_fd)
@@ -142,7 +139,7 @@ def copy_manual_image_verified(
 
         temp_hash, _ = _digest(temp)
         source_hash, now = _digest(source)
-        if temp_hash != first_hash or source_hash != first_hash or _identity(now) != _identity(before):
+        if temp_hash != first_hash or source_hash != first_hash or file_identity(now) != file_identity(before):
             raise ValueError("Falha na verificação SHA-256; a origem foi preservada.")
         _record(journal, "HASH_VERIFICADO", source, target, sha256=first_hash)
         if target.exists() or target.is_symlink() or any(
