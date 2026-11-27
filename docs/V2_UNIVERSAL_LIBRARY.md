@@ -32,6 +32,23 @@ Os resultados da organização são exibidos também em Organizar, sem
 criar uma segunda fila ou duplicar o motor de movimentação. A tela
 de Início não contém mais os botões de autorização para mover.
 
+## Painel Início compacto e origem única
+
+Na interface maximizada, a **pasta ativa da sessão** no cabeçalho é a
+única seleção de origem apresentada no Início. O campo duplicado
+*Pasta de origem* e seu botão *Escolher pasta* foram retirados dessa área.
+Os handlers existentes continuam reutilizando o mesmo controle de origem
+do Inventário; nenhum segundo estado de pasta foi criado.
+
+O Início concentra **Analisar pasta ativa e subpastas**, o acesso à
+organização e o resumo da última análise. A caixa de aviso redundante
+foi removida e o espaço flexível passou para o fim do layout, de modo
+que o monitor maximizado não estique os blocos informativos.
+
+A seleção de destino permanece exclusivamente no fluxo Organizar.
+O futuro explorador de arquivos e suas miniaturas pertencerão à Biblioteca,
+sem sobrecarregar o Início.
+
 ## Janela maximizada e navegação à esquerda
 
 A V2 inicia com `showMaximized()`, respeitando a área útil do monitor
