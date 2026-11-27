@@ -16,6 +16,8 @@ import stat
 import tempfile
 import uuid
 
+from .file_identity import file_identity
+
 _IMAGE_TYPES = frozenset({".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif", ".bmp", ".tif", ".tiff"})
 _MAX_SIZE = 50 * 1024 * 1024
 _CHUNK = 1024 * 1024
@@ -30,10 +32,6 @@ def _check_plain(path: Path) -> Path:
         ):
             raise ValueError("Links simbólicos e junctions não são aceitos no piloto.")
     return path
-
-
-def _file_identity(info: os.stat_result) -> tuple[int, int, int, int]:
-    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
 
 
 def _read_hash(path: Path) -> tuple[str, os.stat_result]:
@@ -51,7 +49,7 @@ def _read_hash(path: Path) -> tuple[str, os.stat_result]:
                 result.update(chunk)
         after = os.fstat(fd)
         at_path = path.stat(follow_symlinks=False)
-        if _file_identity(before) != _file_identity(after) or _file_identity(after) != _file_identity(at_path):
+        if file_identity(before) != file_identity(after) or file_identity(after) != file_identity(at_path):
             raise ValueError("Arquivo foi alterado durante a verificação.")
         return result.hexdigest(), before
     finally:
@@ -145,7 +143,7 @@ def prepare_manual_copy(preview: ManualCopyPreview, *, approval: str) -> dict[st
                     flags |= os.O_NOFOLLOW
                 fd = os.open(preview.source, flags)
                 try:
-                    if _file_identity(os.fstat(fd)) != _file_identity(original_info):
+                    if file_identity(os.fstat(fd)) != file_identity(original_info):
                         raise ValueError("Origem alterada antes de copiar.")
                     with os.fdopen(os.dup(fd), "rb") as input_file:
                         with os.fdopen(descriptor, "wb") as output_file:
@@ -162,7 +160,7 @@ def prepare_manual_copy(preview: ManualCopyPreview, *, approval: str) -> dict[st
             copied_hash, copied_info = _read_hash(tmp)
             verified_hash, verified_info = _read_hash(preview.source)
             if (copied_hash != original_hash or verified_hash != original_hash
-                    or _file_identity(verified_info) != _file_identity(original_info)
+                    or file_identity(verified_info) != file_identity(original_info)
                     or copied_info.st_size != original_info.st_size):
                 raise ValueError("Falha de integridade SHA-256. Origem preservada.")
             # Criação exclusiva no mesmo volume do temporário, sem substituir destino.
