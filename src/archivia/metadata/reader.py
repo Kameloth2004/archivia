@@ -14,6 +14,7 @@ import stat
 from typing import Any
 
 from .exiftool_adapter import available_exiftool, extract_exiftool
+from .xmp_reader import xmp_from_image_info
 
 _IMAGE_SUFFIXES = frozenset({
     ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".avif",
@@ -71,10 +72,33 @@ def _image_groups(candidate: Path) -> list[dict[str, Any]]:
         # PNG tEXt/iTXt, XMP (quando exposto), ICC, IPTC e propriedades
         # do decoder. Não omitir metadados por tipo ou sensibilidade.
         if picture.info:
-            result.append({
-                "name": "Informações internas da imagem",
-                "fields": [(str(key), value) for key, value in picture.info.items()],
-            })
+            # XMP é XML, não um bloco binário arbitrário. Converter em campos
+            # estruturados e guardar o pacote completo separadamente para
+            # consulta no botão "Ver dados brutos".
+            xmp_groups, xmp_raw, warnings = xmp_from_image_info(picture.info)
+            other_fields = [
+                (str(key), value) for key, value in picture.info.items()
+                if not str(key).casefold() in {
+                    "xmp", "xml:com.adobe.xmp", "xml:com.adobe.xmp\\x00",
+                }
+            ]
+            if other_fields:
+                result.append({
+                    "name": "Informações internas da imagem",
+                    "fields": other_fields,
+                })
+            result.extend(xmp_groups)
+            if xmp_raw:
+                result.append({
+                    "name": "XMP — referência ao conteúdo original",
+                    "fields": [("Pacotes preservados", str(len(xmp_raw)))],
+                    "_raw_sections": xmp_raw,
+                })
+            if warnings:
+                result.append({
+                    "name": "XMP — avisos",
+                    "fields": [(f"Aviso {i}", warning) for i, warning in enumerate(warnings, 1)],
+                })
         try:
             exif = picture.getexif()
         except (OSError, TypeError, ValueError):
@@ -162,6 +186,10 @@ def read_file_metadata(path: str | Path) -> dict[str, Any]:
             return _finalize(result)
         try:
             groups = _image_groups(candidate)
+            for group in groups:
+                result.setdefault("raw_sections", []).extend(
+                    group.pop("_raw_sections", [])
+                )
             result["groups"].extend(groups)
             result["source"] = "Sistema de arquivos + Pillow"
             if len(groups) == 1:
@@ -171,8 +199,8 @@ def read_file_metadata(path: str | Path) -> dict[str, Any]:
                 )
             else:
                 result["note"] += (
-                    " Todos os campos acessíveis ao Pillow foram apresentados, "
-                    "inclusive GPS, XMP, ICC e identificadores quando reconhecidos. "
+                    " Os campos de metadados interpretáveis foram apresentados "
+                    "por grupos. XMP/XML original pode ser consultado separadamente. "
                     "ExifTool pode identificar estruturas adicionais."
                 )
         except ImportError:
