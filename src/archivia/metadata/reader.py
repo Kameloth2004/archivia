@@ -216,3 +216,25 @@ def _finalize(result: dict[str, Any]) -> dict[str, Any]:
             "o arquivo pode conter mais tags."
         )
     return result
+
+
+def format_metadata_report(result: dict[str, Any]) -> str:
+    """Agrupa os campos para leitura profissional em ambos os painéis Qt."""
+    lines: list[str] = []
+    groups = result.get("groups")
+    if groups:
+        for group in groups:
+            lines.append(f"── {group.get('name', 'Sem grupo')} ──")
+            lines.extend(
+                f"{label}: {value}" for label, value in group.get("fields", [])
+            )
+            lines.append("")
+    else:
+        lines.extend(
+            f"{label}: {value}" for label, value in result.get("fields", [])
+        )
+    lines.append(f"Fonte: {result.get('source', 'Não identificada')}")
+    note = result.get("note")
+    if note:
+        lines.extend(("", str(note)))
+    return "\n".join(lines)
