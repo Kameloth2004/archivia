@@ -1,6 +1,6 @@
 """Decodificação local de imagens para prévias Qt, sem modificar arquivos.
 
-Qt permanece como leitor principal; Pillow 11.3+ serve de fallback para AVIF.
+Qt permanece como leitor principal; Pillow 11.3+ serve de fallback para formatos compatíveis.
 Limites referem-se a pixels decodificados e ao tamanho da prévia exibida:
 não são limites arbitrários de resolução do monitor.
 """
@@ -39,18 +39,13 @@ def decode_preview(
             return image, (source.width(), source.height())
 
     qt_detail = reader.errorString()
-    if path.suffix.lower() != ".avif":
-        raise ValueError(
-            "O Qt não conseguiu interpretar a imagem"
-            + (f": {qt_detail}" if qt_detail else ".")
-        )
-    return _decode_avif_with_pillow(
+    return _decode_with_pillow(
         path, max_side=max_side, max_source_pixels=max_source_pixels,
         qt_detail=qt_detail,
     )
 
 
-def _decode_avif_with_pillow(
+def _decode_with_pillow(
     path: Path, *, max_side: int, max_source_pixels: int, qt_detail: str,
 ) -> tuple[QImage, tuple[int, int]]:
     try:
@@ -58,17 +53,17 @@ def _decode_avif_with_pillow(
         from PIL import __version__ as pillow_version
     except ImportError as exc:
         raise ValueError(
-            "O Qt não possui decodificador AVIF nesta instalação. "
-            "Instale o suporte opcional: pip install 'Pillow>=11.3,<13'."
+            "O Qt não conseguiu decodificar a imagem e Pillow não está instalado. "
+            "Instale o leitor opcional: pip install 'Pillow>=11.3,<13'."
         ) from exc
 
     try:
         with Image.open(path) as opened:
-            if opened.format != "AVIF":
-                raise ValueError("O conteúdo do arquivo não é uma imagem AVIF válida.")
+            if opened.format is None:
+                raise ValueError("O arquivo não contém um formato de imagem reconhecido.")
             width, height = opened.size
             if width <= 0 or height <= 0:
-                raise ValueError("A imagem AVIF não informa dimensões válidas.")
+                raise ValueError("A imagem não informa dimensões válidas.")
             if width * height > max_source_pixels:
                 raise ValueError(
                     f"Imagem de {width} × {height} pixels excede "
@@ -88,6 +83,8 @@ def _decode_avif_with_pillow(
             return image, (width, height)
     except (OSError, UnidentifiedImageError) as exc:
         raise ValueError(
-            "AVIF não pôde ser decodificado pelo Pillow "
-            f"{pillow_version}. Verifique suporte AVIF e integridade do arquivo."
+            "O Qt não conseguiu abrir a imagem "
+            f"({qt_detail or 'formato indisponível'}); Pillow {pillow_version} "
+            "também não conseguiu decodificá-la. Verifique o formato e "
+            "a integridade do arquivo."
         ) from exc
