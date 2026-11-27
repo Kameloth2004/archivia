@@ -139,6 +139,41 @@ class ExplorerV2Tests(unittest.TestCase):
         self.panel._apply_thumbnail(*received[0])
         self.assertNotEqual(item.icon().cacheKey(), previous_icon)
 
+    def test_viewer_sequence_matches_displayed_file_order_and_skips_folders(self):
+        self.panel.set_active_folder(self.root)
+        shown = [
+            self.panel.files.item(i)
+            for i in range(self.panel.files.count())
+        ]
+        expected_names = [
+            item.text() for item in shown
+            if not item.data(Qt.ItemDataRole.UserRole + 1)[0]
+        ]
+        sequence = self.panel._preview_sequence()
+        self.assertEqual([path.name for path, _ in sequence], expected_names)
+        self.assertEqual(len(sequence), 2)
+        item = next(item for item in shown if item.text() == "imagem.jpg")
+        with patch("archivia.gui_explorer.FilePreviewDialog") as viewer:
+            self.panel._open_preview_for_item(item)
+        self.assertEqual(
+            [path.name for path, _ in viewer.call_args.kwargs["sequence"]],
+            expected_names,
+        )
+        self.assertTrue(callable(viewer.call_args.kwargs["load_more"]))
+        self.assertTrue(callable(viewer.call_args.kwargs["has_more"]))
+
+    def test_viewer_paginates_only_on_demand(self):
+        for i in range(_BATCH_SIZE + 3):
+            (self.root / f"novo_{i:04d}.txt").write_bytes(b"teste")
+        self.panel.set_active_folder(self.root)
+        self.assertEqual(self.panel.files.count(), _BATCH_SIZE)
+        self.assertTrue(self.panel._cursor is not None)
+        next_sequence = self.panel._preview_more()
+        self.assertEqual(self.panel.files.count(), _BATCH_SIZE + 6)
+        self.assertEqual(len(next_sequence), _BATCH_SIZE + 5)
+        self.assertFalse(any(path.is_dir() for path, _ in next_sequence))
+        self.assertTrue((self.root / "novo_0000.txt").is_file())
+
     def test_navigation_denies_leaving_active_folder(self):
         self.panel.set_active_folder(self.root)
         self.panel._open_directory(self.tmp)
