@@ -65,6 +65,22 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("self.home_folder.textChanged.connect(self.organize_source.setText)", constructor)
         self.assertNotIn("self.home_choose_button", busy)
 
+    def test_compact_global_toolbar_and_collapsible_home_analysis(self):
+        constructor = ast.unparse(self.method("__init__"))
+        label = ast.unparse(self.method("_refresh_home_analysis_label"))
+        self.assertIn("self.active_folder_display.setMaximumWidth(520)", constructor)
+        self.assertIn("active_row.addWidget(self.active_folder_choose)", constructor)
+        self.assertIn("active_row.addWidget(self.active_folder_clear)", constructor)
+        self.assertIn("active_row.addWidget(self.home_analyze_button)", constructor)
+        self.assertIn("active_row.addWidget(self.open_organize_button)", constructor)
+        self.assertEqual(constructor.count("home_layout.addWidget(self.home_analyze_button)"), 0)
+        self.assertIn("self.home_analysis_toggle.setCheckable(True)", constructor)
+        self.assertIn("self.home_analysis_toggle.toggled.connect(self.home_result.setVisible)", constructor)
+        self.assertIn("self.home_result.setVisible(False)", constructor)
+        self.assertIn("self.home_result.textChanged.connect(self._refresh_home_analysis_label)", constructor)
+        self.assertIn("'Análise concluída'", label)
+        self.assertIn("self.home_analysis_toggle.setText(", label)
+
     def test_active_folder_and_catalog_sources_are_isolated(self):
         constructor = ast.unparse(self.method("__init__"))
         current = ast.unparse(self.method("_folder_changed"))
