@@ -104,6 +104,13 @@ class FullscreenViewerV2Tests(unittest.TestCase):
         finally:
             dialog.reject()
 
+    def test_close_button_marks_dialog_closed_and_returns_to_explorer(self):
+        dialog = FilePreviewDialog(self.root, self.other, self._expected(self.other))
+        self.assertEqual(dialog.close_button.accessibleName(), "Fechar visualização")
+        self.assertFalse(dialog._closed)
+        dialog.close_button.click()
+        self.assertTrue(dialog._closed)
+
     def test_stale_metadata_and_image_after_close_are_ignored(self):
         dialog = FilePreviewDialog(self.root, self.other, self._expected(self.other))
         dialog.reject()
