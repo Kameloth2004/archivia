@@ -12,7 +12,10 @@ try:
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QImage
     from PySide6.QtWidgets import QApplication
-    from archivia.gui_explorer import ExplorerPanel, safe_directory, _BATCH_SIZE
+    from archivia.gui_explorer import (
+        ExplorerPanel, safe_directory, _BATCH_SIZE,
+        _ThumbnailEvents, _ThumbnailTask,
+    )
     from archivia.gui import ArchivIAWindow
 except ImportError:
     QApplication = None
@@ -99,6 +102,35 @@ class ExplorerV2Tests(unittest.TestCase):
             path, meta[1], meta[2], self.panel._generation - 1, picture
         )
         self.assertEqual(item.icon().cacheKey(), updated_key)
+
+    def test_real_png_thumbnail_preserves_nanosecond_timestamp_in_signal(self):
+        """TEST-ONLY: decodificação real e sinal sem conversão para int32."""
+        path = self.root / "miniatura_real.png"
+        picture = QImage(32, 24, QImage.Format.Format_RGB32)
+        picture.fill(Qt.GlobalColor.green)
+        self.assertTrue(picture.save(str(path), "PNG"))
+        st = path.stat()
+        self.assertGreater(st.st_mtime_ns, 2**31)
+
+        self.panel.set_active_folder(self.root)
+        item = next(
+            self.panel.files.item(i) for i in range(self.panel.files.count())
+            if self.panel.files.item(i).text() == "miniatura_real.png"
+        )
+        previous_icon = item.icon().cacheKey()
+        received = []
+        events = _ThumbnailEvents(self.panel)
+        events.ready.connect(lambda *args: received.append(args))
+        task = _ThumbnailTask(
+            str(path), st.st_size, st.st_mtime_ns, self.panel._generation, events
+        )
+        task.run()
+        self.app.processEvents()
+        self.assertEqual(len(received), 1)
+        self.assertEqual(received[0][2], st.st_mtime_ns)
+        self.assertFalse(received[0][4].isNull())
+        self.panel._apply_thumbnail(*received[0])
+        self.assertNotEqual(item.icon().cacheKey(), previous_icon)
 
     def test_navigation_denies_leaving_active_folder(self):
         self.panel.set_active_folder(self.root)
