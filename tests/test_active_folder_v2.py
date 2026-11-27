@@ -57,6 +57,34 @@ class ActiveFolderV2Tests(unittest.TestCase):
         self.assertEqual(w.organize_source.text(), str(self.first))
         self.assertEqual(w._active_folder, self.first)
 
+    def test_global_actions_keep_source_and_navigation(self):
+        w = self.window
+        w.folder.setText(str(self.first))
+        self.assertIs(w.home_folder, w.folder)
+        self.assertEqual(w.active_folder_display.text(), str(self.first))
+        self.assertIsNone(w._worker)
+        w.open_organize_button.click()
+        self.assertEqual(w.tabs.currentIndex(), 3)
+        self.assertTrue(w.sidebar.buttons[3].isChecked())
+        self.assertEqual(w.active_folder_display.text(), str(self.first))
+        self.assertIsNone(w._worker)
+
+    def test_analysis_details_start_closed_and_toggle_without_losing_text(self):
+        w = self.window
+        self.assertFalse(w.home_analysis_toggle.isChecked())
+        self.assertTrue(w.home_result.isHidden())
+        report = "Análise concluída — nenhum arquivo foi alterado."
+        w.home_result.setPlainText(report)
+        self.assertIn("Análise concluída", w.home_analysis_toggle.text())
+        w.home_analysis_toggle.click()
+        self.assertTrue(w.home_analysis_toggle.isChecked())
+        self.assertFalse(w.home_result.isHidden())
+        self.assertEqual(w.home_result.toPlainText(), report)
+        w.home_analysis_toggle.click()
+        self.assertFalse(w.home_analysis_toggle.isChecked())
+        self.assertTrue(w.home_result.isHidden())
+        self.assertEqual(w.home_result.toPlainText(), report)
+
     def test_switch_folder_discards_previous_temporary_catalog_and_plan(self):
         w = self.window
         w.folder.setText(str(self.first))
