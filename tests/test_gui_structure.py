@@ -53,6 +53,18 @@ class GUIStructureTests(unittest.TestCase):
         self.assertIn("date_to=self.catalog_date_to.text()", filters)
         self.assertNotIn("QDateEdit(", constructor)
 
+    def test_home_reuses_single_active_folder_and_does_not_stretch_notice(self):
+        constructor = ast.unparse(self.method("__init__"))
+        busy = ast.unparse(self.method("_set_busy"))
+        self.assertIn("self.home_folder = self.folder", constructor)
+        self.assertNotIn("home_source_box = QGroupBox(", constructor)
+        self.assertNotIn("self.home_choose_button", constructor)
+        self.assertIn("home_layout.addStretch(1)", constructor)
+        self.assertIn("self.home_analyze_button.clicked.connect(self._analyze_home_source)", constructor)
+        self.assertIn("self.home_folder.textChanged.connect(self._invalidate_home_organization)", constructor)
+        self.assertIn("self.home_folder.textChanged.connect(self.organize_source.setText)", constructor)
+        self.assertNotIn("self.home_choose_button", busy)
+
     def test_active_folder_and_catalog_sources_are_isolated(self):
         constructor = ast.unparse(self.method("__init__"))
         current = ast.unparse(self.method("_folder_changed"))
