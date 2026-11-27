@@ -65,6 +65,35 @@ class MetadataReaderTests(unittest.TestCase):
             self.assertIn("70 72 69 76 61 74 65", fields["UserComment"])
             self.assertEqual(path.read_bytes(), before)
 
+    @unittest.skipIf(Image is None, "Pillow opcional não instalado")
+    def test_jpeg_exif_binary_block_is_not_duplicated_in_main_report(self):
+        with temporary_test_directory() as base:
+            path = base / "camera.jpg"
+            picture = Image.new("RGB", (120, 80), (32, 64, 128))
+            exif = Image.Exif()
+            exif[271] = "samsung"
+            exif[272] = "SM-A217M"
+            exif[306] = "2024:10:25 21:39:53"
+            exif[36864] = b"0230"
+            picture.save(path, "JPEG", exif=exif)
+            before = path.read_bytes()
+            with patch("archivia.metadata.reader.available_exiftool", return_value=None):
+                data = read_file_metadata(path)
+            report = format_metadata_report(data)
+            self.assertIn("Make: samsung", report)
+            self.assertIn("Model: SM-A217M", report)
+            self.assertIn("EXIF original (binário)", report)
+            self.assertNotIn("exif: hex:", report.lower())
+            self.assertNotIn("hex: 45 78 69 66", report)
+            self.assertIn("ExifVersion: 0230", report)
+            exif_raw = [
+                part for part in data.get("raw_sections", [])
+                if "exif" in part["name"].lower() and "data" in part
+            ]
+            self.assertEqual(len(exif_raw), 1)
+            self.assertTrue(exif_raw[0]["data"].startswith(b"Exif\\x00\\x00"))
+            self.assertEqual(path.read_bytes(), before)
+
     def test_exiftool_all_tags_are_displayed_even_in_documents(self):
         with temporary_test_directory() as base:
             document = base / "relatorio.pdf"
