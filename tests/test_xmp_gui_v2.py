@@ -91,7 +91,7 @@ class XmpGuiTests(unittest.TestCase):
         self.assertIn("00000000: 45 78 69 66", rendered)
         self.assertIn("Tamanho original: 1,028 bytes", rendered)
         self.assertNotIn("truncado", rendered)
-        self.assertIn("\\n00000010:", rendered)
+        self.assertIn("\n00000010:", rendered)
         dialog = RawMetadataDialog([section])
         try:
             self.assertIn("EXIF original", dialog.content.toPlainText())
