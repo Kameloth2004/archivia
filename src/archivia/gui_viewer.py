@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from .metadata import read_file_metadata
+from .metadata.reader import format_metadata_report
 
 
 IMAGE_EXTENSIONS = frozenset({
@@ -513,12 +514,7 @@ class FilePreviewDialog(QDialog):
             self.metadata_text.setPlainText(str(payload["error"])[:250])
             return
         self.metadata_status.setText("Metadados verificados — somente leitura.")
-        lines = [f"{name}: {value}" for name, value in payload.get("fields", [])]
-        lines += [
-            "", f"Fonte: {payload.get('source', 'Não identificada')}",
-            "", str(payload.get("note", "")),
-        ]
-        self.metadata_text.setPlainText("\n".join(lines))
+        self.metadata_text.setPlainText(format_metadata_report(payload))
 
     def reject(self) -> None:
         self._closed = True
