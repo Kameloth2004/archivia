@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from .metadata import read_file_metadata
 from .metadata.reader import format_metadata_report
+from .gui_metadata_raw import RawMetadataDialog
 
 
 IMAGE_EXTENSIONS = frozenset({
@@ -346,6 +347,12 @@ class FilePreviewDialog(QDialog):
             "Clique em Verificar metadados para solicitar a leitura."
         )
         properties.addWidget(self.metadata_text, 1)
+        self._raw_metadata_sections: list[dict] = []
+        self.raw_metadata_button = QPushButton("Ver dados brutos")
+        self.raw_metadata_button.setEnabled(False)
+        self.raw_metadata_button.setVisible(False)
+        self.raw_metadata_button.clicked.connect(self._show_raw_metadata)
+        properties.addWidget(self.raw_metadata_button)
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
@@ -426,6 +433,9 @@ class FilePreviewDialog(QDialog):
         # Não transferir metadados de um arquivo para outro.
         self.metadata_status.setText("Metadados internos ainda não consultados.")
         self.metadata_text.clear()
+        self._raw_metadata_sections = []
+        self.raw_metadata_button.setEnabled(False)
+        self.raw_metadata_button.setVisible(False)
         self.verify_button.setEnabled(True)
         self.hint_label.setText(
             "Roda do mouse: zoom  |  Arrastar: mover  |  ←/→: navegar  |  Esc: fechar"
@@ -489,12 +499,19 @@ class FilePreviewDialog(QDialog):
         )
         QTimer.singleShot(0, self.zoom_view.fit_image)
 
+    def _show_raw_metadata(self) -> None:
+        if not self._closed and self._raw_metadata_sections:
+            RawMetadataDialog(self._raw_metadata_sections, self).exec()
+
     def _request_metadata(self) -> None:
         if self._closed:
             return
         self.verify_button.setEnabled(False)
         self.metadata_status.setText("Verificando metadados deste arquivo…")
         self.metadata_text.clear()
+        self._raw_metadata_sections = []
+        self.raw_metadata_button.setEnabled(False)
+        self.raw_metadata_button.setVisible(False)
         self._submit_metadata(_MetadataLoad(
             self.root, self.file, self.expected, self._generation, self._events,
         ))
@@ -515,6 +532,9 @@ class FilePreviewDialog(QDialog):
             return
         self.metadata_status.setText("Metadados verificados — somente leitura.")
         self.metadata_text.setPlainText(format_metadata_report(payload))
+        self._raw_metadata_sections = list(payload.get("raw_sections") or [])
+        self.raw_metadata_button.setEnabled(bool(self._raw_metadata_sections))
+        self.raw_metadata_button.setVisible(bool(self._raw_metadata_sections))
 
     def reject(self) -> None:
         self._closed = True
