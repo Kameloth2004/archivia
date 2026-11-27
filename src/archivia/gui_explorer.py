@@ -378,8 +378,13 @@ class ExplorerPanel(QWidget):
         if generation != self._generation or image.isNull():
             return
         item = self._file_items.get(path)
-        if item is None or item.data(Qt.ItemDataRole.UserRole + 1) != (
-                False, size, modified_ns):
+        if item is None:
+            return
+        # QVariant pode devolver a tupla como uma lista, dependendo da
+        # versão do PySide6. Comparar campos, não a classe do contêiner.
+        meta = item.data(Qt.ItemDataRole.UserRole + 1)
+        if (not meta or len(meta) != 3 or bool(meta[0])
+                or meta[1] != size or meta[2] != modified_ns):
             return
         # QPixmap só é criado na thread de interface.
         icon = QIcon(QPixmap.fromImage(image))
