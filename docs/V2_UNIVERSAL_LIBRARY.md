@@ -48,6 +48,39 @@ O painel de propriedades contém nome, caminho, extensão, tamanho
 e data da última modificação. A extração de EXIF e de outros
 metadados internos é uma etapa separada.
 
+## Metadados sob demanda — somente leitura (primeira etapa)
+
+No Explorador, **selecionar um arquivo** mostra apenas as propriedades
+básicas já coletadas (nome, caminho, extensão, tamanho e modificação).
+**Não inicia leitura de metadados internos.**
+
+O usuário deve clicar em **Verificar metadados** para disparar uma tarefa
+em segundo plano que examina **somente o arquivo selecionado**. A
+verificação considera tamanho e data de modificação antes e depois,
+descarta resultados de uma seleção anterior e exibe a fonte das
+informações. O painel permite leitura de listas longas sem aumentar
+desnecessariamente a largura do Explorador. Não há gravação de tags,
+execução de macros nem envio ao Ollama.
+
+O leitor genérico, em `metadata/reader.py`, retorna informações do
+sistema de arquivos para **qualquer arquivo regular**. Leitores
+especializados serão acrescentados progressivamente. O primeiro é
+o leitor de imagens, com formato interno, dimensões e EXIF selecionado,
+utilizando **Pillow opcional**. GPS, MakerNote, UserComment e valores
+binários ficam excluídos da apresentação. Imagens acima de 40 MiB e
+formatos ainda não suportados exibem somente informações gerais, com
+mensagem explicativa. A ausência de Pillow não impede abrir o programa.
+
+Para habilitar EXIF, dentro do ambiente virtual V2:
+`python -m pip install -e ".[gui,metadata]"`.
+A instalação simples `.[gui]` continua suportada, sem extração EXIF.
+
+**Editar metadados (futuro)** aparece desabilitado. Para liberar
+edição, precisaremos de um fluxo próprio com seleção dos campos,
+prévia do que mudará, backup ou recuperação segura quando viável,
+confirmação explícita e testes por formato. Não editar metadados
+nesta etapa.
+
 ## Navegação modular (primeira etapa)
 
 A interface V2 utiliza seis abas permanentes:
