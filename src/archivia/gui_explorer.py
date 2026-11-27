@@ -218,6 +218,13 @@ class ExplorerPanel(QWidget):
         self.files.itemSelectionChanged.connect(self._show_properties)
         self.files.itemDoubleClicked.connect(self._open_item)
         self.files.verticalScrollBar().valueChanged.connect(self._schedule_visible_thumbnails)
+        # Qt pode deixar fragmentos do ícone genérico quando a miniatura
+        # chega durante a inserção/realocação de itens. Agrupamos pedidos de
+        # redesenho completo para não repintar a lista a cada arquivo.
+        self._thumbnail_repaint_timer = QTimer(self)
+        self._thumbnail_repaint_timer.setSingleShot(True)
+        self._thumbnail_repaint_timer.setInterval(30)
+        self._thumbnail_repaint_timer.timeout.connect(self._repaint_thumbnail_viewport)
         center_layout.addWidget(self.files, 1)
         bottom = QHBoxLayout()
         self.count_label = QLabel("Nenhuma pasta selecionada.")
@@ -409,9 +416,27 @@ class ExplorerPanel(QWidget):
             f"{self.files.count()} itens exibidos"
             + (" — existem mais itens nesta pasta." if has_more else " nesta pasta.")
         )
-        # Qt precisa concluir o layout dos itens antes de conhecer quais
-        # miniaturas estão visíveis na viewport.
-        QTimer.singleShot(0, self._schedule_visible_thumbnails)
+        # Concluir a geometria da grade antes de selecionar as novas
+        # miniaturas visíveis. O redesenho inteiro elimina restos do ícone
+        # genérico após "Carregar mais" sem exigir rolar a lista.
+        QTimer.singleShot(0, self._finish_batch_layout)
+
+    def _finish_batch_layout(self) -> None:
+        """Atualiza a grade uma vez após as novas entradas serem inseridas."""
+        if self._directory is None:
+            return
+        self.files.doItemsLayout()
+        self._schedule_visible_thumbnails()
+        self._schedule_viewport_repaint()
+
+    def _schedule_viewport_repaint(self) -> None:
+        """Agrupa várias atualizações de ícones em um único redesenho."""
+        if not self._thumbnail_repaint_timer.isActive():
+            self._thumbnail_repaint_timer.start()
+
+    def _repaint_thumbnail_viewport(self) -> None:
+        """Redesenha também as áreas anteriormente ocupadas pelo ícone padrão."""
+        self.files.viewport().update()
 
     def _schedule_visible_thumbnails(self, *_args) -> None:
         if self._directory is None:
@@ -469,6 +494,10 @@ class ExplorerPanel(QWidget):
         # QPixmap só é criado na thread de interface.
         icon = QIcon(QPixmap.fromImage(image))
         item.setIcon(icon)
+        # setIcon normalmente invalida somente o item; quando vários são
+        # adicionados simultaneamente, alguns pixels do ícone antigo podem
+        # permanecer até ocorrer uma rolagem. Repintar a viewport resolve.
+        self._schedule_viewport_repaint()
         key = (path, size, modified_ns)
         self._cache[key] = icon
         self._cache.move_to_end(key)
@@ -609,6 +638,7 @@ class ExplorerPanel(QWidget):
 
     def closeEvent(self, event) -> None:
         self._generation += 1
+        self._thumbnail_repaint_timer.stop()
         self._close_cursor()
         self._pool.clear()
         super().closeEvent(event)
