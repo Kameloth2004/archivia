@@ -34,6 +34,8 @@ def parse_xmp(raw: bytes | str) -> tuple[list[dict[str, Any]], dict[str, str]]:
     atributos e valores são mantidos; nomes de tags recebem o prefixo XML
     original sempre que declarado, inclusive os nomes IPTC personalizados.
     """
+    if not isinstance(raw, (str, bytes, bytearray, memoryview)):
+        raise TypeError("XMP deve conter texto XML ou bytes.")
     payload = raw.encode("utf-8") if isinstance(raw, str) else bytes(raw)
     if len(payload) > _MAX_XMP_BYTES:
         raise ValueError("XMP acima do limite técnico de 2 MiB.")
