@@ -18,13 +18,10 @@ from typing import Any
 from .executor import _exclusive_fixture_lock, _inside_runtime, _safe_path
 from .catalog import DEFAULT_DB
 from .planner import propose_moves
+from .file_identity import file_identity
 
 _APPROVAL = "CONFIRMO MOVIMENTO DE TESTE"
 _CHUNK = 1024 * 1024
-
-
-def _identity(st: os.stat_result) -> tuple[int, int, int, int]:
-    return st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns
 
 
 def _event(journal: Path, stage: str, source: Path, target: Path, **details: Any) -> None:
@@ -56,7 +53,7 @@ def _digest(path: Path) -> tuple[str, os.stat_result]:
                 h.update(block)
         after = os.fstat(fd)
         current = path.stat(follow_symlinks=False)
-        if _identity(before) != _identity(after) or _identity(before) != _identity(current):
+        if file_identity(before) != file_identity(after) or file_identity(before) != file_identity(current):
             raise ValueError("Arquivo alterado durante verificação.")
         return h.hexdigest(), before
     finally:
@@ -152,7 +149,7 @@ def move_verified_test_file(
             src_fd = os.open(source, flags)
             try:
                 before_copy = os.fstat(src_fd)
-                if _identity(before_copy) != _identity(source_before):
+                if file_identity(before_copy) != file_identity(source_before):
                     raise ValueError("Origem alterada antes da cópia.")
                 with os.fdopen(os.dup(src_fd), "rb") as input_file:
                     with os.fdopen(fd, "wb") as output_file:
@@ -162,14 +159,14 @@ def move_verified_test_file(
                         output_file.flush()
                         os.fsync(output_file.fileno())
                 after_copy = os.fstat(src_fd)
-                if _identity(after_copy) != _identity(source_before):
+                if file_identity(after_copy) != file_identity(source_before):
                     raise ValueError("Origem alterada durante a cópia.")
             finally:
                 os.close(src_fd)
             copied_hash, _ = _digest(tmp)
             fresh_hash, current_source = _digest(source)
             if copied_hash != source_hash or fresh_hash != source_hash or (
-                _identity(current_source) != _identity(source_before)
+                file_identity(current_source) != file_identity(source_before)
             ):
                 raise ValueError("SHA-256 ou identidade divergente; origem preservada.")
             _event(journal, "HASH_VERIFICADO", source, target, sha256=copied_hash)
@@ -187,7 +184,7 @@ def move_verified_test_file(
             if (
                 verified_target != copied_hash
                 or verified_source != copied_hash
-                or _identity(current_source) != _identity(source_before)
+                or file_identity(current_source) != file_identity(source_before)
                 or (target_stat.st_dev, target_stat.st_ino) != temp_id
             ):
                 raise ValueError("Arquivo alterado após publicação; preservar origem.")

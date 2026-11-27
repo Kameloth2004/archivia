@@ -41,9 +41,18 @@ class ExplorerV2Tests(unittest.TestCase):
         self.panel = ExplorerPanel()
 
     def tearDown(self):
+        # clear() descarta tarefas ainda enfileiradas, mas não interrompe
+        # QImageReader já executando em outra thread. No Windows, excluir
+        # a fixture antes do fim da leitura produz WinError 32 intermitente.
         self.panel.set_active_folder(None)
         self.panel.close()
-        self.context.__exit__(None, None, None)
+        try:
+            self.assertTrue(
+                self.panel._pool.waitForDone(10000),
+                "Tarefas de miniatura/metadados não terminaram antes da limpeza.",
+            )
+        finally:
+            self.context.__exit__(None, None, None)
 
     def test_directory_guard_denies_outside_and_symlinks(self):
         self.assertEqual(safe_directory(self.root, self.root), self.root.resolve())
