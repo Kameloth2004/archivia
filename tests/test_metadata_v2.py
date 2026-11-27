@@ -94,7 +94,7 @@ class ExplorerMetadataTests(unittest.TestCase):
     def test_explicit_button_starts_background_task_and_displays_result(self):
         item = self.panel.files.item(0)
         self.panel.files.setCurrentItem(item)
-        with patch.object(self.panel._pool, "start") as start:
+        with patch.object(self.panel, "_start_metadata_task") as start:
             self.panel.verify_metadata_button.click()
         self.assertEqual(start.call_count, 1)
         task = start.call_args.args[0]
@@ -115,7 +115,7 @@ class ExplorerMetadataTests(unittest.TestCase):
         self.panel.refresh()
         item = self.panel.files.item(0)
         self.panel.files.setCurrentItem(item)
-        with patch.object(self.panel._pool, "start") as start:
+        with patch.object(self.panel, "_start_metadata_task") as start:
             self.panel.verify_metadata_button.click()
         task = start.call_args.args[0]
         self.panel.files.setCurrentItem(self.panel.files.item(1))
