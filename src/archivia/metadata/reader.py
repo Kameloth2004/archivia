@@ -76,14 +76,41 @@ def _image_groups(candidate: Path) -> list[dict[str, Any]]:
             # estruturados e guardar o pacote completo separadamente para
             # consulta no botão "Ver dados brutos".
             xmp_groups, xmp_raw, warnings = xmp_from_image_info(picture.info)
-            other_fields = [
-                (str(key), value) for key, value in picture.info.items()
-                if not is_xmp_key(str(key))
-            ]
+            other_fields = []
+            binary_sections = []
+            for key, value in picture.info.items():
+                if is_xmp_key(str(key)):
+                    continue
+                if isinstance(value, (bytes, bytearray, memoryview)):
+                    # Esses valores são pacotes originais, não tags para
+                    # apresentação em linha. O bloco EXIF já está decodificado
+                    # nas seções EXIF abaixo. Não duplicá-lo como um enorme
+                    # despejo hexadecimal no relatório principal.
+                    data = bytes(value)
+                    binary_sections.append({
+                        "name": f"{key} — conteúdo binário original",
+                        "data": data,
+                    })
+                    if str(key).casefold() == "exif":
+                        label = "EXIF original (binário)"
+                        description = (
+                            f"{len(data):,} bytes; campos interpretados na seção "
+                            "EXIF abaixo. Conteúdo completo em Ver dados brutos."
+                        )
+                    else:
+                        label = f"{key} (binário)"
+                        description = (
+                            f"{len(data):,} bytes; conteúdo original disponível "
+                            "em Ver dados brutos."
+                        )
+                    other_fields.append((label, description))
+                else:
+                    other_fields.append((str(key), value))
             if other_fields:
                 result.append({
                     "name": "Informações internas da imagem",
                     "fields": other_fields,
+                    "_raw_sections": binary_sections,
                 })
             result.extend(xmp_groups)
             if xmp_raw:
@@ -102,8 +129,16 @@ def _image_groups(candidate: Path) -> list[dict[str, Any]]:
         except (OSError, TypeError, ValueError):
             exif = None
         if exif:
-            roots = [(str(ExifTags.TAGS.get(tag, f"Tag_{tag}")), value)
-                     for tag, value in exif.items()]
+            roots = []
+            for tag, value in exif.items():
+                name = str(ExifTags.TAGS.get(tag, f"Tag_{tag}"))
+                if (name in ("ExifVersion", "FlashPixVersion")
+                        and isinstance(value, (bytes, bytearray))):
+                    try:
+                        value = bytes(value).decode("ascii")
+                    except UnicodeDecodeError:
+                        pass
+                roots.append((name, value))
             if roots:
                 result.append({"name": "EXIF", "fields": roots})
             ifds = (
@@ -119,11 +154,22 @@ def _image_groups(candidate: Path) -> list[dict[str, Any]]:
                     continue
                 if not data:
                     continue
-                fields = [
-                    (str(ExifTags.GPSTAGS.get(k, f"GPS_{k}"))
-                     if tag == 34853 else str(ExifTags.TAGS.get(k, f"Tag_{k}")), v)
-                    for k, v in data.items()
-                ]
+                fields = []
+                for k, v in data.items():
+                    field_name = (
+                        str(ExifTags.GPSTAGS.get(k, f"GPS_{k}"))
+                        if tag == 34853
+                        else str(ExifTags.TAGS.get(k, f"Tag_{k}"))
+                    )
+                    # EXIF/FlashPix armazenam a versão como bytes ASCII.
+                    # Essa interpretação é sem perda e não é uma whitelist.
+                    if (field_name in ("ExifVersion", "FlashPixVersion")
+                            and isinstance(v, (bytes, bytearray))):
+                        try:
+                            v = bytes(v).decode("ascii")
+                        except UnicodeDecodeError:
+                            pass
+                    fields.append((field_name, v))
                 result.append({"name": name, "fields": fields})
     return result
 
