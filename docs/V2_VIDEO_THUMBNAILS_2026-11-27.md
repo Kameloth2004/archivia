@@ -5,7 +5,7 @@ Data: 27/11/2026. Branch derivada de `feat/v2-video-player-2026-11-27` (PR #8), 
 ## Funcionalidade
 
 - `video_thumbnails.VideoThumbnailService` opera serialmente no loop do Qt com `QMediaPlayer` e `QVideoSink`. Apenas um vídeo é decodificado de cada vez; a fonte permanece local e o áudio é silenciado.
-- O serviço tenta extrair um quadro depois do carregamento (busca ~1 s quando seek é possível). Após um quadro válido, para a reprodução e libera a fonte. Se não houver quadro ou o backend falhar, vence o timeout de 5 s e o Explorador mantém o ícone genérico.
+- O serviço tenta extrair um quadro depois do carregamento (busca ~1 s quando seek é possível). Após um quadro válido, para a reprodução e libera a fonte. Se não houver quadro ou o backend falhar, vence o timeout de 1,8 s e o Explorador mantém o ícone genérico.
 - Fila limitada a 24 pedidos e cache LRU limitado a 128 quadros **somente em RAM**. A chave inclui caminho, tamanho e `mtime_ns`; tarefas de gerações antigas são descartadas após troca de pasta.
 - `gui_explorer.ExplorerPanel` solicita miniaturas apenas para itens visíveis e próximos, como já faz com imagens; aplica um símbolo Play sobre a prévia. A criação de `QPixmap` e de `QIcon` ocorre na thread da GUI.
 - Não grava miniaturas no acervo, não modifica vídeos, não transmite dados e não libera execução ao agente Ollama.
@@ -51,3 +51,17 @@ No relato de homologação: `Ran 360 tests in 73.694s — FAILED (errors=1, skip
 - Não alterar `image_decode.py`, algoritmos de movimentação, hash, journal ou media player.
 
 **Pendente:** executar no Windows testes do visualizador, miniaturas de vídeo e depois a suíte completa. Esta correção não prova ausência de todos os locks de arquivos em tarefas multimídia; verificar fechamento e troca rápida de arquivos também na homologação manual.
+
+## Otimização de desempenho (28/11/2026)
+
+O usuário observou aproximadamente **5 minutos** para gerar miniaturas numa pasta de **86 itens**. Causa provável: pipeline serial com até 5 segundos por vídeo e `setPosition(1000)` antes da captura, que pode exigir busca de keyframe e retardar a primeira imagem.
+
+A otimização deste PR:
+- elimina o seek obrigatório para 1 segundo e captura o **primeiro quadro válido**;
+- reduz o timeout para **1.800 ms** por vídeo (revisável após benchmark);
+- adiciona cache de tentativas malsucedidas para evitar reprocessamento do mesmo arquivo inalterado durante rolagens e redesenhos;
+- permite nova tentativa após trocar/atualizar pasta, limpando o cache negativo no `reset()`;
+- mantém a fila serial, cache positivo e separação do player em tela cheia;
+- adiciona três testes de regressão para cache negativo, ausência de seek e descarte de geração.
+
+**Limitação:** vídeos com decodificação lenta podem perder a miniatura nessa tentativa e exibir o ícone padrão. A redução de tempo é uma hipótese de melhoria, **não uma medição homologada**. Aguardar teste Windows na pasta real, verificando total de miniaturas, consumo e duração; se muitos vídeos não conseguirem gerar quadro, rever timeout ou implementar um extrator alternativo controlado. Nenhum vídeo original é modificado.
