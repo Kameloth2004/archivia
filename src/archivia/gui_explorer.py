@@ -17,6 +17,8 @@ from .metadata import read_file_metadata
 from .metadata.reader import format_metadata_report
 from .gui_metadata_raw import RawMetadataDialog
 from .gui_viewer import FilePreviewDialog
+from .video_thumbnails import VideoThumbnailService
+from .gui_video import VIDEO_EXTENSIONS
 from .image_decode import decode_preview
 
 from PySide6.QtWidgets import (
@@ -157,6 +159,8 @@ class ExplorerPanel(QWidget):
         self._pool.setMaxThreadCount(2)
         self._events = _ThumbnailEvents(self)
         self._events.ready.connect(self._apply_thumbnail)
+        self._video_thumbs = VideoThumbnailService(self)
+        self._video_thumbs.ready.connect(self._apply_video_thumbnail)
         self._metadata_events = _MetadataEvents(self)
         self._metadata_events.ready.connect(self._apply_metadata)
         self._metadata_generation = 0
@@ -313,6 +317,7 @@ class ExplorerPanel(QWidget):
     def set_active_folder(self, folder: Path | None) -> None:
         """Uma troca de origem descarta arquivos/miniaturas da pasta anterior."""
         self._generation += 1
+        self._video_thumbs.reset(self._generation)
         self._metadata_generation += 1
         self._pool.clear()
         self._close_cursor()
@@ -354,6 +359,7 @@ class ExplorerPanel(QWidget):
             self.count_label.setText("Pasta indisponível ou fora da origem ativa.")
             return
         self._generation += 1
+        self._video_thumbs.reset(self._generation)
         self._metadata_generation += 1
         self._pool.clear()
         self._close_cursor()
@@ -471,10 +477,12 @@ class ExplorerPanel(QWidget):
             if not path_text or not meta or meta[0]:
                 continue
             path = Path(path_text)
-            if path.suffix.lower() not in _IMAGE_EXTENSIONS:
+            suffix = path.suffix.lower()
+            is_video = suffix in VIDEO_EXTENSIONS
+            if suffix not in _IMAGE_EXTENSIONS and not is_video:
                 continue
             size, mtime = meta[1], meta[2]
-            if size > _MAX_THUMB_BYTES:
+            if not is_video and size > _MAX_THUMB_BYTES:
                 continue
             key = (path_text, size, mtime)
             cached = self._cache.get(key)
@@ -485,11 +493,42 @@ class ExplorerPanel(QWidget):
             queued = (path_text, size, mtime, generation)
             if queued in self._queued:
                 continue
-            self._queued.add(queued)
-            self._pool.start(_ThumbnailTask(
-                path_text, size, mtime, generation, self._events,
-            ))
+            if is_video:
+                self._video_thumbs.request(path_text, size, mtime, generation)
+            else:
+                self._queued.add(queued)
+                self._pool.start(_ThumbnailTask(
+                    path_text, size, mtime, generation, self._events,
+                ))
             submitted += 1
+
+    def _apply_video_thumbnail(
+        self, path: str, size: int, modified_ns: int,
+        generation: int, image: QImage,
+    ) -> None:
+        # Exibe ícone de reprodução sobre o quadro sem alterar o vídeo.
+        if generation != self._generation or image.isNull():
+            return
+        from PySide6.QtGui import QPainter, QColor, QPolygon
+        from PySide6.QtCore import QPoint
+        picture = image.copy()
+        painter = QPainter(picture)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            x, y = picture.width() // 2, picture.height() // 2
+            radius = min(18, picture.width() // 5, picture.height() // 5)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(0, 0, 0, 160))
+            painter.drawEllipse(QPoint(x, y), radius + 5, radius + 5)
+            painter.setBrush(QColor("white"))
+            painter.drawPolygon(QPolygon([
+                QPoint(x - radius // 3, y - radius),
+                QPoint(x + radius, y),
+                QPoint(x - radius // 3, y + radius),
+            ]))
+        finally:
+            painter.end()
+        self._apply_thumbnail(path, size, modified_ns, generation, picture)
 
     def _apply_thumbnail(self, path: str, size: int, modified_ns: int,
                          generation: int, image: QImage) -> None:
@@ -715,6 +754,7 @@ class ExplorerPanel(QWidget):
 
     def closeEvent(self, event) -> None:
         self._generation += 1
+        self._video_thumbs.close()
         self._thumbnail_repaint_timer.stop()
         self._close_cursor()
         self._pool.clear()
