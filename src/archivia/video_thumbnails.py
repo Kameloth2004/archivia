@@ -58,6 +58,8 @@ class VideoThumbnailService(QObject):
         self._generation = generation
         self._queue.clear()
         self._seen.clear()
+        # Uma nova visita/atualização permite tentar novamente os codecs lentos.
+        self._failed.clear()
         self._timeout.stop()
         self._current = None
         self._player.stop()
