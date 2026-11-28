@@ -95,7 +95,7 @@ class VideoThumbnailTests(unittest.TestCase):
         with patch.object(self.service._player, "stop"), \
              patch.object(self.service._player, "setSource"):
             self.service._finish()
-        self.assertIn(key[:3], self.service._failed)
+        self.assertIn(key[:3], self.service._failed_cache)
         with patch.object(self.service._player, "setSource") as source:
             self.service.request(*key)
             source.assert_not_called()
@@ -116,7 +116,7 @@ class VideoThumbnailTests(unittest.TestCase):
         key = (str(self.video), self.info.st_size, self.info.st_mtime_ns, 1)
         self.service._current = key
         self.service.reset(2)
-        self.assertNotIn(key[:3], self.service._failed)
+        self.assertNotIn(key[:3], self.service._failed_cache)
 
     def test_explorer_can_apply_video_overlay_to_matching_item(self):
         panel = ExplorerPanel()
