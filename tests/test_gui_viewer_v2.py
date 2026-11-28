@@ -130,6 +130,9 @@ class FullscreenViewerV2Tests(unittest.TestCase):
         image = QImage(50, 50, QImage.Format.Format_RGB32)
         image.fill(Qt.GlobalColor.red)
         self.assertTrue(image.save(str(second), "PNG"))
+        # Manter o mock durante a navegação: voltar ao submit real aqui
+        # iniciaria leitura concorrente e bloquearia exclusão da fixture
+        # no Windows (WinError 32).
         with patch.object(FilePreviewDialog, "_submit_image"):
             dialog = FilePreviewDialog(
                 self.root, self.image, self._expected(self.image),
@@ -138,19 +141,20 @@ class FullscreenViewerV2Tests(unittest.TestCase):
                     (second, self._expected(second)),
                 ],
             )
-        try:
-            old_generation = dialog._generation
-            dialog._next_file()
-            stale = QImage(10, 10, QImage.Format.Format_RGB32)
-            stale.fill(Qt.GlobalColor.green)
-            dialog._image_loaded_result(
-                old_generation, {"image": stale, "original": (10, 10)}
-            )
-            self.assertFalse(dialog._image_loaded)
-            self.assertEqual(dialog.display.currentWidget(), dialog.placeholder)
-            self.assertIn("segunda.png", dialog.title_label.text())
-        finally:
-            dialog.reject()
+            try:
+                old_generation = dialog._generation
+                dialog._next_file()
+                stale = QImage(10, 10, QImage.Format.Format_RGB32)
+                stale.fill(Qt.GlobalColor.green)
+                dialog._image_loaded_result(
+                    old_generation, {"image": stale, "original": (10, 10)}
+                )
+                self.assertFalse(dialog._image_loaded)
+                self.assertEqual(dialog.display.currentWidget(), dialog.placeholder)
+                self.assertIn("segunda.png", dialog.title_label.text())
+            finally:
+                dialog.reject()
+                self.assertTrue(dialog._pool.waitForDone(10000))
 
     def test_next_file_can_load_one_more_batch(self):
         second = self.root / "segunda.png"
@@ -172,16 +176,17 @@ class FullscreenViewerV2Tests(unittest.TestCase):
                 sequence=extended[:1], load_more=load_one,
                 has_more=lambda: more[0],
             )
-        try:
-            self.assertTrue(dialog.next_button.isEnabled())
-            self.assertEqual(dialog.position_label.text(), "1 / 1+")
-            dialog._next_file()
-            self.assertEqual(dialog.file, second)
-            self.assertEqual(dialog.position_label.text(), "2 / 2")
-            self.assertEqual(len(calls), 1)
-            self.assertFalse(dialog.next_button.isEnabled())
-        finally:
-            dialog.reject()
+            try:
+                self.assertTrue(dialog.next_button.isEnabled())
+                self.assertEqual(dialog.position_label.text(), "1 / 1+")
+                dialog._next_file()
+                self.assertEqual(dialog.file, second)
+                self.assertEqual(dialog.position_label.text(), "2 / 2")
+                self.assertEqual(len(calls), 1)
+                self.assertFalse(dialog.next_button.isEnabled())
+            finally:
+                dialog.reject()
+                self.assertTrue(dialog._pool.waitForDone(10000))
 
     def test_real_decoder_task_works_without_modifying_fixture(self):
         from archivia.gui_viewer import _ViewerEvents
