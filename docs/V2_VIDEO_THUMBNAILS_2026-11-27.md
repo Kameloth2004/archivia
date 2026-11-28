@@ -38,3 +38,16 @@ python -m unittest discover -s tests -v
 Depois abrir o ArchivIA na pasta de vídeos, verificar miniaturas reais MP4, Play sobre quadro e que a interface continua responsiva; navegar rapidamente para outra pasta e fechar durante a geração; testar visualização de imagens e reprodução de vídeos existentes.
 
 Somente após a homologação, integrar PR #7, depois PR #8, e finalmente este PR; evitar merge de branches aninhadas fora de ordem.
+
+## Regressão Windows: WinError 32 no teste do visualizador (28/11/2026)
+
+No relato de homologação: `Ran 360 tests in 73.694s — FAILED (errors=1, skipped=2)`; o erro ocorreu no `tearDown` de `test_old_async_image_is_ignored_after_navigating`, ao remover `segunda.png` ainda em leitura.
+
+**Causa identificada:** o mock de `FilePreviewDialog._submit_image` abrangia somente a construção do diálogo, mas o teste navegava para uma segunda imagem **fora** do contexto de mock. Isso disparava leitura real de imagem na thread global enquanto a fixture era excluída. O teste `test_next_file_can_load_one_more_batch` apresentava o mesmo padrão.
+
+**Correções:**
+- Em ambos os testes, manter o mock durante a navegação e aguardar explicitamente `dialog._pool.waitForDone(10000)` antes de excluir as fixtures; não ignorar erros de limpeza.
+- No visualizador de produção, usar `QThreadPool(self)` próprio com duas threads, em vez do pool global, isolando o ciclo de vida das leituras do diálogo.
+- Não alterar `image_decode.py`, algoritmos de movimentação, hash, journal ou media player.
+
+**Pendente:** executar no Windows testes do visualizador, miniaturas de vídeo e depois a suíte completa. Esta correção não prova ausência de todos os locks de arquivos em tarefas multimídia; verificar fechamento e troca rápida de arquivos também na homologação manual.
