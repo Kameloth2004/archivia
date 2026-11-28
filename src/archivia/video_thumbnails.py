@@ -36,7 +36,7 @@ class VideoThumbnailService(QObject):
         self._seen: set[tuple[str, int, int, int]] = set()
         self._cache: OrderedDict[tuple[str, int, int], QImage] = OrderedDict()
         # Não repetir decodificação lenta para um arquivo inalterado e sem quadro.
-        self._failed: OrderedDict[tuple[str, int, int], None] = OrderedDict()
+        self._failed_cache: OrderedDict[tuple[str, int, int], None] = OrderedDict()
         self._generation = 0
         self._current: tuple[str, int, int, int] | None = None
         self._player = QMediaPlayer(self)
@@ -50,7 +50,7 @@ class VideoThumbnailService(QObject):
         self._timeout.setInterval(_TIMEOUT_MS)
         self._timeout.timeout.connect(self._finish)
         self._player.mediaStatusChanged.connect(self._media_status)
-        self._player.errorOccurred.connect(self._failed)
+        self._player.errorOccurred.connect(self._on_media_error)
         self._sink.videoFrameChanged.connect(self._frame_ready)
 
     def reset(self, generation: int) -> None:
@@ -59,7 +59,7 @@ class VideoThumbnailService(QObject):
         self._queue.clear()
         self._seen.clear()
         # Uma nova visita/atualização permite tentar novamente os codecs lentos.
-        self._failed.clear()
+        self._failed_cache.clear()
         self._timeout.stop()
         self._current = None
         self._player.stop()
@@ -69,8 +69,8 @@ class VideoThumbnailService(QObject):
         if generation != self._generation or Path(path).suffix.lower() not in VIDEO_EXTENSIONS:
             return
         key = (path, size, modified_ns)
-        if key in self._failed:
-            self._failed.move_to_end(key)
+        if key in self._failed_cache:
+            self._failed_cache.move_to_end(key)
             return
         cached = self._cache.get(key)
         if cached is not None:
@@ -125,7 +125,7 @@ class VideoThumbnailService(QObject):
         elif status == QMediaPlayer.MediaStatus.InvalidMedia:
             self._finish()
 
-    def _failed(self, *_args: object) -> None:
+    def _on_media_error(self, *_args: object) -> None:
         self._finish()
 
     def _frame_ready(self, frame: object) -> None:
@@ -157,7 +157,7 @@ class VideoThumbnailService(QObject):
             return
         key = (path, size, modified_ns)
         self._cache[key] = image
-        self._failed.pop(key, None)
+        self._failed_cache.pop(key, None)
         self._cache.move_to_end(key)
         while len(self._cache) > _MAX_CACHE:
             self._cache.popitem(last=False)
@@ -174,14 +174,14 @@ class VideoThumbnailService(QObject):
             self._seen.discard(current)
             key = current[:3]
             if key not in self._cache and current[3] == self._generation:
-                self._failed[key] = None
-                self._failed.move_to_end(key)
-                while len(self._failed) > _MAX_FAILED_CACHE:
-                    self._failed.popitem(last=False)
+                self._failed_cache[key] = None
+                self._failed_cache.move_to_end(key)
+                while len(self._failed_cache) > _MAX_FAILED_CACHE:
+                    self._failed_cache.popitem(last=False)
         # Evitar reentrância nas callbacks de Qt Multimedia.
         QTimer.singleShot(0, self._start_next)
 
     def close(self) -> None:
         self.reset(self._generation + 1)
         self._cache.clear()
-        self._failed.clear()
+        self._failed_cache.clear()
