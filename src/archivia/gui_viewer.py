@@ -240,7 +240,10 @@ class FilePreviewDialog(QDialog):
         self._events = _ViewerEvents()
         self._events.image_ready.connect(self._image_loaded_result)
         self._events.metadata_ready.connect(self._metadata_loaded_result)
-        self._pool = QThreadPool.globalInstance()
+        # Pool próprio: tarefas do visualizador não compartilham o pool global.
+        # Permite aguardar leituras pendentes nos testes antes de limpar fixtures.
+        self._pool = QThreadPool(self)
+        self._pool.setMaxThreadCount(2)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(10, 8, 10, 10)
