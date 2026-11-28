@@ -21,7 +21,8 @@ _THUMB_WIDTH = 128
 _THUMB_HEIGHT = 104
 _MAX_PENDING = 24
 _MAX_CACHE = 128
-_TIMEOUT_MS = 5000
+_TIMEOUT_MS = 1800
+_MAX_FAILED_CACHE = 256
 
 
 class VideoThumbnailService(QObject):
@@ -34,6 +35,8 @@ class VideoThumbnailService(QObject):
         self._queue: deque[tuple[str, int, int, int]] = deque()
         self._seen: set[tuple[str, int, int, int]] = set()
         self._cache: OrderedDict[tuple[str, int, int], QImage] = OrderedDict()
+        # Não repetir decodificação lenta para um arquivo inalterado e sem quadro.
+        self._failed: OrderedDict[tuple[str, int, int], None] = OrderedDict()
         self._generation = 0
         self._current: tuple[str, int, int, int] | None = None
         self._player = QMediaPlayer(self)
@@ -64,6 +67,9 @@ class VideoThumbnailService(QObject):
         if generation != self._generation or Path(path).suffix.lower() not in VIDEO_EXTENSIONS:
             return
         key = (path, size, modified_ns)
+        if key in self._failed:
+            self._failed.move_to_end(key)
+            return
         cached = self._cache.get(key)
         if cached is not None:
             self._cache.move_to_end(key)
@@ -98,8 +104,8 @@ class VideoThumbnailService(QObject):
                 self._seen.discard(task)
                 continue
             self._current = task
-            self._player.setSource(QUrl.fromLocalFile(path))
             self._timeout.start()
+            self._player.setSource(QUrl.fromLocalFile(path))
             return
 
     def _media_status(self, status: QMediaPlayer.MediaStatus) -> None:
@@ -109,10 +115,11 @@ class VideoThumbnailService(QObject):
             QMediaPlayer.MediaStatus.LoadedMedia,
             QMediaPlayer.MediaStatus.BufferedMedia,
         ):
-            # Decodificação é necessária para produzir quadros; áudio fica mutado.
-            if self._player.isSeekable() and self._player.duration() > 2000:
-                self._player.setPosition(1000)
-            self._player.play()
+            # Primeiro quadro válido é suficiente para miniatura.
+            # Seek de 1 segundo obriga alguns codecs a localizar keyframes
+            # e frequentemente acrescenta segundos de espera por vídeo.
+            if self._player.playbackState() != QMediaPlayer.PlaybackState.PlayingState:
+                self._player.play()
         elif status == QMediaPlayer.MediaStatus.InvalidMedia:
             self._finish()
 
@@ -148,6 +155,7 @@ class VideoThumbnailService(QObject):
             return
         key = (path, size, modified_ns)
         self._cache[key] = image
+        self._failed.pop(key, None)
         self._cache.move_to_end(key)
         while len(self._cache) > _MAX_CACHE:
             self._cache.popitem(last=False)
@@ -162,9 +170,16 @@ class VideoThumbnailService(QObject):
         self._player.setSource(QUrl())
         if current is not None:
             self._seen.discard(current)
+            key = current[:3]
+            if key not in self._cache and current[3] == self._generation:
+                self._failed[key] = None
+                self._failed.move_to_end(key)
+                while len(self._failed) > _MAX_FAILED_CACHE:
+                    self._failed.popitem(last=False)
         # Evitar reentrância nas callbacks de Qt Multimedia.
         QTimer.singleShot(0, self._start_next)
 
     def close(self) -> None:
         self.reset(self._generation + 1)
         self._cache.clear()
+        self._failed.clear()
