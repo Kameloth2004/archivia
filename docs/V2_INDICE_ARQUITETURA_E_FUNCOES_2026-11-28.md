@@ -82,7 +82,7 @@ Este é um **mapa conceitual de responsabilidades**, não um diagrama de chamada
 |---|---|---|
 | `inventory()` | `inventory.py` | Inventariar arquivos e categorias; não é executor de mudanças |
 | `store_inventory()` | `catalog.py` | Persistir resultado de inventário como snapshot no SQLite |
-| `scan_for_folder()` | `catalog.py` | Consultar o snapshot correspondente à pasta |
+| `scan_for_folder()` | `catalog.py` | Localizar o identificador do snapshot associado à pasta |
 | `query_catalog()` e `query_catalog_page()` | `catalog.py` | Consultar e paginar arquivos do catálogo |
 | `catalog_summary()` | `catalog.py` | Resumo quantitativo do catálogo |
 | `propose_recursive_consolidation()` | `recursive_plan.py` | Planejar consolidação recursiva em modo somente leitura |
