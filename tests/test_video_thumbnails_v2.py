@@ -88,6 +88,36 @@ class VideoThumbnailTests(unittest.TestCase):
         self.assertEqual(len(received), 1)
         self.assertEqual(received[0][:4], (*key, 1))
 
+    def test_failed_file_is_not_decoded_again_for_same_identity(self):
+        key = (str(self.video), self.info.st_size, self.info.st_mtime_ns, 1)
+        self.service._current = key
+        self.service._seen.add(key)
+        with patch.object(self.service._player, "stop"), \
+             patch.object(self.service._player, "setSource"):
+            self.service._finish()
+        self.assertIn(key[:3], self.service._failed)
+        with patch.object(self.service._player, "setSource") as source:
+            self.service.request(*key)
+            source.assert_not_called()
+
+    def test_first_frame_does_not_require_seek(self):
+        key = (str(self.video), self.info.st_size, self.info.st_mtime_ns, 1)
+        self.service._current = key
+        from PySide6.QtMultimedia import QMediaPlayer
+        with patch.object(self.service._player, "play") as play, \
+             patch.object(self.service._player, "setPosition") as seek, \
+             patch.object(self.service._player, "playbackState",
+                          return_value=QMediaPlayer.PlaybackState.StoppedState):
+            self.service._media_status(QMediaPlayer.MediaStatus.LoadedMedia)
+        play.assert_called_once()
+        seek.assert_not_called()
+
+    def test_timeout_does_not_abort_next_generation(self):
+        key = (str(self.video), self.info.st_size, self.info.st_mtime_ns, 1)
+        self.service._current = key
+        self.service.reset(2)
+        self.assertNotIn(key[:3], self.service._failed)
+
     def test_explorer_can_apply_video_overlay_to_matching_item(self):
         panel = ExplorerPanel()
         try:
